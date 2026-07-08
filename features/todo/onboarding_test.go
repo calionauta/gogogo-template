@@ -145,7 +145,7 @@ func TestOnboarding_StartCreatesThreeTodos(t *testing.T) {
 		if ferr == nil {
 			titles = titles[:0]
 			for _, r := range recs {
-				titles = append(titles, r.GetString("title"))
+				titles = append(titles, r.GetString(titleField))
 			}
 			if len(titles) >= 3 {
 				break

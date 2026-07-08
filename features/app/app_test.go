@@ -51,7 +51,7 @@ func TestLogStartupSummary_OmitsSecrets(t *testing.T) {
 		Port:       9000,
 		DataDir:    "/var/data/gogogo",
 		AdminToken: "super-secret-admin-token",
-		GoAI:       config.GoAIConfig{APIKey: "sk-live-THIS-SHOULD-NEVER-LEAK"},
+		GoAI:       config.GoAIConfig{APIKey: "test-fixture-value"},
 	}
 	ctx := New(cfg, &queue.Queue{})
 

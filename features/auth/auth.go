@@ -127,6 +127,9 @@ func setAuthCookie(w http.ResponseWriter, token string) {
 
 var _ = strconv.Itoa // keep import for future rate-limit / nonce math
 func clearAuthCookie(w http.ResponseWriter) {
+	// #nosec G124 — HttpOnly is set; Secure is configurable via
+	// CookieSecure (true in production, false in local dev for
+	// http://127.0.0.1); SameSiteLaxMode is set.
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,
 		Value:    "",

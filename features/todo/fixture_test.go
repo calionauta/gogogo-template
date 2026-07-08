@@ -20,6 +20,14 @@ import (
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
+// Shared test fixtures. Lifted out of inline literals so golangci-lint
+// goconst doesn't fire and so the source of truth is one place.
+const (
+	titleField   = "title"
+	demoEmail    = "demo@demo.app"
+	demoPassword = "demo1234456"
+)
+
 // testFixture spins up a real PocketBase + goqite stack on temp dirs
 // and serves the todo routes via httptest.NewServer. Mirrors the
 // production wiring from db.Init + queue.New + router.Init +
@@ -151,7 +159,7 @@ func newPocketBaseApp(cfg *config.Config) *pocketbase.PocketBase {
 func createTodosCollection(app core.App) error {
 	col := core.NewBaseCollection("todos")
 	col.Fields.Add(
-		&core.TextField{Name: "title"},
+		&core.TextField{Name: titleField},
 		&core.BoolField{Name: "completed"},
 		&core.DateField{Name: "created"},
 		&core.DateField{Name: "updated"},
@@ -204,8 +212,8 @@ func seedDemoUserInline(app core.App) error {
 	if err != nil {
 		return err
 	}
-	email := "demo@demo.app"
-	password := "demo1234456"
+	email := demoEmail
+	password := demoPassword
 
 	if existing, err := app.FindAuthRecordByEmail(col.Name, email); err == nil && existing != nil {
 		existing.SetPassword(password)

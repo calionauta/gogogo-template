@@ -23,7 +23,7 @@ func TestIntegration_CreateListDelete(t *testing.T) {
 	defer cleanup()
 
 	ctx := newTestCtx(t)
-	mustPost(ctx, t, base, "/api/todos", url.Values{"title": {"buy milk"}}, 200)
+	mustPost(ctx, t, base, "/api/todos", url.Values{titleField: {"buy milk"}}, 200)
 
 	records, err := app.FindRecordsByFilter("todos", "", "", 0, 0)
 	if err != nil || len(records) != 1 {
@@ -50,7 +50,7 @@ func TestIntegration_ToggleFlipsCompleted(t *testing.T) {
 	defer cleanup()
 
 	ctx := newTestCtx(t)
-	mustPost(ctx, t, base, "/api/todos", url.Values{"title": {"dishes"}}, 200)
+	mustPost(ctx, t, base, "/api/todos", url.Values{titleField: {"dishes"}}, 200)
 
 	records, err := app.FindRecordsByFilter("todos", "", "", 0, 0)
 	if err != nil || len(records) != 1 {
@@ -84,7 +84,7 @@ func TestIntegration_DeleteEmitsInfoToast(t *testing.T) {
 	defer cleanup()
 
 	ctx := newTestCtx(t)
-	mustPost(ctx, t, base, "/api/todos", url.Values{"title": {"trash me"}}, 200)
+	mustPost(ctx, t, base, "/api/todos", url.Values{titleField: {"trash me"}}, 200)
 
 	records, err := app.FindRecordsByFilter("todos", "", "", 0, 0)
 	if err != nil || len(records) != 1 {
@@ -118,7 +118,7 @@ func TestIntegration_ClearCompletedRemovesOnlyDone(t *testing.T) {
 
 	ctx := newTestCtx(t)
 	for _, title := range []string{"active", "done"} {
-		mustPost(ctx, t, base, "/api/todos", url.Values{"title": {title}}, 200)
+		mustPost(ctx, t, base, "/api/todos", url.Values{titleField: {title}}, 200)
 	}
 
 	records, err := app.FindRecordsByFilter("todos", "title='done'", "", 0, 0)
@@ -139,8 +139,8 @@ func TestIntegration_ClearCompletedRemovesOnlyDone(t *testing.T) {
 	if len(remaining) != 1 {
 		t.Fatalf("expected 1 remaining, got %d", len(remaining))
 	}
-	if remaining[0].GetString("title") != "active" {
-		t.Fatalf("wrong record remaining: %s", remaining[0].GetString("title"))
+	if remaining[0].GetString(titleField) != "active" {
+		t.Fatalf("wrong record remaining: %s", remaining[0].GetString(titleField))
 	}
 }
 

@@ -62,11 +62,11 @@ func TestIntegration_Auth_LoginFormIsShown(t *testing.T) {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 	body := readBody(t, resp)
-	if !strings.Contains(body, "demo@demo.app") {
+	if !strings.Contains(body, demoEmail) {
 		t.Errorf("login page missing demo email field; body starts: %s",
 			body[:min(200, len(body))])
 	}
-	if !strings.Contains(body, "demo1234456") {
+	if !strings.Contains(body, demoPassword) {
 		t.Errorf("login page missing demo password field")
 	}
 	if !strings.Contains(body, `action="/login"`) {
@@ -84,7 +84,7 @@ func TestIntegration_Auth_BadPasswordIsRejected(t *testing.T) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/login",
 		strings.NewReader(url.Values{
-			"email":    {"demo@demo.app"},
+			"email":    {demoEmail},
 			"password": {"definitely-wrong"},
 			"next":     {"/"},
 		}.Encode()))
@@ -144,8 +144,8 @@ func TestIntegration_Auth_GoodCredentialsSetsCookie(t *testing.T) {
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/login",
 		strings.NewReader(url.Values{
-			"email":    {"demo@demo.app"},
-			"password": {"demo1234456"},
+			"email":    {demoEmail},
+			"password": {demoPassword},
 			"next":     {"/"},
 		}.Encode()))
 	if err != nil {
@@ -153,9 +153,6 @@ func TestIntegration_Auth_GoodCredentialsSetsCookie(t *testing.T) {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatalf("POST /login: %v", err)
-	}
 	if err != nil {
 		t.Fatalf("POST /login: %v", err)
 	}

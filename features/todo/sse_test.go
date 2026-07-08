@@ -41,7 +41,7 @@ func TestIntegration_CreateEnqueuesNotification(t *testing.T) {
 	// before the create handler fires its notification.
 	time.Sleep(100 * time.Millisecond)
 
-	mustPost(ctx, t, base, "/api/todos", url.Values{"title": {"eggs"}}, 200)
+	mustPost(ctx, t, base, "/api/todos", url.Values{titleField: {"eggs"}}, 200)
 
 	full := pumpSSE(t, stream, sseTestTimeout, "todo_created")
 
@@ -82,7 +82,7 @@ func TestIntegration_CreateEmitsToast(t *testing.T) {
 	// for the create target so gosec's G107 (URL constructed from
 	// untrusted string) doesn't trip on the dynamic clientID suffix.
 	createURL := "http://127.0.0.1" + base[len("http://127.0.0.1"):] + "/api/todos?clientID=" + clientID
-	resp, err := postForm(ctx, createURL, url.Values{"title": {"wash dishes"}})
+	resp, err := postForm(ctx, createURL, url.Values{titleField: {"wash dishes"}})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
