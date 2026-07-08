@@ -23,23 +23,17 @@ WORKDIR /src
 
 # Install Go module deps first (cached independently of source).
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
-    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
-    go mod download
+RUN go mod download
 
 # Install CSS build deps (Tailwind v4 CLI + DaisyUI v5).
 COPY package.json package-lock.json* ./
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
-    npm install --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 
 # Now copy the rest of the source and run all the build steps.
 # linux/amd64 is forced here so a developer who runs docker build
 # on a Mac M-series still produces an x86 image for the server.
 COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
-    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
-    --mount=type=cache,target=/root/.npm,sharing=locked \
-    go tool templ generate && \
+RUN go tool templ generate && \
     npm run build --silent && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
         -trimpath -ldflags="-s -w" \

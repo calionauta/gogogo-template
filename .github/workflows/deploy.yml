@@ -136,7 +136,7 @@ jobs:
             chmod 0600 "$SECRETS_DIR/${APP_NAME}.env"
             echo "✓ secrets file written (mode 600)"
 
-      # SCP the new binary to /opt/gogogo-template/bin/ as .new so
+      # SCP the new binary to /home/deploy/gogogo-template/bin/ as .new so
       # the on-server script can atomically swap it.
       - name: Copy binary to server
         uses: appleboy/scp-action@master
@@ -145,7 +145,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: dist/gogogo-template.new
-          target: /opt/gogogo-template/bin/gogogo-template.new
+          target: /home/deploy/gogogo-template/bin/gogogo-template.new
 
       # SCP the compose file (overwriting the previous one).
       - name: Copy compose file
@@ -155,7 +155,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: deploy/docker-compose.prod.yml
-          target: /opt/gogogo-template/compose/docker-compose.prod.yml
+          target: /home/deploy/gogogo-template/compose/docker-compose.prod.yml
 
       # Ensure the directory layout exists, pull the latest source so
       # the on-server script and the scripts dir are current, then run

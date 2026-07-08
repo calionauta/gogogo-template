@@ -11,7 +11,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/calionauta/gogogo-template/config"
 	"github.com/calionauta/gogogo-template/db"
@@ -74,7 +73,11 @@ func run() error {
 	router.Init(pb, q, cfg, workflowRt, todoH)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	os.Args = append([]string{os.Args[0]}, "--http", addr)
+	// PocketBase v0.39+ uses a Cobra root command. pb.Start() calls
+	// RootCmd.Execute() internally, so we must set the args on the
+	// command (not os.Args — that confuses the help printer and makes
+	// it exit 1 with the usage text). 'serve' is the default subcommand.
+	pb.RootCmd.SetArgs([]string{"serve", "--http", addr})
 
 	log.Printf("listening on %s", addr)
 	if startErr := pb.Start(); startErr != nil {

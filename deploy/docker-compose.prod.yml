@@ -34,7 +34,7 @@ services:
       GOAI_BASE_URL: ${GOAI_BASE_URL:-https://api.openai.com/v1}
       GOAI_MODEL: ${GOAI_MODEL:-gpt-4o-mini}
     env_file:
-      - /opt/gogogo-template/secrets/gogogo-template.env
+      - /home/deploy/gogogo-template/secrets/gogogo-template.env
     volumes:
       - gogogo-template-data:/var/lib/gogogo-template/data
     healthcheck:

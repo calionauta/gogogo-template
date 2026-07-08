@@ -4,13 +4,18 @@
 # run any number of times and converges to the deployed state.
 #
 # Layout (managed by the deploy workflow):
-#   /opt/gogogo-template/
+#   /home/deploy/gogogo-template/
 #     bin/gogogo-template        (chmod 755, replaced on every deploy)
 #     compose/docker-compose.prod.yml   (replaced on every deploy)
 #     env/.env                  (committed to repo, no secrets)
 #     secrets/gogogo-template.env  (mode 600, regenerated every deploy
 #                                   from GH Secrets; never committed)
 #     data/pb_data/             (gitignored, persistent volume)
+#
+# We use /home/deploy/ (not /opt/) because the deploy user does not
+# have passwordless sudo; /opt is root-owned. /home/deploy is writable
+# by the deploy user and Docker still reads the compose file + binds
+# the volume from there.
 #
 # This script is the second half of the deploy: the GH Action does
 # the build + scp; this script restarts the container. We split it
@@ -20,7 +25,7 @@
 set -euo pipefail
 
 PROJECT="gogogo-template"
-APP_DIR="/opt/${PROJECT}"
+APP_DIR="/home/deploy/${PROJECT}"
 BIN_DIR="${APP_DIR}/bin"
 COMPOSE_DIR="${APP_DIR}/compose"
 SECRETS_DIR="${APP_DIR}/secrets"
@@ -69,8 +74,12 @@ chmod 0750 "${DATA_DIR}"
 
 # ── 5. Roll the container ──
 cd "${COMPOSE_DIR}"
-echo "→ docker compose pull + up -d"
-docker compose -f "${COMPOSE_FILE}" pull "${PROJECT}" || true   # local image, no-op if not pushed
+echo "→ docker compose build + up -d"
+# The image is built locally (no registry push). Build it, then
+# start. If the build context (..) isn't present on the server, the
+# GH Action scp's the Dockerfile + binary; for manual deploys the
+# operator runs this from a checkout.
+docker compose -f "${COMPOSE_FILE}" build "${PROJECT}"
 docker compose -f "${COMPOSE_FILE}" up -d "${PROJECT}"
 
 # ── 6. Wait for healthy + report ──
