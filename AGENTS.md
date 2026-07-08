@@ -7,7 +7,7 @@ Module: `github.com/calionauta/gogogo-template`
 
 ## Stack
 
-Go 1.26 | Templ v0.3.1020 | Datastar v1.2.2 (datastar-go) | PocketBase v0.39.5 (embedded, ncruces/go-sqlite3) | DaisyUI v5.6.13 + TailwindCSS | goqite v0.4.0 | retry-go v4 | Turbine v0.3.0 (opt-in, build tag) | NATS JetStream (opt-in, build tag) | age v1.3.1 | uuid v1.6.0
+Go 1.26 | Templ v0.3.1020 | Datastar v1.2.2 (datastar-go) | PocketBase v0.39.5 (embedded, ncruces/go-sqlite3) | TailwindCSS v4.1.13 (CLI build) + DaisyUI v5.6.15 | goqite v0.4.0 | retry-go v4 | Turbine v0.3.0 (opt-in, build tag) | NATS JetStream (opt-in, build tag) | age v1.3.1 | uuid v1.6.0
 
 ## Skills
 

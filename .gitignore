@@ -30,3 +30,8 @@ internal/workflow/pb_data/
 *.db
 *.db-shm
 *.db-wal
+
+# Node.js (Tailwind v4 + DaisyUI v5 build)
+node_modules/
+
+# Web resources (hand-rolled CSS, kept committed)

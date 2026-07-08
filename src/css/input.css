@@ -1,0 +1,65 @@
+/* input.css — Tailwind v4 + DaisyUI v5 build entry point.
+   Scans the project's .templ and .go files for class= attributes
+   and emits a CSS file containing only the utilities that are
+   actually used. The output is embedded into the Go binary via
+   //go:embed, so there is no runtime CSS build step.
+
+   DaisyUI v5 ships as a Tailwind plugin; the @plugin line below
+   loads it. Themes are listed in @plugin; add or remove entries to
+   customize (e.g. for dark mode). */
+
+@import "tailwindcss" source("../../");
+/* source("../../") points Tailwind's auto-scan at the project root
+   (../../ from src/css/input.css) so it picks up .templ, .go, and
+   any other plain-text source. Default scan includes .templ because
+   Tailwind treats source files as plain text and looks for
+   class-name-shaped tokens. */
+
+@source "../../features/**/*.templ";
+@source "../../features/**/*.go";
+@source "../../web/**/*.templ";
+@source "../../web/**/*.go";
+
+@plugin "daisyui" {
+  themes: light --default, dark;
+}
+
+/* Project-specific utilities that are used in the demo. Tailwind
+   would generate these automatically; we keep them here so the
+   build is self-documenting. */
+@layer components {
+  /* Toasts container (used by features/todo/components/toast.templ
+     and layout.templ). Pinned bottom-right, toasts stack upward. */
+  #toast-container {
+    z-index: 100;
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    max-width: 24rem;
+  }
+  .toast-msg {
+    opacity: 0;
+    transform: scale(0.9) translateY(50px);
+    transition: transform 0.5s, opacity 0.5s;
+  }
+  .toast-msg.open {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  .toast-timer-bar {
+    height: 3px;
+    border-radius: 999px;
+    background: oklch(0.872 0.01 258.338 / 0.3);
+    animation: toast-shrink 3s linear forwards;
+  }
+  .toast-msg:has(.alert-error) .toast-timer-bar {
+    animation-duration: 8s;
+  }
+  @keyframes toast-shrink {
+    from { width: 100%; }
+    to { width: 0%; }
+  }
+}

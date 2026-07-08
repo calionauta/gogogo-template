@@ -6,7 +6,7 @@ COMMIT      := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILDTIME   := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS     := -ldflags="-w -X main.Version=$(VERSION) -X main.CommitHash=$(COMMIT) -X main.BuildTime=$(BUILDTIME)"
 
-.PHONY: all build build-jetstream build-turbine build-all run clean restart templ fmt datastar-lint test lint vet check-sizes deadcode check deps dev docker-image setup help
+.PHONY: all build build-jetstream build-turbine build-all run clean restart templ fmt css css-install datastar-lint test lint vet check-sizes deadcode check deps dev docker-image setup help
 
 all: build
 
@@ -42,6 +42,29 @@ clean:
 test:
 	@go test -race ./... -count=1
 
+# css-install installs the npm dev dependencies (Tailwind CLI + DaisyUI
+# v5). Idempotent. Run once after cloning; CI calls this in the
+# Docker build stage so contributors don't need to.
+css-install:
+	@echo "→ Installing CSS build dependencies (tailwindcss v4 + daisyui v5)..."
+	@npm install --silent
+	@echo "  ✓ installed"
+
+# css runs the Tailwind v4 CLI to build web/resources/static/app.min.css
+# from src/css/input.css. Run this whenever you add new utility
+# classes in .templ files; the pre-commit hook also runs it on
+# .templ changes to catch stale CSS before commit.
+css: css-install
+	@echo "→ Building CSS (Tailwind v4 + DaisyUI v5)..."
+	@npm run build --silent
+	@echo "  ✓ built web/resources/static/app.min.css"
+
+# css-check fails if the generated CSS is out-of-date. Used by the
+# pre-commit hook and CI to catch forgotten rebuilds.
+css-check: css
+	@git diff --quiet --exit-code web/resources/static/app.min.css || (echo "  ❌ CSS out of date. Run \`make css\` and re-commit."; exit 1)
+	@echo "  ✓ CSS is up to date"
+
 test-jetstream:
 	@go test -race -tags jetstream ./... -count=1
 
@@ -76,9 +99,10 @@ deadcode:
 
 # check is the single quality gate. Run it after EVERY significant edit,
 # not just before commit. It formats, lints .templ, vets, lints, sizes,
-# scans dead code, and runs the full race test suite. make setup installs
-# the blocking pre-commit hook that enforces the same gate on every commit.
-check: fmt datastar-lint lint check-sizes deadcode test
+# scans dead code, runs the full race test suite, and verifies the
+# generated CSS is up to date. make setup installs the blocking
+# pre-commit hook that enforces the same gate on every commit.
+check: fmt datastar-lint css-check lint check-sizes deadcode test
 	@echo "✅ All checks passed"
 
 deps:
@@ -112,7 +136,9 @@ help:
 	@echo "  lint           Run go vet + golangci-lint (full)"
 	@echo "  check-sizes    Check file/function size limits"
 	@echo "  deadcode       Scan for dead code"
-	@echo "  check          Run all checks (fmt + datastar-lint + lint + sizes + deadcode + test)"
+	@echo "  check          Run all checks (fmt + datastar-lint + css-check + lint + sizes + deadcode + test)"
+	@echo "  css            Build app.min.css from src/css/input.css (Tailwind v4 + DaisyUI v5)"
+	@echo "  css-install    Install CSS build dependencies (npm)"
 	@echo "  dev            Live reload with Air"
 	@echo "  templ          Generate Templ components"
 	@echo "  deps           go mod tidy"

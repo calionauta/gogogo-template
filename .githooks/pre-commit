@@ -17,17 +17,32 @@ if ! test -z "$(gofumpt -l .)"; then
     echo "   Run: gofumpt -w ."
     exit 2
 fi
-if ! test -z "$(goimports -l -local github.com/calionauta/cali-go-stack $(find . -name '*.go' ! -name '*_templ.go'))"; then
+if ! test -z "$(goimports -l -local github.com/calionauta/gogogo-template $(find . -name '*.go' ! -name '*_templ.go'))"; then
     echo "❌ goimports issues:"
-    goimports -l -local github.com/calionauta/cali-go-stack $(find . -name '*.go' ! -name '*_templ.go')
-    echo "   Run: goimports -w -local github.com/calionauta/cali-go-stack ."
+    goimports -l -local github.com/calionauta/gogogo-template $(find . -name '*.go' ! -name '*_templ.go')
+    echo "   Run: goimports -w -local github.com/calionauta/gogogo-template ."
     exit 2
 fi
 echo "✅ formatting clean"
 
-# Datastar lint (only when .templ files changed)
-if git diff --cached --name-only | grep -q '\.templ$'; then
+# Datastar lint + CSS rebuild check (only when .templ files changed).
+# If a contributor adds a new utility class, the generated CSS will
+# be stale; this block regenerates it and aborts the commit if the
+# working tree is dirty after, so the regenerated CSS must be staged.
+if git diff --cached --name-only | grep -qE '\.(templ|go)$'; then
     bin/datastar-lint || exit 2
+    if grep -q "tailwindcss" package.json 2>/dev/null; then
+        echo "→ Rebuilding CSS (Tailwind v4 + DaisyUI v5)..."
+        if [ -d node_modules ]; then
+            npm run build --silent
+            if ! git diff --quiet --exit-code web/resources/static/app.min.css 2>/dev/null; then
+                echo "❌ CSS is out of date. Run \`make css\` and stage the regenerated file."
+                exit 2
+            fi
+        else
+            echo "  ⚠ node_modules not present; run \`make css-install\` first."
+        fi
+    fi
 fi
 
 # go mod tidy check (fail if dirty)
