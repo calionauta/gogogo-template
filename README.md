@@ -1,6 +1,6 @@
 # cali-go-stack
 
-A starting point for web projects in Go. Single binary, zero SaaS, LLM-friendly.
+A starting point for web projects in Go. Single binary, zero external services, LLM-friendly.
 
 ---
 
