@@ -168,7 +168,10 @@ jobs:
           # shell, not the forced deploy-prod invocation that the
           # other repo uses).
           mkdir -p ~/.ssh && chmod 0700 ~/.ssh
-          printf '%s' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 0600 ~/.ssh/deploy_key
+          cat > ~/.ssh/deploy_key <<'KEYEOF'
+$DEPLOY_SSH_KEY
+KEYEOF
+chmod 0600 ~/.ssh/deploy_key
           ssh-keyscan -t ed25519 -p 2222 $DEPLOY_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
           cat > ~/.ssh/config <<EOF
           Host $DEPLOY_HOST
