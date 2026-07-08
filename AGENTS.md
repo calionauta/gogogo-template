@@ -69,6 +69,21 @@ docs/                     Decision logs and guides
 Three async layers (complementary, not alternatives):
 `goqite` → background jobs + SSE; `turbine` → durable workflows; `JetStream` → multi-user real-time.
 
+## Build tags (`goqite` is core, the others are opt-in)
+
+The default build (`go build ./cmd/web`) is the recommended starting point for almost every project. It ships the full UI, the queue, the SSE Hub, the LLM client, the auth feature, and the demo Todo app. The only async layer that's gated is `goqite` itself being **always on** — the others are opt-in heavyweight features:
+
+| Build tag | Binary size impact | What you get | Where it's wired |
+|---|---|---|---|
+| _(default)_ | baseline | `goqite` queue + `InMemoryBroadcaster` (single-process cross-client SSE) + demo Todo app + auth + LLM | `router/router.go` |
+| `-tags jetstream` | +9 MB | Above + an embedded NATS server + durable `TODOS` JetStream stream for multi-instance realtime | `cmd/web/nats.go` (`//go:build jetstream`) + `cmd/web/nats_noop.go` (`//go:build !jetstream`) |
+| `-tags turbine` | +2 MB | Above + durable multi-step workflows (e.g. `WelcomeOnboarding`) and the Turbine executor in PocketBase SQLite | `cmd/web/turbine.go` + `cmd/web/turbine_noop.go` |
+| `-tags "jetstream turbine"` | +11 MB | Both opt-ins stacked | sum of the above |
+
+The build-tag pattern is **file-level** in `cmd/web/`. Each tag has a noop stub (e.g. `turbine_noop.go`) so the default build never references the heavy deps. The router checks `cfg.NATS.Enabled` / `cfg.Turbine` runtime flags to decide whether to call the wiring functions; feature handlers (`features/todo/handlers/admin.go`, `.../onboarding.go`) gate their behaviour on `h.llm != nil && h.llm.Configured()` and the cfg flags, so routes 404 cleanly when features are off rather than crash.
+
+When adding a new feature with an optional dependency, follow the same shape: `internal/feature/<name>.go` (real impl) + `internal/feature/<name>_noop.go` (default build stub) + a `cfg.<Name>.Enabled` flag. See `docs/decisions.md` for the rationale.
+
 ## Cross-cutting application core
 
 `features/app/` provides `AppContext` — a single struct that bundles
@@ -85,9 +100,7 @@ Run `make check` after each significant edit. The pre-commit hook (`make setup`)
 
 ## Realtime (todo sharing across clients)
 
-Cross-client todo mutations go through `nats.TodoBroadcaster` (wired in `router.Init`):
-- default build → `InMemoryBroadcaster` fans out via `SSEHub.Broadcast` (single-instance)
-- `-tags jetstream` → `JetStreamBroadcaster` publishes to a durable `TODOS` stream (multi-instance)
+Cross-client todo mutations go through `nats.TodoBroadcaster` (wired in `router.Init`). See the "Build tags" table above for the runtime vs JetStream trade-off. The `features/todo/handlers/todo.go` `broadcastTodo()` helper is the single chokepoint: it goes through `h.broadcaster` (the broadcaster field) and is silently skipped if `nil`. So a feature handler doesn't need to know whether the deployment is single-instance or multi-instance — it just calls `broadcastTodo()`.
 
 ## LLM Integration (GoAI)
 
