@@ -42,7 +42,7 @@ func TodoList(signals todo.Signals) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-2xl mx-auto mt-8 px-4\"><div class=\"card bg-base-100 shadow-xl\" data-signals=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-2xl mx-auto mt-8 px-4 animate-in fade-in zoom-in-95 animate-duration-500\"><div class=\"card bg-base-100 shadow-xl\" data-signals=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -81,7 +81,7 @@ func TodoList(signals todo.Signals) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"><input type=\"text\" name=\"title\" class=\"input input-bordered join-item flex-1\" placeholder=\"Add a new todo...\" data-bind=\"newTitle\" autofocus> <button type=\"submit\" class=\"btn btn-primary join-item\" data-disabled=\"$loading\">Add <span class=\"loading loading-spinner loading-xs\" data-show=\"$loading\"></span></button> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"><input type=\"text\" name=\"title\" class=\"input join-item flex-1\" placeholder=\"Add a new todo...\" data-bind=\"newTitle\" autofocus> <button type=\"submit\" class=\"btn btn-primary join-item transition-transform hover:scale-105 active:scale-95\" data-disabled=\"$loading\">Add <span class=\"loading loading-spinner loading-xs\" data-show=\"$loading\"></span></button> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -314,7 +314,7 @@ func adminUnlockForm() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"><input type=\"password\" name=\"token\" class=\"input input-bordered input-sm join-item flex-1\" placeholder=\"Master password\" required autocomplete=\"off\"> <button type=\"submit\" class=\"btn btn-warning btn-sm join-item\" data-disabled=\"$loading\">Clear all</button></form></details>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"><input type=\"password\" name=\"token\" class=\"input input-sm join-item flex-1\" placeholder=\"Master password\" required autocomplete=\"off\"> <button type=\"submit\" class=\"btn btn-warning btn-sm join-item\" data-disabled=\"$loading\">Clear all</button></form></details>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

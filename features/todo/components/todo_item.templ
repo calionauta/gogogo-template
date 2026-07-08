@@ -8,7 +8,7 @@ import (
 )
 
 templ TodoItem(item todo.Todo) {
-	<div class="flex items-center gap-3 p-3 border-b border-base-300 hover:bg-base-200 transition-colors" id={"todo-" + item.ID}>
+	<div class="flex items-center gap-3 p-3 border-b border-base-300 hover:bg-base-200 transition-colors animate-in fade-in slide-in-from-left-4 animate-duration-300" id={"todo-" + item.ID}>
 		<input
 			type="checkbox"
 			class="checkbox checkbox-primary checkbox-sm"
@@ -22,7 +22,7 @@ templ TodoItem(item todo.Todo) {
 		}
 		<span class="text-xs text-base-content/40">{ timeAgo(item.CreatedAt) }</span>
 		<button
-			class="btn btn-ghost btn-xs text-error"
+			class="btn btn-ghost btn-xs text-error transition-transform hover:scale-110 active:scale-95"
 			data-on:click={ "@post('/api/todos/" + item.ID + "/delete')" }
 			title="Delete todo"
 		>

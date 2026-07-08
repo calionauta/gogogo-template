@@ -11,6 +11,8 @@ This template is my attempt at a starting point that already resolves those choi
 > **One binary, one process, one image.** ~30 MB, no shell, no libc, no CDN.
 > Runs on `scratch` (or `gcr.io/distroless/static-debian12:nonroot` if you need a debug base). All CSS is compiled at build time via Tailwind v4 + DaisyUI v5 and embedded via `//go:embed` — no JS runtime.
 
+> **Made with intent to be useful, not to be right.** This template optimizes for shipping something that runs today over being philosophically correct. Decisions here are pragmatic, not dogmatic.
+
 ---
 
 Every Go web project I start ends up in the same conversation: pick a database, auth, router, reactive UI framework, task queue… and the project stalls at the decisions, installations, and configurations — not the code.
@@ -264,4 +266,6 @@ docs/                   # Decision logs and guides
 
 This project is open to feedback, PRs, and adaptations. If something doesn't make sense, if the stack doesn't fit your problem, or if you have a better idea — open an issue.
 
-Made with intent to be useful, not to be right.
+---
+
+Made with intent to be useful, not to be right. — feedback, PRs, and adaptations welcome.
