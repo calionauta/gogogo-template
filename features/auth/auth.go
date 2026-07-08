@@ -19,7 +19,9 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -38,15 +40,25 @@ var CookieSecure bool
 func LoadAuthFromCookie(e *core.RequestEvent) error {
 	cookie, err := e.Request.Cookie(cookieName)
 	if err != nil || cookie.Value == "" {
+		fmt.Fprintf(os.Stderr, "[DBG LoadAuth] path=%s no_cookie -> next\n", e.Request.URL.Path)
 		return e.Next()
 	}
 	record, err := e.App.FindAuthRecordByToken(cookie.Value, core.TokenTypeAuth)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "[DBG LoadAuth] path=%s invalid_cookie=%q err=%v -> clear+next\n", e.Request.URL.Path, cookie.Value[:min(20, len(cookie.Value))], err)
 		clearAuthCookie(e.Response)
 		return e.Next()
 	}
+	fmt.Fprintf(os.Stderr, "[DBG LoadAuth] path=%s auth_set email=%s -> next\n", e.Request.URL.Path, record.Email())
 	e.Auth = record
 	return e.Next()
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // RequireAuthOrRedirect returns e.Next() when e.Auth is set, otherwise

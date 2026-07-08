@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/pocketbase/pocketbase"
@@ -55,6 +57,7 @@ func RegisterAuth(app *pocketbase.PocketBase) {
 // flat (a single handler, no BindFunc composition), which avoids the
 // subtle ordering bug we hit when /login and /api/* kept returning 303.
 func handleLoginGetWithRedirect(e *core.RequestEvent) error {
+	fmt.Fprintf(os.Stderr, "[DBG /login] auth=%v path=%s\n", e.Auth != nil, e.Request.URL.Path)
 	if e.Auth != nil {
 		return e.Redirect(http.StatusSeeOther, "/")
 	}
