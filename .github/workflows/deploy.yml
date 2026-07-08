@@ -139,6 +139,7 @@ jobs:
           tags: tag:continuous-integration
           args: --ssh
 
+
       - name: Download built binary
         uses: actions/download-artifact@v4
         with:
@@ -150,28 +151,39 @@ jobs:
       # the file is regenerated on every deploy and is never
       # committed to the repo.
       - name: Write secrets file (mode 600)
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          fingerprint: ee:8f:26:17:c2:5c:d4:5e:2d:b1:82:e3:e5:16:c1:4a
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: GOAI_API_KEY,ADMIN_UNLOCK_TOKEN
-          script: |
-            set -euo pipefail
-            APP_NAME="gogogo-template"
-            SECRETS_DIR="/home/deploy/${APP_NAME}/secrets"
-            mkdir -p "$SECRETS_DIR"
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          GOAI_API_KEY: ${{ secrets.GOAI_API_KEY }}
+          ADMIN_UNLOCK_TOKEN: ${{ secrets.ADMIN_UNLOCK_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Set up SSH key + config once for this run.
+          mkdir -p ~/.ssh && chmod 0700 ~/.ssh
+          printf '%s
+' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 0600 ~/.ssh/deploy_key
+          cat > ~/.ssh/config <<EOF
+          Host $DEPLOY_HOST
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            IdentityFile ~/.ssh/deploy_key
+            User $DEPLOY_USER
+          EOF
+          chmod 0600 ~/.ssh/config
+          APP_NAME="gogogo-template"
+          SECRETS_DIR="/home/deploy/${APP_NAME}/secrets"
+          ssh $DEPLOY_HOST "set -euo pipefail
+            mkdir -p \"$SECRETS_DIR\"
             umask 077
-            # Atomic write: render to .tmp, then mv (so a crash mid-write
-            # doesn't leave a half-baked file the container could read).
-            cat > "$SECRETS_DIR/${APP_NAME}.env.tmp" <<EOF
-            GOAI_API_KEY=${GOAI_API_KEY}
-            ADMIN_UNLOCK_TOKEN=${ADMIN_UNLOCK_TOKEN}
-            EOF
-            mv "$SECRETS_DIR/${APP_NAME}.env.tmp" "$SECRETS_DIR/${APP_NAME}.env"
-            chmod 0600 "$SECRETS_DIR/${APP_NAME}.env"
-            echo "✓ secrets file written (mode 600)"
+            cat > \"$SECRETS_DIR/${APP_NAME}.env.tmp\" <<EOF2
+          GOAI_API_KEY=$GOAI_API_KEY
+          ADMIN_UNLOCK_TOKEN=$ADMIN_UNLOCK_TOKEN
+          EOF2
+            mv \"$SECRETS_DIR/${APP_NAME}.env.tmp\" \"$SECRETS_DIR/${APP_NAME}.env\"
+            chmod 0600 \"$SECRETS_DIR/${APP_NAME}.env\"
+            echo '✓ secrets file written (mode 600)'
+          "
 
       # SCP the new binary to /home/deploy/gogogo-template/bin/ as .new so
       # the on-server script can atomically swap it.
@@ -199,28 +211,24 @@ jobs:
       # the deploy. The on-server script does the atomic binary swap
       # + container restart + health-check wait.
       - name: Ensure layout + run deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          fingerprint: ee:8f:26:17:c2:5c:d4:5e:2d:b1:82:e3:e5:16:c1:4a
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            set -euo pipefail
-            APP_NAME="gogogo-template"
-            APP_DIR="/home/deploy/${APP_NAME}"
-            mkdir -p "${APP_DIR}"/{bin,compose,env,secrets,data/pb_data}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          ssh $DEPLOY_HOST "set -euo pipefail
+            APP_NAME=\"gogogo-template\"
+            APP_DIR=\"/home/deploy/\${APP_NAME}\"
+            mkdir -p \"\${APP_DIR}/{bin,compose,env,secrets,data/pb_data}\"
 
-            # First-time setup: clone the repo (or pull if already cloned).
-            if [ ! -d "/home/deploy/gogogo-template/repo" ]; then
-              git clone "https://github.com/${{ github.repository }}.git" "/home/deploy/gogogo-template/repo"
+            if [ ! -d \"/home/deploy/gogogo-template/repo\" ]; then
+              git clone \"https://github.com/${{ github.repository }}.git\" \"/home/deploy/gogogo-template/repo\"
             else
-              git -C "/home/deploy/gogogo-template/repo" pull --ff-only
+              git -C \"/home/deploy/gogogo-template/repo\" pull --ff-only
             fi
 
-            # Sync the latest .env and deploy-prod.sh from the repo.
-            cp "/home/deploy/gogogo-template/repo/.env" "${APP_DIR}/env/.env" 2>/dev/null || true
-            cp "/home/deploy/gogogo-template/repo/scripts/deploy-prod.sh" "${APP_DIR}/scripts/deploy-prod.sh"
-            chmod 0700 "${APP_DIR}/scripts/deploy-prod.sh"
+            cp \"/home/deploy/gogogo-template/repo/.env\" \"\${APP_DIR}/env/.env\" 2>/dev/null || true
+            cp \"/home/deploy/gogogo-template/repo/scripts/deploy-prod.sh\" \"\${APP_DIR}/scripts/deploy-prod.sh\"
+            chmod 0700 \"\${APP_DIR}/scripts/deploy-prod.sh\"
 
-            bash "${APP_DIR}/scripts/deploy-prod.sh"
+            bash \"\${APP_DIR}/scripts/deploy-prod.sh\"
+          "
