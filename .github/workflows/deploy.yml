@@ -152,7 +152,7 @@ jobs:
       - name: Write secrets file (mode 600)
         uses: appleboy/ssh-action@v1.0.3
         with:
-          fingerprint: SHA256:8P5P2tvLXNfLFfihEc3VR6rXHgaCSriXcLdTbnXbkAM,SHA256:/77zlxli4zTYx8BIYtTTa1li3ww9745ihdDLypq47fI,SHA256:m/HVHXYY0Ll1AvvubVu+lDgLyLsJQrWFW2krfqBxAY4
+          fingerprint: ee:8f:26:17:c2:5c:d4:5e:2d:b1:82:e3:e5:16:c1:4a
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -201,7 +201,7 @@ jobs:
       - name: Ensure layout + run deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
-          fingerprint: SHA256:8P5P2tvLXNfLFfihEc3VR6rXHgaCSriXcLdTbnXbkAM,SHA256:/77zlxli4zTYx8BIYtTTa1li3ww9745ihdDLypq47fI,SHA256:m/HVHXYY0Ll1AvvubVu+lDgLyLsJQrWFW2krfqBxAY4
+          fingerprint: ee:8f:26:17:c2:5c:d4:5e:2d:b1:82:e3:e5:16:c1:4a
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
