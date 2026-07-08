@@ -1,0 +1,19 @@
+#!/bin/bash
+set -euo pipefail
+
+PROJECT_DIR="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_DIR"
+
+# Skip when this isn't a Go project.
+[ ! -f go.mod ] && exit 0
+
+echo "━━━ Pre-push checks ━━━"
+echo "→ govulncheck..."
+if which govulncheck >/dev/null 2>&1; then
+    govulncheck ./... || { echo "❌ Vulnerability scan failed"; exit 2; }
+    echo "  ✓"
+else
+    echo "  ⚠ govulncheck not installed (go install golang.org/x/vuln/cmd/govulncheck@latest)"
+    echo "  Skipping — install before relying on this gate."
+fi
+echo "━━━ Pre-push passed ✓ ━━━"
