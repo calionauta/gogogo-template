@@ -128,7 +128,38 @@ Items left over from the `gogogo-template` → `gogogo-fullstack-template` renam
 
 ## 6. BUG: 303 redirect loop on `/` and `/api/*` (and every unknown path)
 
-### What happened
+### What happened (additional context discovered 2026-07-08)
+
+`dig gogogo.calionauta.com` resolves to **Cloudflare IPs**
+(104.21.25.159, 172.67.134.93) — NOT the local tunnel. The local
+cloudflared config (`/etc/cloudflared/config.yml` and
+`~/.tunnel-config.json`) does **NOT** include
+`gogogo.calionauta.com`. The host is being served by *another*
+tunnel/ingress on the user's Cloudflare account — likely an older
+tunnel that was pointing at Render/Fly/elsewhere before this
+project moved to the user's own server.
+
+Until the DNS is redirected to the current tunnel
+(`b56a1467-b1b2-4490-a661-8afb21ccfaa0`), every request to
+`https://gogogo.calionauta.com` returns 303 from a route the local
+server is not actually serving.
+
+### Action required (out of code, in Cloudflare dashboard)
+
+1. Log in to https://dash.cloudflare.com → `calionauta.com` →
+   Zero Trust → Networks → Tunnels
+2. Find the tunnel that has `gogogo.calionauta.com` in its ingress
+   (or the Cloudflare Pages/Custom Hostname that points elsewhere)
+3. Either re-attach it to the current tunnel, or delete the old
+   entry and add `gogogo.calionauta.com` to the current tunnel
+   pointing at `http://100.120.175.47:4180` (the OAuth2-Proxy
+   upstream — or to `http://127.0.0.1:8080` directly, skipping
+   OAuth if the demo doesn't need SSO)
+
+After the DNS fix, fix the code bug below.
+
+
+### What happened (continued)
 
 When the user visits `https://gogogo.calionauta.com/` in the browser,
 they see "this page redirected you too many times". The PocketBase
