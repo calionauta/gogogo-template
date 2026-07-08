@@ -120,7 +120,8 @@ jobs:
         # Tailscale over OAuth clients.
         #
         # To set this up:
-        #   1. Create a tag in your tailnet (e.g. `tag:ci`) and
+        #   1. Create a tag in your tailnet (e.g. `tag:continuous-integration`,
+        #      which is the convention Tailscale's docs use) and
         #      grant it the access permissions the CI runner needs
         #      (e.g. SSH to the deploy user on the server).
         #   2. Create a federated identity at
@@ -135,7 +136,7 @@ jobs:
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           audience: ${{ secrets.TS_AUDIENCE }}
-          tags: tag:ci
+          tags: tag:continuous-integration
           args: --ssh
 
       - name: Download built binary

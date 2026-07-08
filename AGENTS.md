@@ -151,7 +151,7 @@ The `deploy` user (no passwordless sudo) owns the layout. `/home/deploy` is writ
 
 | Secret | Where to get it |
 |---|---|
-| `TS_OAUTH_CLIENT_ID` | [login.tailscale.com/admin/settings/identity](https://login.tailscale.com/admin/settings/identity) → New federated identity. Issuer: GitHub. Audience: anything memorable (e.g. `ts-actions-deploy`). Copy the **Client ID** (not a secret). |
+| `TS_OAUTH_CLIENT_ID` | [login.tailscale.com/admin/settings/identity](https://login.tailscale.com/admin/settings/identity) → New federated identity. Issuer: GitHub. Audience: anything memorable (e.g. `ts-actions-deploy`). Copy the **Client ID** (not a secret). Make sure the federated identity is scoped to the tag you'll use (e.g. `tag:continuous-integration`). |
 | `TS_AUDIENCE` | Same page as the client ID — the **Audience** value you chose. |
 | `DEPLOY_HOST` | The Tailscale hostname or `100.x.x.x` Tailscale IP of the server. Must be reachable from the GH runner (which is on a Tailscale net for the duration of the job). |
 | `DEPLOY_USER` | The SSH user on the server (e.g. `deploy`). Must be in the Tailscale ACL allowing SSH from the runner. |
