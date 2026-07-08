@@ -129,6 +129,48 @@ Cross-client todo mutations go through `nats.TodoBroadcaster` (wired in `router.
 
 `internal/llm` wraps GoAI behind an injectable interface. Tests must NOT call the real provider — inject a fake (or VCR replay). Streaming modeled as an iterator so backpressure/cancel are testable.
 
+## Deploy
+
+Production deploys to a single server (Hetzner / any VPS) via Tailscale + Cloudflare Tunnel. Triggered by `push to master` (`.github/workflows/deploy.yml`). Manual deploys also work: `bash scripts/deploy-prod.sh` on the server after the binary is scp'd into place.
+
+### One-time server setup
+
+The project assumes the canonical layout under `/home/deploy/<app>/`:
+
+```
+/home/deploy/gogogo-template/
+  bin/         gogogo-template (replaced atomically on every deploy)
+  compose/     docker-compose.prod.yml (also replaced on every deploy)
+  secrets/     gogogo-template.env (mode 0600, regenerated from GH Secrets)
+  data/        pb_data/ (Docker volume, persistent)
+```
+
+The `deploy` user (no passwordless sudo) owns the layout. `/home/deploy` is writable; `/opt` is root-owned and not used. If you already have a project at a different path, `APP_DIR` in `scripts/deploy-prod.sh` is the only constant to change.
+
+### One-time GitHub Actions secrets
+
+| Secret | Where to get it |
+|---|---|
+| `TS_OAUTH_CLIENT_ID` | [login.tailscale.com/admin/settings/oauth](https://login.tailscale.com/admin/settings/oauth) → New OAuth client. Scopes: `device`, `auth_keys:write` (read+write). Tags: `tag:ci`. |
+| `TS_OAUTH_SECRET` | Same page as the client ID. |
+| `DEPLOY_HOST` | The Tailscale hostname or `100.x.x.x` Tailscale IP of the server. Must be reachable from the GH runner (which is on a Tailscale net for the duration of the job). |
+| `DEPLOY_USER` | The SSH user on the server (e.g. `deploy`). Must be in the Tailscale ACL allowing SSH from the runner. |
+| `DEPLOY_SSH_KEY` | The private SSH key (PEM). The corresponding public key goes in `~/.ssh/authorized_keys` on the server. |
+| `GOAI_API_KEY` | Any OpenAI-compatible key (Groq, OpenAI, OpenRouter). |
+| `ADMIN_UNLOCK_TOKEN` | `openssl rand -hex 32` (or empty to disable the custom admin panel). |
+
+If `TS_OAUTH_*` are missing, the deploy job fails at the "Bring up Tailscale" step. The workflow is structured so any missing secret causes a fast, named failure (not a silent hang).
+
+### Adding a new sub-domain (Cloudflare Tunnel)
+
+The Tunnel ID + config file live at `~/.tunnel-config.json` on the server. To add a new ingress rule (e.g. `staging.fullstack.example.com`):
+
+1. Append the new hostname + service to `~/.tunnel-config.json` (the `404` catch-all must stay last).
+2. `bash ~/bin/update-tunnel.sh` (reads `~/.secrets/cloudflare.env`, calls the Cloudflare API).
+3. Add the DNS CNAME: `bash ~/bin/cloudflare-dns.sh add <name> <TUNNEL_ID>.cfargotunnel.com` (or use the `upsert` form if available).
+
+Both scripts use the user's `~/bin/` convention (`set -a; source ~/.secrets/cloudflare.env; set +a`) and never hardcode tokens. See `docs/decisions.md` for the full rationale.
+
 ## Linting
 
 The project layers three linters, all wired into `make check`:
