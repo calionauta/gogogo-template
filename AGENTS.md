@@ -89,6 +89,46 @@ internal/{secrets,queue,nats,workflow,llm,datastar}/
 features/app/             Application core: AppContext + cross-cutting middleware
 features/todo/            Example: Todo MVC (Datastar + DaisyUI + PocketBase + SSE Hub)
 web/resources/            Static assets (embedded)
+```
+
+### Wiring HTTP routes — read this before touching `router.Init` or `RegisterAuth`
+
+PocketBase exposes a `RouterGroup` API that looks like a router, but on
+`BuildMux()` it compiles down to **Go stdlib `http.ServeMux`** (see
+`tools/router/router.go:73` in the PBase vendored source). Two things
+this implies:
+
+1. **`http.ServeMux` Go 1.22+ matches `"GET /"` as a subtree** — it
+   intercepts any `GET /<sub>` that has no more specific pattern
+   registered. Order of registration doesn't matter (specificity wins).
+   So registering `GET /` for the index handler will swallow
+   `GET /random/path` until you register a more specific pattern.
+2. **`Hook.Trigger` snapshots handlers before running them.** If you
+   call `app.OnServe().BindFunc(...)` from inside another `OnServe`
+   handler (nested hook), the inner Bind never fires — the snapshot
+   has already been taken. This bit us in commit `c3b15a9`: a nested
+   `auth.RegisterAuth` looked like it registered `/login` and `/logout`
+   but they were silently missing, so `GET /login` fell through to
+   `GET /` and produced a 303 loop.
+
+**Rules**
+
+- Register all routes DIRECTLY on `se.Router` inside the existing
+  router.OnServe hook — no nested `app.OnServe().BindFunc`. If you need
+  middleware that runs on every route, set it up once at app boot (see
+  `db/pocketbase.go` and the `LoadAuthFromCookie` middleware) or via
+  `se.Router.BindFunc` BEFORE adding routes.
+- Group middlewares (`se.Router.BindFunc(...)`) are concatenated into
+  every route by `loadMux` regardless of registration order. Order
+  inside the chain comes from the order of `BindFunc` calls on the
+  router group.
+- `se.Router.GET("/")` is fine for the index but remember it will match
+  every other `GET` you haven't explicitly registered. Verify with
+  `curl -sI http://localhost:8080/<path>` for each new route.
+- When debugging routing, add `os.Stderr.WriteString` (NOT `slog.Info`,
+  because PocketBase's logger is batch-buffered and only flushes every
+  3 seconds) at the top of handler/middleware to see what actually runs.
+
 router/                   Route registration on PocketBase
 docs/                     Decision logs and guides
 ```
