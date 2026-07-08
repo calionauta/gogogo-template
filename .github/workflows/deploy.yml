@@ -198,23 +198,19 @@ jobs:
       # SCP the new binary to /home/deploy/gogogo-template/bin/ as .new so
       # the on-server script can atomically swap it.
       - name: Copy binary to server
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: dist/gogogo-template.new
-          target: /home/deploy/gogogo-template/bin/gogogo-template.new
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          scp -P 2222 dist/gogogo-template.new $DEPLOY_HOST:/home/deploy/gogogo-template/bin/gogogo-template.new
 
       # SCP the compose file (overwriting the previous one).
       - name: Copy compose file
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: deploy/docker-compose.prod.yml
-          target: /home/deploy/gogogo-template/compose/docker-compose.prod.yml
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          scp -P 2222 deploy/docker-compose.prod.yml $DEPLOY_HOST:/home/deploy/gogogo-template/compose/docker-compose.prod.yml
 
       # Ensure the directory layout exists, pull the latest source so
       # the on-server script and the scripts dir are current, then run
