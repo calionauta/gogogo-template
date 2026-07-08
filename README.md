@@ -17,7 +17,7 @@ Everything you need to build a modern web app, in a single binary:
 | **Language** | Go 1.26 | Fast compilation, easy deploy, lean runtime |
 | **Database + Auth + API** | [PocketBase](https://pocketbase.io) (embedded, on `ncruces/go-sqlite3`) | Zero-config auth, REST, admin UI, file storage — all in SQLite |
 | **Templating** | [Templ](https://templ.guide) | Type-safe Go components, generated at build time |
-| **Reactive UI** | [Datastar](https://data-star.dev) (SSE) | HTML from the server, no JS framework, no build step |
+| **Reactive UI** | [Datastar](https://data-star.dev) (SSE) | HTML from the server, ~12 KiB JS, backend as source of truth, no JS framework, no build step |
 | **CSS** | [DaisyUI v5](https://daisyui.com) + TailwindCSS | Ready components, customizable, ~34kB minified |
 | **Task queue** | [goqite](https://github.com/maragudk/goqite) + SSE Hub | Background jobs streamed to the browser, no Redis |
 | **Retries** | [avast/retry-go v4](https://github.com/avast/retry-go) | Exponential backoff with jitter, no boilerplate |
@@ -66,10 +66,10 @@ Enough to understand the pattern and start your own feature module.
 
 - **You who get tired of configuring the same stack over and over**
 - **You who want a single binary for deploy, with no Redis, Postgres, or SaaS**
-- **You who want LLM built-in without adding a whole orchestration layer**
+- **You who want an LLM client wired in without pulling in a whole orchestration framework** — `internal/llm` wraps GoAI (any provider: OpenAI, Anthropic, Groq, Ollama) behind an injectable interface, callable from handlers. It calls a *remote* provider API; it is **not** a local-model runtime.
 - **You who prefer server-rendered HTML over 2MB SPAs**
 
-It's not a framework. There's no lock-in. Each piece can be replaced individually — swap PocketBase for plain SQLite, goqite for Redis, Datastar for HTMX. The template just gives you a starting point that already works.
+It's not a framework. There's no lock-in. Each piece can be replaced individually.
 
 ## Getting started
 

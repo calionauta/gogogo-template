@@ -105,20 +105,9 @@ func (q *Queue) Enqueue(ctx context.Context, data []byte) error {
 	return q.q.Send(ctx, goqite.Message{Body: data})
 }
 
-// Receive pulls the next message from the queue. Returns (nil, nil)
-// when the queue is empty (goqite's documented contract — not an error).
-func (q *Queue) Receive(ctx context.Context) (*goqite.Message, error) {
-	return q.q.Receive(ctx)
-}
-
 // ReceiveAndWait blocks for up to timeout waiting for a message.
 func (q *Queue) ReceiveAndWait(ctx context.Context, timeout time.Duration) (*goqite.Message, error) {
 	return q.q.ReceiveAndWait(ctx, timeout)
-}
-
-// Delete removes a processed message from the queue.
-func (q *Queue) Delete(ctx context.Context, id goqite.ID) error {
-	return q.q.Delete(ctx, id)
 }
 
 // Hub returns the SSEHub for streaming to browser clients.

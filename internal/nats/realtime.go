@@ -1,0 +1,128 @@
+//go:build jetstream
+
+// Package nats provides the realtime broadcaster abstraction. With the
+// `jetstream` build tag this uses NATS JetStream: todo mutations are
+// published to a durable stream and a single subscriber per process
+// re-emits them to the SSE Hub, so every connected browser tab — on any
+// instance — receives the update. This is the correct choice for
+// multi-user, multi-instance realtime; it complements (never replaces)
+// goqite, which still owns the async job + per-client toast path.
+package nats
+
+import (
+	"context"
+	"log/slog"
+	"sync"
+
+	natsio "github.com/nats-io/nats.go"
+
+	"github.com/calionauta/cali-go-stack/internal/queue"
+)
+
+// TodoBroadcaster publishes todo mutations so every connected client
+// receives them in real time. Defined identically in both builds so the
+// caller's type stays stable across tags.
+type TodoBroadcaster interface {
+	// PublishTodoUpdate broadcasts a serialized todo event (JSON) to all
+	// connected clients.
+	PublishTodoUpdate(ctx context.Context, payload []byte) error
+}
+
+// todoStream is the JetStream stream that carries todo mutations. The
+// subject layout `todos.>` lets us subscribe to all mutations with one
+// wildcard and keeps the history available for late joiners via
+// JetStream replay.
+const (
+	todoStream  = "TODOS"
+	todoSubject = "todos.update"
+)
+
+// JetStreamBroadcaster publishes todo updates to a JetStream stream and
+// subscribes to that stream, re-emitting every event to the SSE Hub via
+// Broadcast so all connected clients receive it.
+type JetStreamBroadcaster struct {
+	js  natsio.JetStreamContext
+	sub *natsio.Subscription
+	hub *queue.SSEHub
+
+	mu     sync.Mutex
+	closed bool
+}
+
+// NewJetStreamBroadcaster ensures the TODOS stream exists and returns a
+// broadcaster bound to hub. Call Subscribe before publishing.
+func NewJetStreamBroadcaster(js natsio.JetStreamContext, hub *queue.SSEHub) (*JetStreamBroadcaster, error) {
+	if _, err := js.AddStream(&natsio.StreamConfig{
+		Name:     todoStream,
+		Subjects: []string{todoSubject},
+		Storage:  natsio.FileStorage,
+	}); err != nil {
+		// AddStream only errors on genuine misconfiguration; an existing
+		// stream is not an error.
+		if err.Error() != "stream already exists" {
+			return nil, err
+		}
+	}
+	return &JetStreamBroadcaster{js: js, hub: hub}, nil
+}
+
+// PublishTodoUpdate publishes payload to the TODOS stream. Any process
+// subscribed to the stream (including this one) re-emits it to its SSE
+// Hub, so all tabs connected to any instance see the change.
+func (b *JetStreamBroadcaster) PublishTodoUpdate(_ context.Context, payload []byte) error {
+	_, err := b.js.Publish(todoSubject, payload)
+	return err
+}
+
+// Subscribe registers a durable consumer that pumps every TODOS event
+// to the SSE Hub's Broadcast. Safe to call once; subsequent calls are
+// idempotent.
+func (b *JetStreamBroadcaster) Subscribe(hub *queue.SSEHub) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed || b.sub != nil {
+		return
+	}
+	sub, err := b.js.Subscribe(todoSubject, func(msg *natsio.Msg) {
+		hub.Broadcast(msg.Data)
+		_ = msg.Ack()
+	}, natsio.Durable("cali-go-stack-todos"), natsio.ManualAck())
+	if err != nil {
+		slog.Error("realtime: subscribe failed", "error", err)
+		return
+	}
+	b.sub = sub
+	b.hub = hub
+}
+
+// Close drains the subscription. The JetStream stream and its history
+// persist for late joiners; only this process's consumer stops.
+func (b *JetStreamBroadcaster) Close() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return
+	}
+	b.closed = true
+	if b.sub != nil {
+		_ = b.sub.Unsubscribe()
+		b.sub = nil
+	}
+}
+
+// NewTodoBroadcaster returns a JetStream-backed broadcaster bound to hub.
+// The caller must call Subscribe(hub) before publishing. With the default
+// build tag the same call returns an in-memory broadcaster; the signature
+// is identical so callers don't branch.
+func NewTodoBroadcaster(js any, hub *queue.SSEHub) TodoBroadcaster {
+	jsCtx, ok := js.(natsio.JetStreamContext)
+	if !ok {
+		return NewInMemoryBroadcaster(hub)
+	}
+	b, err := NewJetStreamBroadcaster(jsCtx, hub)
+	if err != nil {
+		slog.Error("realtime: falling back to in-memory broadcaster", "error", err)
+		return NewInMemoryBroadcaster(hub)
+	}
+	return b
+}

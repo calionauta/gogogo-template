@@ -1,0 +1,49 @@
+#!/bin/bash
+set -euo pipefail
+
+PROJECT_DIR="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_DIR"
+
+echo "=== Pre-commit checks ==="
+
+# File size check (blocking)
+.githooks/check-sizes.sh || exit 2
+
+# Formatting: gofumpt + goimports (blocking — catches issues the full
+# gate would catch later, fast enough to run on every commit).
+if ! test -z "$(gofumpt -l .)"; then
+    echo "❌ gofumpt formatting issues:"
+    gofumpt -l .
+    echo "   Run: gofumpt -w ."
+    exit 2
+fi
+if ! test -z "$(goimports -l -local github.com/calionauta/cali-go-stack $(find . -name '*.go' ! -name '*_templ.go'))"; then
+    echo "❌ goimports issues:"
+    goimports -l -local github.com/calionauta/cali-go-stack $(find . -name '*.go' ! -name '*_templ.go')
+    echo "   Run: goimports -w -local github.com/calionauta/cali-go-stack ."
+    exit 2
+fi
+echo "✅ formatting clean"
+
+# Datastar lint (only when .templ files changed)
+if git diff --cached --name-only | grep -q '\.templ$'; then
+    bin/datastar-lint || exit 2
+fi
+
+# go mod tidy check (fail if dirty)
+go mod tidy
+if ! git diff --exit-code go.mod go.sum >/dev/null 2>&1; then
+    echo "❌ go.mod or go.sum is dirty after 'go mod tidy'"
+    echo "   Run: go mod tidy && git add go.mod go.sum"
+    exit 2
+fi
+echo "✅ go.mod/go.sum tidy"
+
+# Full lint (blocking — no --fast shortcuts)
+if which golangci-lint >/dev/null 2>&1; then
+    golangci-lint run ./... --timeout 3m || exit 2
+else
+    echo "❌ golangci-lint not installed (brew install golangci-lint)"
+    exit 2
+fi
+echo "=== All pre-commit checks passed ==="

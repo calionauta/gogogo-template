@@ -50,6 +50,10 @@ func Init(
 		// state (PocketBase app ref, queue ref, config) is consistent
 		// across HTTP and worker paths.
 		if todoH != nil {
+			// Wire the realtime broadcaster so todo mutations are shared
+			// with every connected client (JetStream with -tags jetstream,
+			// in-memory fan-out otherwise).
+			todoH.SetBroadcaster(newTodoBroadcaster(q.Hub()))
 			todoH.RegisterRoutes(se)
 		} else {
 			// Defensive fallback: construct a fresh handler if the

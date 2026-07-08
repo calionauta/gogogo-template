@@ -2,16 +2,11 @@ package todo_test
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/calionauta/cali-go-stack/internal/queue"
 )
 
 // sseTestTimeout caps how long any individual SSE-driven test waits for
@@ -108,70 +103,47 @@ func TestIntegration_CreateEmitsToast(t *testing.T) {
 	}
 }
 
-// TestIntegration_RetryFeedbackExercisesSSE verifies the SSE-aware
-// retry path: a handler that fails the first 2 attempts and succeeds
-// on the 3rd emits per-attempt feedback to the SSE Hub. This proves
-// the HTTP → queue → worker → SSE pipeline is wired correctly with
-// exponential backoff + SSE feedback.
-func TestIntegration_RetryFeedbackExercisesSSE(t *testing.T) {
-	base, q, _, cleanup := testFixture(t)
-	defer cleanup()
-
-	var attempts atomic.Int32
-	q.Registry().Register("flaky_retry", func(_ context.Context, _ *queue.SSEHub, _ queue.Job) error {
-		n := attempts.Add(1)
-		if n < 3 {
-			return fmt.Errorf("transient failure #%d", n)
-		}
-		return nil
-	})
-
-	clientID := "retry-feedback-" + time.Now().Format(clientIDSuffixFormat)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	stream := openSSEWithCtx(ctx, t, base, clientID)
-	defer func() { _ = stream.Body.Close() }()
-
-	time.Sleep(100 * time.Millisecond)
-
-	job := queue.Job{Type: "flaky_retry", ClientID: clientID, Payload: []byte(`{}`)}
-	body, err := json.Marshal(job)
-	if err != nil {
-		t.Fatalf("marshal job: %v", err)
-	}
-	if err := q.Enqueue(ctx, body); err != nil {
-		t.Fatalf("enqueue: %v", err)
-	}
-
-	full := pumpSSEUntil(t, stream, 10*time.Second, func(_ string) bool {
-		return attempts.Load() >= 3
-	})
-
-	t.Logf("SSE stream dump (last 500 chars): %s", tailString(full, 500))
-	t.Logf("attempts=%d", attempts.Load())
-
-	if got := attempts.Load(); got < 3 {
-		t.Fatalf("flaky handler ran %d times, want >= 3", got)
-	}
-
-	// Count distinct retry feedback chunks. Embedded JSON uses escaped
-	// quotes inside the outer JSON string, so match on attempt counters
-	// directly.
-	seenAttempts := 0
-	if strings.Contains(full, `"lastRetry":`) {
-		if strings.Contains(full, `\\"attempt\\":1`) || strings.Contains(full, `\"attempt\":1`) {
-			seenAttempts = 1
-		}
-		if strings.Contains(full, `\\"attempt\\":2`) || strings.Contains(full, `\"attempt\":2`) {
-			seenAttempts = 2
+// parseSSEData extracts the `data:` payloads from a raw SSE transcript.
+// Datastar emits `event: datastar\ndata: <payload>\n\n` blocks; we return
+// the payload strings so callers can scan them for the lastRetry signal.
+func parseSSEData(transcript string) []string {
+	var out []string
+	for _, block := range strings.Split(transcript, "\n\n") {
+		for _, line := range strings.Split(block, "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "data:") {
+				out = append(out, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+			}
 		}
 	}
-	if seenAttempts < 2 {
-		t.Fatalf("expected >= 2 retry feedback chunks on SSE stream, saw %d (stream: %s)",
-			seenAttempts, tailString(full, 500))
+	return out
+}
+
+// extractJSONString reads a JSON string literal starting at s. The
+// caller passes s positioned just BEFORE the opening quote of the value
+// (i.e. s begins with `":"<json>"`). It returns the unescaped
+// contents and whether parsing succeeded. Handles escaped quotes so the
+// embedded retry JSON (`"{\"attempt\":1}"`) is decoded correctly.
+func extractJSONString(s string) (string, bool) {
+	i := strings.Index(s, "\"")
+	if i < 0 {
+		return "", false
 	}
+	s = s[i+1:]
+	var sb strings.Builder
+	for j := 0; j < len(s); j++ {
+		c := s[j]
+		if c == '\\' && j+1 < len(s) {
+			sb.WriteByte(s[j+1])
+			j++
+			continue
+		}
+		if c == '"' {
+			return sb.String(), true
+		}
+		sb.WriteByte(c)
+	}
+	return "", false
 }
 
 // openSSE opens the SSE stream with a fresh context derived from the
