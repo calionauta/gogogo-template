@@ -36,15 +36,16 @@ services:
     env_file:
       - /home/deploy/gogogo-fullstack-template/secrets/gogogo-fullstack-template.env
     volumes:
-      # Bind mount (not Docker volume) for two reasons:
-      # 1. New volumes start owned by root, which conflicts with the
-      #    container running as USER 65532. Bind mounts are pre-existing
-      #    directories and the deploy script (scripts/deploy-prod.sh)
-      #    creates /var/lib/<APP_NAME>/data with the correct ownership
-      #    before starting the container.
-      # 2. Operators can inspect, back up, and copy the SQLite WAL files
-      #    without docker exec — see scripts/db-tools/ for helpers.
-      - /var/lib/${APP_NAME:-gogogo-fullstack-template}/data:/var/lib/${APP_NAME:-gogogo-fullstack-template}/data
+      # Bind mount (not Docker volume) so operators can inspect/back up
+      # the SQLite WAL files without docker exec (see scripts/db-tools/).
+      #
+      # Host source is /home/deploy/<APP_NAME>/data (NOT /var/lib): the
+      # deploy user is non-root and cannot mkdir/chown under /var/lib, so
+      # the deploy script creates + ACLs the dir under /home/deploy and
+      # grants container uid 65532 write access. The container target
+      # stays /var/lib/<APP_NAME>/data — that is what the app's DATA_DIR
+      # env points at, so the in-container path is unchanged.
+      - /home/deploy/${APP_NAME:-gogogo-fullstack-template}/data:/var/lib/${APP_NAME:-gogogo-fullstack-template}/data
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/health || exit 1"]
       interval: 30s

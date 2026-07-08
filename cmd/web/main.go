@@ -11,6 +11,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/calionauta/gogogo-fullstack-template/config"
 	"github.com/calionauta/gogogo-fullstack-template/db"
@@ -74,10 +75,17 @@ func run() error {
 
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	// PocketBase v0.39+ uses a Cobra root command. pb.Start() calls
-	// RootCmd.Execute() internally, so we must set the args on the
-	// command (not os.Args — that confuses the help printer and makes
-	// it exit 1 with the usage text). 'serve' is the default subcommand.
-	pb.RootCmd.SetArgs([]string{"serve", "--http", addr})
+	// RootCmd.Execute() internally, so we set the args on the command
+	// (not os.Args — that confuses the help printer and makes it exit
+	// 1 with the usage text). Default to `serve` with our bind addr
+	// when no subcommand is given, but pass through any explicit
+	// subcommand (e.g. `superuser upsert`, `migrate`) so CLI admin
+	// tasks work instead of always forcing `serve`.
+	args := os.Args[1:]
+	if len(args) == 0 {
+		args = []string{"serve", "--http", addr}
+	}
+	pb.RootCmd.SetArgs(args)
 
 	log.Printf("listening on %s", addr)
 	if startErr := pb.Start(); startErr != nil {

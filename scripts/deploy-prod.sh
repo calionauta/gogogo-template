@@ -32,7 +32,15 @@ SECRETS_DIR="${APP_DIR}/secrets"
 SECRETS_FILE="${SECRETS_DIR}/${PROJECT}.env"
 # Bind mount location for PocketBase SQLite WAL files. Must match
 # the host path inside deploy/docker-compose.prod.yml.
-DATA_DIR="/var/lib/${PROJECT}/data"
+#
+# IMPORTANT: lives under /home/deploy (owned by the deploy user), NOT
+# /var/lib. The deploy user is non-root and CANNOT mkdir/chown under
+# /var/lib (root-owned) — that was the original bug: the script aborted
+# at `chown 65532:65532 /var/lib/.../data` and the container then
+# crashed with sqlite3: permission denied. Keeping the data dir inside
+# /home/deploy lets the deploy user create it and grant the container
+# (uid 65532) write access without root.
+DATA_DIR="/home/deploy/${PROJECT}/data"
 COMPOSE_FILE="${COMPOSE_DIR}/docker-compose.prod.yml"
 
 cd "${APP_DIR}"
@@ -71,13 +79,30 @@ if [ -f "${SECRETS_FILE}" ]; then
 fi
 
 # ── 4. Data dir ownership (PocketBase writes here) ──
-# The compose file bind-mounts /var/lib/${PROJECT}/data. We create
-# that path on the host with the correct ownership (65532) so the
-# container (USER 65532:65532) can read/write SQLite WAL files
-# without hitting "permission denied" on first start.
+# The compose file bind-mounts ${DATA_DIR} (host) onto
+# /var/lib/${PROJECT}/data (container). The deploy user is non-root
+# and CANNOT chown to an arbitrary UID (65532). We therefore grant the
+# container write access a different way:
+#   1. Try `sudo -n chown -R` only if passwordless sudo is configured
+#      (harmless no-op otherwise).
+#   2. Prefer an ACL granting uid 65532 rwx (no other users affected),
+#      applied RECURSIVELY (-R) with a DEFAULT acl (-d) so subdirs the
+#      app or the calling workflow pre-create (e.g. data/pb_data) also
+#      grant uid 65532 rwx. Without this the container (running as
+#      65532) cannot write its SQLite WAL files and crashes with
+#      permission denied.
+#   3. Fall back to world-writable (chmod -R 0777) if setfacl is absent.
 mkdir -p "${DATA_DIR}"
-chown 65532:65532 "${DATA_DIR}"
-chmod 0750 "${DATA_DIR}"
+if sudo -n true 2>/dev/null; then
+    sudo -n chown -R 65532:65532 "${DATA_DIR}" 2>/dev/null || true
+fi
+if command -v setfacl >/dev/null 2>&1; then
+    setfacl -R -m u:65532:rwx -d -m u:65532:rwx "${DATA_DIR}" 2>/dev/null \
+        || chmod -R 0777 "${DATA_DIR}"
+else
+    chmod -R 0777 "${DATA_DIR}"
+fi
+echo "→ Data dir ready: ${DATA_DIR} (container uid 65532 gets rwx via ACL or 0777)"
 
 # ── 5. Roll the container ──
 # Build context is the repo checkout (cloned/updated by the GH
