@@ -115,9 +115,22 @@ this implies:
 
 - Register all routes DIRECTLY on `se.Router` inside the existing
   router.OnServe hook — no nested `app.OnServe().BindFunc`. If you need
-  middleware that runs on every route, set it up once at app boot (see
-  `db/pocketbase.go` and the `LoadAuthFromCookie` middleware) or via
-  `se.Router.BindFunc` BEFORE adding routes.
+  middleware that runs on every route, register it via
+  `se.Router.BindFunc(...)` BEFORE adding routes (e.g. the global
+  `auth.LoadAuthFromCookie` middleware is wired this way in
+  `router.Init` — `e.Auth` is nil on every request otherwise and custom
+  routes bounce to `/login`).
+- **PocketBase installs a catch-all dashboard route
+  (`e.Router.GET("/{path...}", apis.Static(...))`, see
+  `apis/base.go`) that requires superuser auth and redirects
+  unauthenticated requests to `/login`. That catch-all SHADOWS any
+  wildcard route you register (e.g. `/static/*`) — the handler is
+  never reached, so every `/static/*` request 303-redirects to `/login`
+  and the browser chokes on the HTML when it expected CSS/JS.** Echo
+  gives EXACT routes the highest priority, so serve embedded static
+  assets via one EXACT route per file (walk the embedded FS in
+  `router.Init`), not a wildcard. Proven fix: `router.go` registers
+  `/static/<file>` exactly.
 - Group middlewares (`se.Router.BindFunc(...)`) are concatenated into
   every route by `loadMux` regardless of registration order. Order
   inside the chain comes from the order of `BindFunc` calls on the
@@ -190,8 +203,23 @@ The project assumes the canonical layout under `/home/deploy/<app>/`:
   bin/         gogogo-fullstack-template (replaced atomically on every deploy)
   compose/     docker-compose.prod.yml (also replaced on every deploy)
   secrets/     gogogo-fullstack-template.env (mode 0600, regenerated from GH Secrets)
-  data/        pb_data/ (Docker volume, persistent)
-```
+  data/        SQLite bind-mount dir (persistent). Owned by the
+              `deploy` user; the container runs as uid 65532 and gets
+              rwx via `setfacl -R -m u:65532:rwx -d -m u:65532:rwx`
+              (or `chmod -R 0777` fallback) applied in
+              `scripts/deploy-prod.sh`. NEVER `chown 65532:65532` — the
+              deploy user is non-root and that fails, crashing the
+              container with `sqlite3: permission denied`.
+
+> **Deploy permission gotcha (cost a CI run).** The `deploy` user has
+> no passwordless sudo and cannot `chown`/`mkdir` under `/var/lib`
+> (root-owned). Keep the data dir under `/home/deploy` and grant the
+> container write access with `setfacl`/`chmod`, never `chown`. Also:
+> the GitHub Action does `git -C <repo> pull --ff-only` in its
+> "Ensure layout" step — so **never `scp` edited files into the server's
+> repo clone** (`/home/deploy/<app>/repo`); it dirties the tree and the
+> `git pull` aborts, failing the whole deploy. Push to `master` instead.
+> See PLAN.md Bug #7.```
 
 The `deploy` user (no passwordless sudo) owns the layout. `/home/deploy` is writable; `/opt` is root-owned and not used. If you already have a project at a different path, `APP_DIR` in `scripts/deploy-prod.sh` is the only constant to change.
 

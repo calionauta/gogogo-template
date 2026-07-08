@@ -1,6 +1,7 @@
 package router
 
 import (
+	"io/fs"
 	"net/http"
 
 	"github.com/pocketbase/pocketbase"
@@ -36,13 +37,45 @@ func Init(
 	todoH *handlers.TodoHandler,
 ) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		// Global auth middleware: populate e.Auth from the pb_auth cookie
+		// on every request so custom route handlers can check e.Auth != nil.
+		// (Defined in features/auth but only wired here — the test harness
+		// wires its own copy.) Must run before route handlers read e.Auth.
+		se.Router.BindFunc(auth.LoadAuthFromCookie)
+
 		se.Router.GET("/health", func(c *core.RequestEvent) error {
 			return c.String(200, "ok")
 		})
 
-		se.Router.GET("/static/*", func(c *core.RequestEvent) error {
-			fs := http.StripPrefix("/static/", http.FileServer(resources.StaticFS()))
-			fs.ServeHTTP(c.Response, c.Request)
+		// Serve embedded static assets (CSS, JS, images).
+		//
+		// PocketBase registers a catch-all dashboard route
+		// (`e.Router.GET("/{path...}", apis.Static(...))`) that requires
+		// superuser auth and redirects unauthenticated requests to /login.
+		// That catch-all SHADOWS any wildcard route we register (e.g.
+		// /static/*) — the handler is never reached, so every /static/*
+		// request 303-redirects to /login and the browser chokes on the
+		// HTML response when it expected CSS/JS (strict MIME checking).
+		//
+		// Echo gives EXACT routes the highest priority, so we register
+		// one exact route per embedded file under /static/. Exact routes
+		// win over the catch-all, the assets are served with correct MIME
+		// types, and no auth is required (the dashboard auth is per-route,
+		// not a global guard — proven by /api/todos serving unauthed).
+		staticFS := resources.StaticFS()
+		fs.WalkDir(staticFS, ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			route := "/static/" + path
+			se.Router.GET(route, func(c *core.RequestEvent) error {
+				hs := http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))
+				hs.ServeHTTP(c.Response, c.Request)
+				return nil
+			})
 			return nil
 		})
 

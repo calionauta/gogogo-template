@@ -1,11 +1,8 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
-	"os"
 	"strconv"
-	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -34,19 +31,6 @@ func RegisterAuth(se *core.ServeEvent) {
 	se.Router.POST("/login", HandlePasswordLogin)
 	se.Router.POST("/logout", HandleLogout)
 
-	// TEMP DEBUG (revert before next release)
-	se.Router.BindFunc(func(e *core.RequestEvent) error {
-		if strings.HasPrefix(e.Request.URL.Path, "/api/collections/_superusers") {
-			coll := "<nil>"
-			if e.Auth != nil {
-				coll = e.Auth.Collection().Name
-			}
-			fmt.Fprintf(os.Stderr, "DEBUG: path=%s auth_set=%v collection=%s auth_header=%q\n",
-				e.Request.URL.Path, e.Auth != nil, coll,
-				e.Request.Header.Get("Authorization"))
-		}
-		return e.Next()
-	})
 }
 
 // HandleLoginGetForTest is the exported alias used by features that

@@ -50,16 +50,15 @@ routes directly on `se.Router` inside the existing top-level
 router.OnServe hook. See AGENTS.md §"Wiring HTTP routes" for the
 full rule and `http://localhost:8080/<path>` curl recipes.
 
-**Follow-up still pending (manual, dashboard-only):** the Cloudflare
-Tunnel `b56a1467-...` does not include `gogogo.calionauta.com`
-in its local ingress config (DNS CNAME points at the tunnel, but
-cloudflared doesn't have a rule for that hostname). Until the
-tunnel config is updated in the Cloudflare Zero Trust dashboard,
-requests to `gogogo.calionauta.com` resolve through Cloudflare
-Edge but don't terminate at the local server. Operator action:
-https://dash.cloudflare.com → `calionauta.com` → Zero Trust →
-Networks → Tunnels → current tunnel → Public hostname → add
-`gogogo.calionauta.com` → service `http://127.0.0.1:8080`.
+**Follow-up (2026-07-08):** the first superuser for
+`gogogo.calionauta.com` was created via the install UI this session,
+and the app was verified working (after Bug #8). The site is
+reachable at `gogogo.calionauta.com` (Cloudflare Tunnel terminates
+at the server). Remaining operator action is **Cloudflare Access**
+(step 4): put an Access policy / login wall in front of
+`gogogo.calionauta.com` so the PocketBase superuser / install UI
+can't be brute-forced from the public internet. See the step-4 notes
+in the session handoff.
 
 ---
 
@@ -84,15 +83,18 @@ the same deploy runner.
 
 ## 5. Pending cleanups
 
-- [ ] `/home/deploy/gogogo-template/` (legacy deploy dir on the
-      server) can be removed once `gogogo-fullstack-template` is
-      stable for a full week
+- [x] `/home/deploy/gogogo-template/` (legacy deploy dir on the
+      server) removed 2026-07-08 — `gogogo-fullstack-template` is
+      stable (superuser created, app verified working).
+- [x] First superuser for `gogogo.calionauta.com` created via the
+      install UI 2026-07-08 (see Bug #6 status).
+- [ ] **Cloudflare Access (step 4):** put an Access policy / login
+      wall in front of `gogogo.calionauta.com` (same pattern as
+      `server-treinador.calionauta.com`) so the PB superuser / install
+      UI can't be brute-forced. See session handoff notes.
 - [ ] Old `gogogo.calionauta.com` install link JWTs have all expired
       — current install link printed by `docker logs` on every
-      restart; operator creates superuser via the UI at that link
-- [ ] The first superuser for `gogogo.calionauta.com` has not yet
-      been created — operator must open the install link and submit
-      the form (see Bug #6 status)
+      restart; no longer needed now that the superuser exists.
 
 ---
 
@@ -124,16 +126,103 @@ container runs as root (rare for production).
 
 ---
 
+## 7. Bug #7 — deploy permission gotcha: `chown 65532:65532` fails as non-root (RESOLVED 2026-07-08)
+
+**Symptom**: `scripts/deploy-prod.sh` aborts at
+`chown 65532:65532 /var/lib/<APP>/data` — the `deploy` user is
+non-root and **cannot chown to an arbitrary UID**. The GitHub Action
+run goes red, and if the container is later started by hand the data
+dir is wrong-owned → `sqlite3: permission denied` crash loop. (This
+is what broke run `28975753469`.)
+
+**Why the earlier "fix" (commit `2c8a1f6`) was incomplete**: it
+switched to a bind mount but *still* ran `chown 65532:65532`, which
+the non-root `deploy` user cannot do. That chown only ever worked
+when someone manually `sudo`-ed it once on the server.
+
+**Real fix (commit `8ff3f12`, this session)**:
+- `scripts/deploy-prod.sh`: data dir moved to
+  `/home/deploy/<APP>/data` (deploy-owned; `/var/lib` is root-owned
+  and untouchable). Write access for container uid 65532 granted via
+  `setfacl -R -m u:65532:rwx -d -m u:65532:rwx` (or `chmod -R 0777`
+  fallback). No `chown` to 65532 anywhere.
+- `deploy/docker-compose.prod.yml`: host source is now
+  `/home/deploy/<APP>/data`; container target stays
+  `/var/lib/<APP>/data` (so the in-container `DATA_DIR` env is
+  unchanged).
+- Recursive + default ACL matters: the workflow's "Ensure layout"
+  step pre-creates `data/pb_data` as the deploy user, so the default
+  ACL lets uid 65532 still write into it.
+
+**Second, silent failure mode**: the GitHub Action does
+`git -C <repo> pull --ff-only` in "Ensure layout". If you `scp`
+edited files into the server's repo clone (`/home/deploy/<APP>/repo`)
+to test a deploy, the dirty tree makes `git pull` abort and the whole
+deploy fails. **Always push to `master`; never scp into the repo
+clone.** (This bit us during the 2026-07-08 session and was fixed by
+`git -C repo checkout -- . && reset --hard origin/master` then
+re-running the workflow.)
+
+See AGENTS.md §Deploy and §"Wiring HTTP routes".
+
+---
+
+## 8. Bug #8 — static assets 303-redirect + auth middleware never wired (RESOLVED 2026-07-08)
+
+**Symptom**: app loads with no styling; console shows
+`Refused to apply style from '…/login' because its MIME type
+('text/html') is not a supported stylesheet MIME type` and
+`Failed to load module script … MIME type of "text/html"`. The
+sign-in button looked dead.
+
+**Root cause (two independent bugs)**:
+1. PocketBase registers a catch-all dashboard route
+   `e.Router.GET("/{path...}", apis.Static(...))`
+   (`apis/base.go`) that requires superuser and redirects
+   unauthenticated requests to `/login`. That catch-all SHADOWS any
+   wildcard route we register (e.g. `/static/*`) — the handler is
+   never reached, so every `/static/*` request is 303-redirected to
+   `/login` and the browser gets HTML where it expected CSS/JS.
+2. `LoadAuthFromCookie` was only wired in the *test* harness
+   (`fixture_test.go`), never in production. So `e.Auth` was always
+   nil → every authed page (`/`) bounced to `/login` even with a
+   valid `pb_auth` cookie. (This was the real reason the install
+   debug log showed `e.Auth` nil — not a stale JWT.)
+
+**Fix (this session, same commit wave as Bug #7)**:
+- `router/router.go`: serve embedded static assets via one EXACT
+  route per file (`fs.WalkDir` over `resources.StaticFS()`, register
+  `/static/<file>` exactly). Exact routes beat PB's catch-all.
+- `web/resources/resources.go`: `StaticFS()` now returns `fs.FS`
+  (was `http.FileSystem`).
+- `router/router.go`: wire
+  `se.Router.BindFunc(auth.LoadAuthFromCookie)` as a global
+  middleware so `e.Auth` is populated on every request.
+- Removed the temporary debug `BindFunc` from
+  `features/auth/wiring.go`.
+
+**Lesson**: never register a wildcard route to serve unauthenticated
+files — PB's `{path...}` catch-all owns every unmatched path. Use
+exact routes, or serve from PB's own `pb_public` dir. And any
+middleware a test harness wires (like `LoadAuthFromCookie`) MUST also
+be wired in production, or `e.Auth` is silently nil everywhere.
+
+---
+
 ## Notes for whoever picks this up
 
 - The deploy pipeline is **Pattern B** (shell key, image built on
   server) — see `~/.agents/skills/cali-ops-deploy-github-tailscale/`
   for the two patterns and when to use each.
 - The redirect-loop and `http.ServeMux` subtree-matching gotchas are
-  documented in AGENTS.md §"Wiring HTTP routes".
+  documented in AGENTS.md §"Wiring HTTP routes". The static-asset
+  catch-all + unwired-auth-middleware gotchas are Bug #8.
 - The privacy filter-repo pass is documented in the git history;
   backup mirror at `~/backups/gogogo-template-*.git/`.
-- For PocketBase permissions, the rule is: **`scripts/deploy-prod.sh`
-  creates `/var/lib/<APP_NAME>/data` with `chown 65532:65532`**,
-  and `deploy/docker-compose.prod.yml` bind-mounts it. Don't switch
-  to named volumes unless the container runs as root.
+- For PocketBase permissions, the rule is: **data dir lives under
+  `/home/deploy/<APP>/data`** (deploy-owned), and
+  `scripts/deploy-prod.sh` grants container uid 65532 rwx via
+  `setfacl -R -m u:65532:rwx -d -m u:65532:rwx` (or `chmod -R 0777`).
+  Never `chown 65532:65532` (the deploy user is non-root and it
+  fails). `deploy/docker-compose.prod.yml` bind-mounts
+  `/home/deploy/<APP>/data` → `/var/lib/<APP>/data`.
