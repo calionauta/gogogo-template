@@ -4,7 +4,7 @@ A starting point for web projects in Go. Single binary, zero SaaS, LLM-friendly.
 
 ---
 
-Every Go web project I start ends up in the same conversation: pick a database, queue, template engine, auth, deploy… and the project stalls on the decision, not the code.
+Every Go web project I start ends up in the same conversation: pick a database, auth, router, reactive UI framework, task queue… and the project stalls at the decisions, installations, and configurations — not the code.
 
 This template is my attempt at a starting point that already resolves those choices without locking you into a closed ecosystem.
 
