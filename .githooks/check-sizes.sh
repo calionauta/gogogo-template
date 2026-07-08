@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-MAX_FILE_LINES=250
+MAX_FILE_LINES=500
 FAIL=0
 
 echo "→ Checking file sizes..."

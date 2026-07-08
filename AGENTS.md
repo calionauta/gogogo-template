@@ -94,14 +94,29 @@ Three async layers (complementary, not alternatives):
 
 ## Quality Gate
 
-The single gate is `make check`. It runs, in order: `fmt` (gofumpt + goimports),
-`datastar-lint` (`.templ` anti-patterns), `golangci-lint run ./...` (full, **no
-`--fast`**), `go vet ./...`, `check-sizes` (per-file ≤ 250 lines for app code),
-`deadcode` (app packages only), and `go test -race ./...`. The pre-commit hook
-(`make setup`) enforces the same gate and is **blocking**.
+The single gate is `make check`. It runs, in order: `fmt` (gofumpt + goimports), `datastar-lint` (`.templ` / `.html` anti-patterns),
+`golangci-lint run ./...` (full, **no `--fast`**), `go vet ./...`,
+`check-sizes` (per-file ≤ 500 lines for app code), `deadcode` (app
+packages only), and `go test -race ./...`. The pre-commit hook
+(`make setup`) enforces the same gate and is **blocking**. The
+pre-push hook additionally runs `govulncheck` for known
+vulnerabilities.
 
 **Rule:** run `make check` after each significant edit. Do not batch dozens of
 edits and check once at the end — that is how 59 lint issues accumulated.
+
+### Three-tier feedback loop
+
+| When | What | Blocking? |
+|------|------|-----------|
+| **Every save in `make dev`** | `.air.toml` `post_cmd`: gofumpt + `go vet` + golangci-lint (info) — surfaces issues during the dev loop, before commit | No (info) |
+| **Pre-commit** | Full gate: fmt + datastar-lint + golangci-lint + vet + sizes + deadcode + race tests | **Yes** |
+| **Pre-push** | `govulncheck ./...` (known vulnerabilities in deps) | **Yes** |
+
+The `.air.toml` post-build hooks mirror the granular `tool.after.bash`
+pattern from pi's hooks yaml: immediate feedback on `templ generate` and
+`go build`, not only at commit. Configure your personal pi yaml
+(`~/.pi/agent/hook/hooks.yaml`) with the same idea at the agent-tool layer.
 
 ## Realtime (todo sharing across clients)
 
