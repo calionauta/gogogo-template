@@ -6,11 +6,11 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 
-	"github.com/calionauta/gogogo-template/config"
-	"github.com/calionauta/gogogo-template/features/auth"
-	"github.com/calionauta/gogogo-template/features/todo/handlers"
-	"github.com/calionauta/gogogo-template/internal/queue"
-	"github.com/calionauta/gogogo-template/web/resources"
+	"github.com/calionauta/gogogo-fullstack-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/features/auth"
+	"github.com/calionauta/gogogo-fullstack-template/features/todo/handlers"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/web/resources"
 )
 
 // WorkflowRuntime is a marker for the Turbine runtime. The router only

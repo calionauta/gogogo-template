@@ -133,7 +133,7 @@ func WelcomeOnboarding(ctx turbine.Context, user string) ([]ExampleTodo, error) 
 	_ = greeting // could be surfaced via a progress channel; omitted for brevity
 
 	titles := []string{
-		"Read the gogogo-template README",
+		"Read the gogogo-fullstack-template README",
 		"Explore the Turbine workflow",
 		"Build something with the stack",
 	}
@@ -190,7 +190,7 @@ func New(cfg Config, logger *slog.Logger) (*Runtime, error) {
 
 	tcfg := turbine.Config{
 		ExecutorID:         cfg.ExecutorID,
-		ApplicationVersion: "gogogo-template",
+		ApplicationVersion: "gogogo-fullstack-template",
 		Logger:             logger,
 	}
 

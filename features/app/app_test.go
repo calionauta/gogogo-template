@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calionauta/gogogo-template/config"
-	"github.com/calionauta/gogogo-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
 
 func TestNew_StoresAllFields(t *testing.T) {

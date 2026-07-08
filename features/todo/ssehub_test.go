@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calionauta/gogogo-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
 
 func TestSSEHubRegisterAndSend(t *testing.T) {

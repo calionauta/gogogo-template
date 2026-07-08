@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calionauta/gogogo-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/config"
 )
 
 func TestQueueEnqueueAndReceive(t *testing.T) {

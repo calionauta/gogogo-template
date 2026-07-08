@@ -1,4 +1,4 @@
-# docker-compose.prod.yml — production deployment for gogogo-template.
+# docker-compose.prod.yml — production deployment for gogogo-fullstack-template.
 # Used by:
 #   - GitHub Actions deploy workflow (via ssh-action on the server)
 #   - The on-server script scripts/deploy-prod.sh
@@ -7,15 +7,15 @@
 # Secrets come from secrets/${APP_NAME}.env (mode 600, regenerated
 # every deploy from GitHub Actions secrets — never committed).
 
-name: gogogo-template
+name: gogogo-fullstack-template
 
 services:
-  gogogo-template:
+  gogogo-fullstack-template:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.prod
-    image: gogogo-template:prod
-    container_name: gogogo-template
+    image: gogogo-fullstack-template:prod
+    container_name: gogogo-fullstack-template
     restart: unless-stopped
     user: "65532:65532"
     ports:
@@ -23,20 +23,20 @@ services:
     environment:
       # Non-secret env (from .env) — defaults baked in but can be overridden
       # in the .env file.
-      APP_NAME: ${APP_NAME:-gogogo-template}
+      APP_NAME: ${APP_NAME:-gogogo-fullstack-template}
       APP_URL: ${APP_URL:-https://fullstack.example.com}
       HOST: 0.0.0.0
       PORT: "8080"
       ENVIRONMENT: ${ENVIRONMENT:-production}
-      DATA_DIR: /var/lib/gogogo-template/data
+      DATA_DIR: /var/lib/gogogo-fullstack-template/data
       # LLM (these three lines are wired by the GH Action; the
       # production .env may also override).
       GOAI_BASE_URL: ${GOAI_BASE_URL:-https://api.openai.com/v1}
       GOAI_MODEL: ${GOAI_MODEL:-gpt-4o-mini}
     env_file:
-      - /home/deploy/gogogo-template/secrets/gogogo-template.env
+      - /home/deploy/gogogo-fullstack-template/secrets/gogogo-fullstack-template.env
     volumes:
-      - gogogo-template-data:/var/lib/gogogo-template/data
+      - gogogo-fullstack-template-data:/var/lib/gogogo-fullstack-template/data
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/health || exit 1"]
       interval: 30s
@@ -50,5 +50,5 @@ services:
         max-file: "3"
 
 volumes:
-  gogogo-template-data:
-    name: gogogo-template-data
+  gogogo-fullstack-template-data:
+    name: gogogo-fullstack-template-data

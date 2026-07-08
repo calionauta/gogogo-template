@@ -17,12 +17,12 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
 
-	"github.com/calionauta/gogogo-template/config"
-	"github.com/calionauta/gogogo-template/features/todo"
-	"github.com/calionauta/gogogo-template/features/todo/components"
-	"github.com/calionauta/gogogo-template/internal/llm"
-	"github.com/calionauta/gogogo-template/internal/nats"
-	"github.com/calionauta/gogogo-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/features/todo"
+	"github.com/calionauta/gogogo-fullstack-template/features/todo/components"
+	"github.com/calionauta/gogogo-fullstack-template/internal/llm"
+	"github.com/calionauta/gogogo-fullstack-template/internal/nats"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
 
 // HTTP status codes used by the handlers. Centralized so the lint
@@ -140,7 +140,7 @@ func (h *TodoHandler) handleIndex(c *core.RequestEvent) error {
 		SuggestErr:   "",
 	}
 	c.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	return components.Layout("Todos \u2014 gogogo-template", signals, userEmail).Render(c.Request.Context(), c.Response)
+	return components.Layout("Todos \u2014 gogogo-fullstack-template", signals, userEmail).Render(c.Request.Context(), c.Response)
 }
 
 // RegisterRoutesOn registers the same routes on a raw router for tests

@@ -14,10 +14,10 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
 
-	"github.com/calionauta/gogogo-template/config"
-	"github.com/calionauta/gogogo-template/features/todo/handlers"
-	"github.com/calionauta/gogogo-template/internal/queue"
-	"github.com/calionauta/gogogo-template/internal/workflow"
+	"github.com/calionauta/gogogo-fullstack-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/features/todo/handlers"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/internal/workflow"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
@@ -134,7 +134,7 @@ func TestOnboarding_StartCreatesThreeTodos(t *testing.T) {
 
 	// Poll the "todos" collection until all three durable steps land.
 	want := []string{
-		"Read the gogogo-template README",
+		"Read the gogogo-fullstack-template README",
 		"Explore the Turbine workflow",
 		"Build something with the stack",
 	}

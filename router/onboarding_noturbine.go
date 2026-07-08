@@ -6,7 +6,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 
-	"github.com/calionauta/gogogo-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
 
 // registerOnboarding is a no-op when Turbine is not enabled. The router

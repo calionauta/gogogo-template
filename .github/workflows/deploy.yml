@@ -15,7 +15,7 @@
 # Secrets are NEVER stored long-term on the server: every deploy
 # re-renders the secrets file from GitHub Actions secrets, which
 # are the single source of truth. The previous binary is kept as
-# `gogogo-template.previous` so an operator can roll back instantly.
+# `gogogo-fullstack-template.previous` so an operator can roll back instantly.
 #
 # Required GitHub Actions secrets (Settings > Secrets > Actions):
 #   Tailscale (OIDC workload identity federation — no static secret):
@@ -88,13 +88,13 @@ jobs:
           mkdir -p bin
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
               -trimpath -ldflags="-s -w" \
-              -o bin/gogogo-template.new ./cmd/web/
+              -o bin/gogogo-fullstack-template.new ./cmd/web/
 
       - name: Stash binary
         uses: actions/upload-artifact@v4
         with:
-          name: gogogo-template-linux-amd64
-          path: bin/gogogo-template.new
+          name: gogogo-fullstack-template-linux-amd64
+          path: bin/gogogo-fullstack-template.new
 
   # ─────────────────────────────────────────────
   # 2. Deploy via Tailscale SSH
@@ -143,7 +143,7 @@ jobs:
       - name: Download built binary
         uses: actions/download-artifact@v4
         with:
-          name: gogogo-template-linux-amd64
+          name: gogogo-fullstack-template-linux-amd64
           path: dist/
 
       # Write the secrets file with mode 600 BEFORE any container
@@ -181,7 +181,7 @@ jobs:
             User $DEPLOY_USER
           EOF
           chmod 0600 ~/.ssh/config
-          APP_NAME="gogogo-template"
+          APP_NAME="gogogo-fullstack-template"
           SECRETS_DIR="/home/deploy/${APP_NAME}/secrets"
           ssh $DEPLOY_HOST "set -euo pipefail
             mkdir -p \"$SECRETS_DIR\"
@@ -195,14 +195,14 @@ jobs:
             echo '✓ secrets file written (mode 600)'
           "
 
-      # SCP the new binary to /home/deploy/gogogo-template/bin/ as .new so
+      # SCP the new binary to /home/deploy/gogogo-fullstack-template/bin/ as .new so
       # the on-server script can atomically swap it.
       - name: Copy binary to server
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           set -euo pipefail
-          scp -P 2222 dist/gogogo-template.new $DEPLOY_HOST:/home/deploy/gogogo-template/bin/gogogo-template.new
+          scp -P 2222 dist/gogogo-fullstack-template.new $DEPLOY_HOST:/home/deploy/gogogo-fullstack-template/bin/gogogo-fullstack-template.new
 
       # SCP the compose file (overwriting the previous one).
       - name: Copy compose file
@@ -210,7 +210,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           set -euo pipefail
-          scp -P 2222 deploy/docker-compose.prod.yml $DEPLOY_HOST:/home/deploy/gogogo-template/compose/docker-compose.prod.yml
+          scp -P 2222 deploy/docker-compose.prod.yml $DEPLOY_HOST:/home/deploy/gogogo-fullstack-template/compose/docker-compose.prod.yml
 
       # Ensure the directory layout exists, pull the latest source so
       # the on-server script and the scripts dir are current, then run
@@ -222,20 +222,20 @@ jobs:
         run: |
           set -euo pipefail
           ssh $DEPLOY_HOST "set -euo pipefail
-            APP_NAME=\"gogogo-template\"
+            APP_NAME=\"gogogo-fullstack-template\"
             APP_DIR=\"/home/deploy/\${APP_NAME}\"
             for d in bin compose env scripts secrets data/pb_data; do
              mkdir -p \"\${APP_DIR}/\${d}\"
            done
 
-            if [ ! -d \"/home/deploy/gogogo-template/repo\" ]; then
-              git clone \"https://github.com/${{ github.repository }}.git\" \"/home/deploy/gogogo-template/repo\"
+            if [ ! -d \"/home/deploy/gogogo-fullstack-template/repo\" ]; then
+              git clone \"https://github.com/${{ github.repository }}.git\" \"/home/deploy/gogogo-fullstack-template/repo\"
             else
-              git -C \"/home/deploy/gogogo-template/repo\" pull --ff-only
+              git -C \"/home/deploy/gogogo-fullstack-template/repo\" pull --ff-only
             fi
 
-            cp \"/home/deploy/gogogo-template/repo/.env\" \"\${APP_DIR}/env/.env\" 2>/dev/null || true
-            cp \"/home/deploy/gogogo-template/repo/scripts/deploy-prod.sh\" \"\${APP_DIR}/scripts/deploy-prod.sh\"
+            cp \"/home/deploy/gogogo-fullstack-template/repo/.env\" \"\${APP_DIR}/env/.env\" 2>/dev/null || true
+            cp \"/home/deploy/gogogo-fullstack-template/repo/scripts/deploy-prod.sh\" \"\${APP_DIR}/scripts/deploy-prod.sh\"
             chmod 0700 \"\${APP_DIR}/scripts/deploy-prod.sh\"
 
             bash \"\${APP_DIR}/scripts/deploy-prod.sh\"

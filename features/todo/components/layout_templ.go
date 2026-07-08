@@ -9,8 +9,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/calionauta/gogogo-template/features/auth"
-	"github.com/calionauta/gogogo-template/features/todo"
+	"github.com/calionauta/gogogo-fullstack-template/features/auth"
+	"github.com/calionauta/gogogo-fullstack-template/features/todo"
 )
 
 // Layout wraps the todo app in a full HTML document with:

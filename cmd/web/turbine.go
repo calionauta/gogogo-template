@@ -5,8 +5,8 @@ package main
 import (
 	"log"
 
-	"github.com/calionauta/gogogo-template/config"
-	"github.com/calionauta/gogogo-template/internal/workflow"
+	"github.com/calionauta/gogogo-fullstack-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/internal/workflow"
 )
 
 var turbineRuntime *workflow.Runtime

@@ -1,7 +1,7 @@
-# gogogo-template
+# gogogo-fullstack-template
 
 <p align="center">
-  <img src="web/resources/static/logo.png" alt="gogogo-template" width="512">
+  <img src="web/resources/static/logo.png" alt="gogogo-fullstack-template" width="512">
 </p>
 
 A starting point for web projects in Go. Single binary, zero external services, LLM-friendly.
@@ -132,7 +132,7 @@ It's not a framework. There's no lock-in. Each piece can be replaced individuall
 Use this template (green **Use this template** button above) or clone it:
 
 ```bash
-git clone https://github.com/calionauta/gogogo-template.git my-project
+git clone https://github.com/calionauta/gogogo-fullstack-template.git my-project
 cd my-project
 make dev
 ```
@@ -190,16 +190,16 @@ Pick a directory on your server (e.g. `/opt`) and follow this layout for
 
 ```
 /opt/
-└── gogogo-template/                  ← this project
+└── gogogo-fullstack-template/                  ← this project
     ├── bin/
-    │   ├── gogogo-template             ← current binary (chmod 755)
-    │   └── gogogo-template.previous    ← prior binary, kept for fast rollback
+    │   ├── gogogo-fullstack-template             ← current binary (chmod 755)
+    │   └── gogogo-fullstack-template.previous    ← prior binary, kept for fast rollback
     ├── compose/
     │   └── docker-compose.prod.yml
     ├── env/
     │   └── .env                       ← non-secret env (DATABASE_URL, APP_URL, ...)
     ├── secrets/
-    │   └── gogogo-template.env         ← mode 600, regenerated every deploy from GH Secrets
+    │   └── gogogo-fullstack-template.env         ← mode 600, regenerated every deploy from GH Secrets
     ├── data/
     │   └── pb_data/                    ← persistent volume, survives restarts
     ├── repo/                           ← git clone of this repo (for re-syncing on each deploy)
@@ -221,7 +221,7 @@ Pick a directory on your server (e.g. `/opt`) and follow this layout for
 2. Add the box to your Tailscale tailnet.
 3. Configure a Cloudflare Tunnel that routes your domain (e.g. `fullstack.example.com`)
    to the Tailscale hostname on port 8080.
-4. Clone the repo at `/opt/gogogo-template/repo/` and run `./repo/scripts/setup-server.sh`
+4. Clone the repo at `/opt/gogogo-fullstack-template/repo/` and run `./repo/scripts/setup-server.sh`
    (we ship this in a follow-up; the manual steps are: `mkdir -p bin compose env secrets data/pb_data scripts`).
 5. Add the GitHub Actions secrets (see `.github/workflows/deploy.yml` for the full list).
 
@@ -231,16 +231,16 @@ The workflow at `.github/workflows/deploy.yml` runs on every push to `master` an
 
 1. Builds the project (lint + race tests + CSS build).
 2. Builds the production Docker image (linux/amd64 scratch) in the GH Action runner.
-3. SCPs the new binary to the server as `gogogo-template.new` (atomic swap).
-4. Writes the secrets file (`/opt/gogogo-template/secrets/gogogo-template.env`) with mode 600.
+3. SCPs the new binary to the server as `gogogo-fullstack-template.new` (atomic swap).
+4. Writes the secrets file (`/opt/gogogo-fullstack-template/secrets/gogogo-fullstack-template.env`) with mode 600.
 5. SSHes in and runs `scripts/deploy-prod.sh` which:
-   - Atomically renames `gogogo-template.new` → `gogogo-template` and keeps the old binary as `.previous`.
+   - Atomically renames `gogogo-fullstack-template.new` → `gogogo-fullstack-template` and keeps the old binary as `.previous`.
    - Restarts the container via `docker compose -f docker-compose.prod.yml up -d`.
    - Waits up to 30s for `/health` to return 200.
 6. Prints the new container status + last 20 log lines for confirmation.
 
 Secrets are **never stored long-term on the server**: every deploy
-re-renders `/opt/gogogo-template/secrets/gogogo-template.env` from GitHub
+re-renders `/opt/gogogo-fullstack-template/secrets/gogogo-fullstack-template.env` from GitHub
 Actions secrets. The file is `chmod 600`, owned by the `deploy` user,
 and overwritten on every run — there is no history of secrets on disk.
 

@@ -32,7 +32,7 @@ func Navbar(userEmail string) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<nav class=\"navbar bg-base-100 shadow-sm border-b border-base-300 sticky top-0 z-50 min-h-12 shrink-0 px-4 sm:px-6\"><div class=\"navbar-start\"><div class=\"flex items-center gap-3\"><a href=\"/\" class=\"text-lg font-bold tracking-tight\">gogogo-template</a> <span class=\"badge badge-soft badge-neutral badge-sm font-mono hidden sm:inline-flex\">demo</span></div></div><div class=\"navbar-end gap-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<nav class=\"navbar bg-base-100 shadow-sm border-b border-base-300 sticky top-0 z-50 min-h-12 shrink-0 px-4 sm:px-6\"><div class=\"navbar-start\"><div class=\"flex items-center gap-3\"><a href=\"/\" class=\"text-lg font-bold tracking-tight\">gogogo-fullstack-template</a> <span class=\"badge badge-soft badge-neutral badge-sm font-mono hidden sm:inline-flex\">demo</span></div></div><div class=\"navbar-end gap-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -105,7 +105,7 @@ func LoginPage(next string, errMsg string) templ.Component {
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<!doctype html><html lang=\"en\" data-theme=\"light\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Sign in — gogogo-template</title><link rel=\"stylesheet\" href=\"/static/daisyui.min.css\"><link rel=\"stylesheet\" href=\"/static/app.css\"><script defer type=\"module\" src=\"/static/datastar.js\"></script></head><body class=\"bg-base-200 min-h-screen flex items-center justify-center p-4\"><div class=\"card w-full max-w-md bg-base-100 shadow-xl\"><div class=\"card-body\"><h1 class=\"text-2xl font-bold text-center mb-2\">gogogo-template</h1><p class=\"text-center text-base-content/60 mb-6\">Sign in to manage your todos</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<!doctype html><html lang=\"en\" data-theme=\"light\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Sign in — gogogo-fullstack-template</title><link rel=\"stylesheet\" href=\"/static/daisyui.min.css\"><link rel=\"stylesheet\" href=\"/static/app.css\"><script defer type=\"module\" src=\"/static/datastar.js\"></script></head><body class=\"bg-base-200 min-h-screen flex items-center justify-center p-4\"><div class=\"card w-full max-w-md bg-base-100 shadow-xl\"><div class=\"card-body\"><h1 class=\"text-2xl font-bold text-center mb-2\">gogogo-fullstack-template</h1><p class=\"text-center text-base-content/60 mb-6\">Sign in to manage your todos</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

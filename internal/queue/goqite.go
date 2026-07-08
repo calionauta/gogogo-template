@@ -21,7 +21,7 @@ import (
 	_ "github.com/ncruces/go-sqlite3/driver"
 	"maragu.dev/goqite"
 
-	"github.com/calionauta/gogogo-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/config"
 )
 
 // workerCount is the default number of concurrent workers in the pool.

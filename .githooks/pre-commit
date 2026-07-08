@@ -17,10 +17,10 @@ if ! test -z "$(gofumpt -l .)"; then
     echo "   Run: gofumpt -w ."
     exit 2
 fi
-if ! test -z "$(goimports -l -local github.com/calionauta/gogogo-template $(find . -name '*.go' ! -name '*_templ.go'))"; then
+if ! test -z "$(goimports -l -local github.com/calionauta/gogogo-fullstack-template $(find . -name '*.go' ! -name '*_templ.go'))"; then
     echo "❌ goimports issues:"
-    goimports -l -local github.com/calionauta/gogogo-template $(find . -name '*.go' ! -name '*_templ.go')
-    echo "   Run: goimports -w -local github.com/calionauta/gogogo-template ."
+    goimports -l -local github.com/calionauta/gogogo-fullstack-template $(find . -name '*.go' ! -name '*_templ.go')
+    echo "   Run: goimports -w -local github.com/calionauta/gogogo-fullstack-template ."
     exit 2
 fi
 echo "✅ formatting clean"

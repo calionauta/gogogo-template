@@ -1,4 +1,4 @@
-module github.com/calionauta/gogogo-template
+module github.com/calionauta/gogogo-fullstack-template
 
 go 1.26.5
 

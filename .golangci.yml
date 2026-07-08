@@ -96,4 +96,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/calionauta/gogogo-template
+        - github.com/calionauta/gogogo-fullstack-template

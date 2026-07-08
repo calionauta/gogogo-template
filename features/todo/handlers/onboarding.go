@@ -15,9 +15,9 @@ import (
 	"github.com/pocketbase/pocketbase/tools/router"
 	sdk "github.com/starfederation/datastar-go/datastar"
 
-	"github.com/calionauta/gogogo-template/internal/datastar"
-	"github.com/calionauta/gogogo-template/internal/queue"
-	"github.com/calionauta/gogogo-template/internal/workflow"
+	"github.com/calionauta/gogogo-fullstack-template/internal/datastar"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/internal/workflow"
 )
 
 // PocketBaseTodoCreator implements workflow.TodoCreator by writing to the

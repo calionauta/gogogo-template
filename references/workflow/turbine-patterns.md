@@ -14,7 +14,7 @@ recovery, recorded steps replay their saved result instead of re-executing.
 ```bash
 make build-turbine           # single tag
 make build-all               # jetstream + turbine
-WORKFLOW_ENABLED=true ./gogogo-template
+WORKFLOW_ENABLED=true ./gogogo-fullstack-template
 ```
 
 State is persisted under `data/workflow/`, separate from PocketBase's DB.

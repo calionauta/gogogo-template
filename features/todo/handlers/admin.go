@@ -9,7 +9,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	sdk "github.com/starfederation/datastar-go/datastar"
 
-	dshelpers "github.com/calionauta/gogogo-template/internal/datastar"
+	dshelpers "github.com/calionauta/gogogo-fullstack-template/internal/datastar"
 )
 
 // handleAdminUnlock demonstrates the "real secret in the demo app"

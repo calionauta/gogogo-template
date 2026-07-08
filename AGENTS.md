@@ -1,9 +1,9 @@
-# gogogo-template
+# gogogo-fullstack-template
 
 ## Project Overview
 
 Go web application template with Datastar + Templ + PocketBase + goqite + Turbine + NATS JetStream.
-Module: `github.com/calionauta/gogogo-template`
+Module: `github.com/calionauta/gogogo-fullstack-template`
 
 ## Stack
 
@@ -138,10 +138,10 @@ Production deploys to a single server (Hetzner / any VPS) via Tailscale + Cloudf
 The project assumes the canonical layout under `/home/deploy/<app>/`:
 
 ```
-/home/deploy/gogogo-template/
-  bin/         gogogo-template (replaced atomically on every deploy)
+/home/deploy/gogogo-fullstack-template/
+  bin/         gogogo-fullstack-template (replaced atomically on every deploy)
   compose/     docker-compose.prod.yml (also replaced on every deploy)
-  secrets/     gogogo-template.env (mode 0600, regenerated from GH Secrets)
+  secrets/     gogogo-fullstack-template.env (mode 0600, regenerated from GH Secrets)
   data/        pb_data/ (Docker volume, persistent)
 ```
 

@@ -5,8 +5,8 @@ package main
 import (
 	"log"
 
-	"github.com/calionauta/gogogo-template/config"
-	"github.com/calionauta/gogogo-template/internal/nats"
+	"github.com/calionauta/gogogo-fullstack-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/internal/nats"
 )
 
 func startNATS(cfg *config.Config) {

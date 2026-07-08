@@ -6,9 +6,9 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 
-	"github.com/calionauta/gogogo-template/features/todo/handlers"
-	"github.com/calionauta/gogogo-template/internal/queue"
-	"github.com/calionauta/gogogo-template/internal/workflow"
+	"github.com/calionauta/gogogo-fullstack-template/features/todo/handlers"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/internal/workflow"
 )
 
 // registerOnboarding wires the WelcomeOnboarding workflow into the

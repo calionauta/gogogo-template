@@ -1,5 +1,5 @@
 // Package app provides the cross-cutting "application core" pattern
-// for projects built on top of gogogo-template. In a real project
+// for projects built on top of gogogo-fullstack-template. In a real project
 // cloned from this template, this is where you'd put:
 //
 //   - shared middleware (request_id, logging, recovery, CORS)
@@ -9,7 +9,7 @@
 //     so handlers don't have to assemble them individually
 //
 // The template itself keeps Context lightweight — only the
-// dependency bundle is here, since gogogo-template is a single
+// dependency bundle is here, since gogogo-fullstack-template is a single
 // binary and most of the cross-cutting concerns (auth, SSE, queue
 // retry) are already in their own internal/* packages. Downstream
 // projects that grow to multiple features will appreciate having
@@ -20,9 +20,9 @@ package app
 import (
 	"log/slog"
 
-	"github.com/calionauta/gogogo-template/config"
-	"github.com/calionauta/gogogo-template/internal/llm"
-	"github.com/calionauta/gogogo-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/internal/llm"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
 
 // Context is the dependency container passed to feature

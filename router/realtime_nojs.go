@@ -3,8 +3,8 @@
 package router
 
 import (
-	"github.com/calionauta/gogogo-template/internal/nats"
-	"github.com/calionauta/gogogo-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/internal/nats"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
 
 // newTodoBroadcaster builds the default in-memory broadcaster. Todo

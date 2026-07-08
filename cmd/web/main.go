@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/calionauta/gogogo-template/config"
-	"github.com/calionauta/gogogo-template/db"
-	"github.com/calionauta/gogogo-template/features/app"
-	"github.com/calionauta/gogogo-template/features/todo/handlers"
-	"github.com/calionauta/gogogo-template/internal/llm"
-	"github.com/calionauta/gogogo-template/internal/queue"
-	"github.com/calionauta/gogogo-template/router"
+	"github.com/calionauta/gogogo-fullstack-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/db"
+	"github.com/calionauta/gogogo-fullstack-template/features/app"
+	"github.com/calionauta/gogogo-fullstack-template/features/todo/handlers"
+	"github.com/calionauta/gogogo-fullstack-template/internal/llm"
+	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
+	"github.com/calionauta/gogogo-fullstack-template/router"
 )
 
 func main() {
