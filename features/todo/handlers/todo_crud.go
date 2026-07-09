@@ -45,7 +45,7 @@ func (h *TodoHandler) handleCreate(c *core.RequestEvent) error {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	if err := h.saveTodo(&item); err != nil {
+	if err := h.saveTodo(&item, ownerOf(c)); err != nil {
 		slog.Error("todo: save failed", "error", err)
 		return c.String(statusInternal, "save failed")
 	}
@@ -170,4 +170,14 @@ func (h *TodoHandler) handleClearCompleted(c *core.RequestEvent) error {
 		return emitToast(sse, "Nothing to clear", "info")
 	}
 	return emitToast(sse, fmt.Sprintf("Cleared %d completed", count), "success")
+}
+
+// ownerOf returns the authenticated user's id, or "" if the request is
+// unauthenticated. Used to scope created todos to a tenant so the demo
+// user sees only their own todos.
+func ownerOf(c *core.RequestEvent) string {
+	if c == nil || c.Auth == nil {
+		return ""
+	}
+	return c.Auth.Id
 }

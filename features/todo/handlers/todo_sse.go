@@ -155,7 +155,7 @@ func (h *TodoHandler) listTodos(filter string) ([]todo.Todo, error) {
 	return res, nil
 }
 
-func (h *TodoHandler) saveTodo(item *todo.Todo) error {
+func (h *TodoHandler) saveTodo(item *todo.Todo, owner string) error {
 	col, err := h.app.FindCollectionByNameOrId("todos")
 	if err != nil {
 		return fmt.Errorf("find todos collection: %w", err)
@@ -166,6 +166,13 @@ func (h *TodoHandler) saveTodo(item *todo.Todo) error {
 	// primary key has Max=15 enforced by PocketBase.
 	rec.Set("title", item.Title)
 	rec.Set("completed", item.Completed)
+	// Scope the todo to the authenticated user when available so todos
+	// are tenant-associated (the demo user sees only their own). The
+	// owner field is added by db.SeedDefaults; missing-auth creates are
+	// left unscoped (single-tenant demo fallback).
+	if owner != "" {
+		rec.Set("owner", owner)
+	}
 	if err := h.app.Save(rec); err != nil {
 		return fmt.Errorf("save todo: %w", err)
 	}
