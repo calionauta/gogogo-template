@@ -45,12 +45,23 @@ templ TodoList(signals todo.Signals) {
 						<button
 							type="button"
 							class="btn btn-secondary join-item"
-							data-on:click={ "@post('/api/todos/suggest', {contentType: 'form'})" }
-							title="Ask the LLM for 3 completions of the current input"
+							data-on:click={ "@post('/api/todos/suggest?clientID=' + $clientID, {contentType: 'form'})" }
+							title="Queue a suggest job (real LLM) — result streams back via SSE"
 						>
 							Suggest
 						</button>
 					}
+									if signals.SimulatedLLM {
+						<button
+							type="button"
+							class="btn btn-accent join-item"
+							data-on:click={ "@post('/api/todos/suggest-simulated?clientID=' + $clientID, {contentType: 'form'})" }
+							title="Queue a suggest job against an in-process fake LLM (no API key): error → retry → slow"
+						>
+							Suggest (simulated)
+						</button>
+					}
+					<span class="loading loading-spinner loading-sm" data-show="$suggestPending"></span>
 				</form>
 
 				if signals.LLMEnabled && len(signals.Suggestions) > 0 {
@@ -154,6 +165,29 @@ templ TechstackPanel(signals todo.Signals) {
 					</button>
 					<span class="text-xs opacity-60">Creates example todos via a durable workflow; survives restarts.</span>
 				</div>
+				// Live stepper: advances as each durable step completes and
+				// survives a server restart (Turbine replays recorded steps).
+				if signals.OnboardingActive && signals.OnboardingTotal > 0 {
+					<div class="mt-2 p-3 bg-base-200/40 rounded-lg">
+						<div class="text-xs font-semibold mb-2">Durable workflow progress (Turbine + JetStream realtime):</div>
+						<ul class="steps steps-vertical w-full">
+							for i := 1; i <= signals.OnboardingTotal; i++ {
+								<li class={ map[bool]string{true: "step step-primary", false: "step"}[i <= signals.OnboardingStep] }>
+									Step { strconv.Itoa(i) }
+									if i == signals.OnboardingStep {
+										<span class="text-xs opacity-70"> — { signals.OnboardingDetail }</span>
+									}
+								</li>
+							}
+						</ul>
+						if signals.WorkflowCompleted {
+							<div class="mt-2 alert alert-success text-xs py-2">
+								<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+								<span>Onboarding workflow completed — 3 example todos created via a durable, restart-tolerant Turbine workflow.</span>
+							</div>
+						}
+					</div>
+				}
 			}
 		</div>
 	</details>

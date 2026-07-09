@@ -25,6 +25,8 @@ Everything you need to build a modern web app, in a single binary:
 |-------|--------|-----|
 | **Language** | Go 1.26 | Fast compilation, easy deploy, lean runtime |
 | **Database + Auth + API** | [PocketBase](https://pocketbase.io) (embedded, on `ncruces/go-sqlite3`) | Zero-config auth, REST, [admin UI at `/_/`](https://<your-domain>/_/), file storage — all in SQLite |
+
+> **Why `ncruces/go-sqlite3`?** It's the pure-Go (no cgo) SQLite build that bundles the extensions this template leans on — FTS5, `spellfix1`, `unicode` collations — which the stock driver leaves out. That's why the `//go:build`/driver init in `db/pocketbase.go` pins it instead of `modernc.org/sqlite` directly.
 | **Templating** | [Templ](https://templ.guide) | Type-safe Go components, generated at build time |
 | **Reactive UI** | [Datastar](https://data-star.dev) (SSE) | Server-rendered over SSE, single ~12 KiB client. CSS built once via Tailwind v4 CLI; no JS runtime. |
 | **CSS** | [DaisyUI v5](https://daisyui.com) + TailwindCSS | Ready components, customizable, ~34kB minified |
@@ -67,7 +69,7 @@ The template ships with a working Todo App:
 - Retries with exponential backoff and jitter (`internal/queue/retry.go`, retry-go v4) — SSE-aware: a retry emits a `lastRetry` signal so the UI can show "retrying…"
 - `WelcomeOnboarding` Turbine workflow (with `-tags turbine`) that creates 3 example todos via durable steps — kill the server mid-run, restart, watch it resume at the last incomplete step
 - **Admin unlock** via `age` + `~/.secrets/`. The Todo example wires a master-password path: when `ADMIN_UNLOCK_TOKEN` is set (in the age-encrypted secrets file), the UI shows a "Clear all" form; the handler compares constant-time and clears all todos on match. Demonstrates the age flow end-to-end.
-- **AI suggest** via GoAI. When `GOAI_API_KEY` is set, the input gets a "Suggest" button that asks the LLM for 3 completions of the partial title. Provider is configurable (Groq, OpenRouter, Together, Cloudflare, OpenAI). Retries with exponential backoff; same `internal/queue/retry.go` used by the SSE toast path.
+- **AI suggest** via GoAI. When `GOAI_API_KEY` is set, the input gets a "Suggest" button that enqueues an async suggest job (see queue below) and streams the 3 completions back via SSE. Provider is configurable (Groq, OpenRouter, Together, Cloudflare, OpenAI). Retries with exponential backoff; same `internal/queue/retry.go` used by the SSE toast path. For a **keyless** demo of the exact same queue + retry path, set `SIMULATE_LLM=true`: a "Suggest (simulated)" button enqueues a job that hits an in-process fake LLM scripting 500 → 200 + delay, so you can watch the retry feedback toasts (enqueued → attempt failed → slow → result).
 - Tests run with `-race`
 
 > **This is the contract you should imitate when adding a new feature:**
@@ -93,6 +95,17 @@ What you get out of the box:
 - **Logs** (requests, errors, slow queries)
 
 This is **not a custom admin panel** — it's the upstream PocketBase UI, embedded in the same binary, on the same port. No extra service to deploy, no extra auth to wire. For production, point a Cloudflare Tunnel / Caddy ingress at the same `/_/` path and lock it down (IP allowlist, oauth2-proxy in front, or just PocketBase's own superuser auth).
+
+## Try it live
+
+A running deployment of this exact template is live. You can touch every feature from the README without cloning:
+
+| What | URL | What you can do |
+|------|-----|-----------------|
+| **Todo demo app** | `https://<your-demo-domain>/` | Log in with the seeded demo account (`demo@demo.app` / `demo`), create todos, fire the durable **Turbine onboarding workflow** (watch the live stepper advance 1→5 + completion alert), and trigger the **queue + retry** demo. With `GOAI_API_KEY` set, the AI "Suggest" button appears; with `SIMULATE_LLM=true`, a keyless "Suggest (simulated)" button exercises the same queue + retry path against an in-process fake LLM (error → retry → slow). |
+| **Live PocketBase admin dashboard** | `https://<your-demo-domain>/_/` | Open the embedded PocketBase UI to browse the `todos` + `users` collections, run the REST/JS SDK playground, and inspect logs. The demo's `users` collection is **locked** — visitors can log in as the demo user but cannot create or delete accounts through the API or this dashboard (only the superuser can). |
+
+> The demo runs `make build-jetstream` (NATS embedded, JetStream realtime on) and `-tags turbine` (durable workflows). To stand up your own, see [Deploy](#deploy).
 
 ## Free LLM providers (OpenAI-compatible, no card required)
 
@@ -145,8 +158,8 @@ Open `http://localhost:8080` and see the Todo App running.
 
 ```bash
 make build            # Build binary (default: goqite + SSE Hub)
-make build-jetstream  # Build with NATS JetStream (multi-user real-time)
-make build-turbine    # Build with Turbine durable workflows
+make build-jetstream  # Build with NATS JetStream (multi-user real-time). JetStream is enabled automatically under this tag — no extra env needed; set NATS_ENABLED=false to opt out.
+make build-turbine    # Build with Turbine durable workflows. Turbine is enabled automatically under this tag — no extra env needed; set WORKFLOW_ENABLED=false to opt out.
 make build-all        # Build with both JetStream + Turbine
 make test             # Run tests with race detector (default tags)
 make test-jetstream   # Run tests with JetStream tag

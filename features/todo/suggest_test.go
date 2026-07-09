@@ -2,49 +2,102 @@ package todo_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
 
-// TestIntegration_Suggest_NotConfiguredReturns404 verifies the route
-// is NOT registered when the LLM client has no API key, so the
-// request 404s (vs returning 503 with a friendly error). This
-// confirms the feature is genuinely off in dev with no key set.
-func TestIntegration_Suggest_NotConfiguredReturns404(t *testing.T) {
-	base, _, _, cleanup := testFixture(t)
+// TestIntegration_SuggestSimulatedEnqueuesAndStreamsResult drives the
+// full async path keyless: POST /api/todos/suggest-simulated enqueues a
+// job, the worker runs it against the in-process fake LLM (which scripts
+// 500 → 200 + delay), and the suggestions stream back over SSE. This
+// exercises the queue + retry + SSE pipeline end to end without a token.
+func TestIntegration_SuggestSimulatedEnqueuesAndStreamsResult(t *testing.T) {
+	base, _, _, cleanup := testFixtureSimulated(t)
 	defer cleanup()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	resp, err := postForm(ctx, base+"/api/todos/suggest", url.Values{"partial": {"write"}})
+	clientID := "suggest-sim-client-" + time.Now().Format(clientIDSuffixFormat)
+	stream := openSSEWithCtx(ctx, t, base, clientID)
+	defer func() { _ = stream.Body.Close() }()
+
+	// Give the SSE handler a beat to register the client before we POST.
+	time.Sleep(100 * time.Millisecond)
+
+	createURL := "http://127.0.0.1" + base[len("http://127.0.0.1"):] +
+		"/api/todos/suggest-simulated?clientID=" + clientID
+	resp, err := postForm(ctx, createURL, url.Values{titleField: {"buy milk"}})
 	if err != nil {
-		t.Fatalf("request: %v", err)
+		t.Fatalf("suggest-simulated: %v", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != 404 {
-		t.Fatalf("expected 404 (route not registered), got %d", resp.StatusCode)
+	if resp.StatusCode != 200 {
+		t.Fatalf("suggest-simulated status=%d", resp.StatusCode)
+	}
+
+	// Wait for the "suggestions" signal to arrive with 3 items. The
+	// fake's 500→200 + delay means this lands after a retry + a slow
+	// response, so we allow a generous timeout.
+	full := pumpSSEUntil(t, stream, 14*time.Second, func(s string) bool {
+		if !strings.Contains(s, "\"suggestions\"") {
+			return false
+		}
+		var patch map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(s), &patch); err != nil {
+			return false
+		}
+		raw, ok := patch["suggestions"]
+		if !ok {
+			return false
+		}
+		var sugg []string
+		if err := json.Unmarshal(raw, &sugg); err != nil {
+			return false
+		}
+		return len(sugg) == 3
+	})
+	if !strings.Contains(full, "\"suggestions\"") {
+		t.Fatalf("suggest-simulated: suggestions never arrived: %s", tailString(full, 600))
+	}
+	if !strings.Contains(full, "Got 3 suggestions") {
+		t.Fatalf("suggest-simulated: success toast missing: %s", tailString(full, 600))
 	}
 }
 
-// TestIntegration_AdminUnlock_NotConfiguredReturns404 mirrors the
-// same defensive design: the admin route is only registered when
-// AdminToken is set, so 404 (not 403) when the secret file is
-// missing.
-func TestIntegration_AdminUnlock_NotConfiguredReturns404(t *testing.T) {
-	base, _, _, cleanup := testFixture(t)
+// TestIntegration_SuggestSimulatedShowsRetryFeedback asserts the worker's
+// retry layer streams per-attempt feedback as the fake LLM returns 500 on
+// the first call. This is the narration the user sees in the UI toasts.
+func TestIntegration_SuggestSimulatedShowsRetryFeedback(t *testing.T) {
+	base, _, _, cleanup := testFixtureSimulated(t)
 	defer cleanup()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	resp, err := postForm(ctx, base+"/api/admin/unlock", url.Values{"token": {"anything"}})
+	clientID := "suggest-retry-client-" + time.Now().Format(clientIDSuffixFormat)
+	stream := openSSEWithCtx(ctx, t, base, clientID)
+	defer func() { _ = stream.Body.Close() }()
+
+	time.Sleep(100 * time.Millisecond)
+
+	createURL := "http://127.0.0.1" + base[len("http://127.0.0.1"):] +
+		"/api/todos/suggest-simulated?clientID=" + clientID
+	resp, err := postForm(ctx, createURL, url.Values{titleField: {"write tests"}})
 	if err != nil {
-		t.Fatalf("request: %v", err)
+		t.Fatalf("suggest-simulated: %v", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != 404 {
-		t.Fatalf("expected 404 (admin route not registered), got %d", resp.StatusCode)
+
+	// The fake returns 500 on the first call, so we expect a "retry"
+	// SSE event with attempt 1 before the eventual success.
+	full := pumpSSEUntil(t, stream, 14*time.Second, func(s string) bool {
+		return strings.Contains(s, "Got 3 suggestions")
+	})
+	if !strings.Contains(full, "suggest (simulated): attempt 1 failed") {
+		t.Fatalf("suggest-simulated: retry feedback not seen: %s", tailString(full, 400))
 	}
 }

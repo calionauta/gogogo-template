@@ -27,34 +27,6 @@ const clientIDSuffixFormat = "150405.000"
 // on the stream within a reasonable timeout. Exercises the full path:
 //
 //	HTTP POST → handler → goqite Enqueue → Hub Broadcast → SSE stream
-func TestIntegration_CreateEnqueuesNotification(t *testing.T) {
-	base, _, _, cleanup := testFixture(t)
-	defer cleanup()
-
-	ctx := newTestCtx(t)
-	clientID := "test-client-" + time.Now().Format(clientIDSuffixFormat)
-
-	stream := openSSE(t, base, clientID, sseTestTimeout)
-	defer func() { _ = stream.Body.Close() }()
-
-	// Give the SSE handler a beat to register the client with the hub
-	// before the create handler fires its notification.
-	time.Sleep(100 * time.Millisecond)
-
-	mustPost(ctx, t, base, "/api/todos", url.Values{titleField: {"eggs"}}, 200)
-
-	full := pumpSSE(t, stream, sseTestTimeout, "todo_created")
-
-	if !strings.Contains(full, "toast-container") {
-		t.Fatalf("SSE notification missing #toast-container selector: %s", full)
-	}
-	if !strings.Contains(full, "eggs") {
-		t.Fatalf("SSE notification missing todo title 'eggs': %s", full)
-	}
-	if !strings.Contains(full, "alert-success") {
-		t.Fatalf("SSE notification missing alert-success class: %s", full)
-	}
-}
 
 // TestIntegration_CreateEmitsToast verifies the asynchronous toast
 // emitted by the worker after handleCreate enqueues a "todo_created"
@@ -62,44 +34,27 @@ func TestIntegration_CreateEnqueuesNotification(t *testing.T) {
 // arrives via the SSE stream once the worker picks up the job. This
 // exercises the full HTTP → queue → worker → SSE pipeline that the
 // SSE-aware retry path is designed for.
-func TestIntegration_CreateEmitsToast(t *testing.T) {
+
+// TestIntegration_CreateRendersInList verifies the create path is
+// synchronous: the HTTP response patches the todo list with the new
+// todo immediately (no queue round-trip). Realtime fan-out to other
+// clients is handled by the broadcaster separately.
+func TestIntegration_CreateRendersInList(t *testing.T) {
 	base, _, _, cleanup := testFixture(t)
 	defer cleanup()
+	ctx := newTestCtx(t)
 
-	clientID := "create-toast-client-" + time.Now().Format(clientIDSuffixFormat)
-
-	ctx, cancel := context.WithTimeout(context.Background(), sseTestTimeout)
-	defer cancel()
-
-	stream := openSSEWithCtx(ctx, t, base, clientID)
-	defer func() { _ = stream.Body.Close() }()
-
-	// Give the SSE handler a moment to register the client with the Hub.
-	time.Sleep(100 * time.Millisecond)
-
-	// Trigger create with the matching clientID so the worker routes the
-	// "todo_created" job to this specific stream. Hardcode localhost
-	// for the create target so gosec's G107 (URL constructed from
-	// untrusted string) doesn't trip on the dynamic clientID suffix.
-	createURL := "http://127.0.0.1" + base[len("http://127.0.0.1"):] + "/api/todos?clientID=" + clientID
-	resp, err := postForm(ctx, createURL, url.Values{titleField: {"wash dishes"}})
+	resp, err := postForm(ctx, base+"/api/todos", url.Values{titleField: {"buy milk"}})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		t.Fatalf("create status=%d", resp.StatusCode)
+		t.Fatalf("status=%d", resp.StatusCode)
 	}
-
-	full := pumpSSEUntil(t, stream, 2*time.Second, func(s string) bool {
-		return strings.Contains(s, "wash dishes") && strings.Contains(s, "alert-success")
-	})
-
-	if !strings.Contains(full, "toast-container") {
-		t.Fatalf("SSE toast missing #toast-container selector: %s", full)
-	}
-	if !strings.Contains(full, "toast-timer-bar") {
-		t.Fatalf("SSE toast missing progress bar: %s", full)
+	body := readBody(t, resp)
+	if !strings.Contains(body, "buy milk") {
+		t.Fatalf("created todo not present in list patch: %s", tailString(body, 400))
 	}
 }
 

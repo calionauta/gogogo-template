@@ -31,6 +31,12 @@ func SeedDefaults(app *pocketbase.PocketBase) error {
 		if err := ensureDemoUser(se.App); err != nil {
 			slog.Error("seed: ensureDemoUser failed", "error", err)
 		}
+		// Lock the users collection so the public demo can't create or
+		// delete accounts through the API / admin UI (the demo superuser
+		// still can). See ensureUsersCollectionRules.
+		if err := ensureUsersCollectionRules(se.App); err != nil {
+			slog.Error("seed: ensureUsersCollectionRules failed", "error", err)
+		}
 		return se.Next()
 	})
 	return nil
@@ -103,3 +109,54 @@ func ensureDemoUser(app core.App) error {
 	slog.Info("seed: created demo user", "email", DemoUserEmail)
 	return nil
 }
+
+// ensureUsersCollectionRules hardens the built-in `users` auth collection
+// for demo deployments: non-superusers may view + update their own record
+// but CANNOT create new users or delete any user via the API or the admin
+// UI. Only the PocketBase superuser (the first admin created via the
+// install link in the server logs) retains full CRUD. This keeps the
+// public demo safe from account-spam while still letting visitors log in
+// as the seeded demo user and manage their own profile.
+//
+// The rules are idempotent: they only write when a rule differs from the
+// locked-down value, so re-running the seed is a no-op after the first set.
+func ensureUsersCollectionRules(app core.App) error {
+	col, err := app.FindCollectionByNameOrId("users")
+	if err != nil {
+		// Users collection not created yet (very first boot before
+		// PocketBase's own bootstrap); skip — SeedDefaults runs on every
+		// serve, so it will lock it on the next boot once it exists.
+		return nil
+	}
+
+	const locked = "@request.auth.superuser = true"
+	changed := false
+	if col.CreateRule == nil || *col.CreateRule != locked {
+		col.CreateRule = ptr(locked)
+		changed = true
+	}
+	if col.DeleteRule == nil || *col.DeleteRule != locked {
+		col.DeleteRule = ptr(locked)
+		changed = true
+	}
+	// List/View/Update: allow the record owner + superuser (default
+	// PocketBase behavior) — keep a safe non-open rule.
+	if col.ListRule == nil || *col.ListRule == "" {
+		rule := "@request.auth.superuser = true || @request.auth.id = @id"
+		col.ListRule = ptr(rule)
+		changed = true
+	}
+
+	if !changed {
+		return nil
+	}
+	if err := app.Save(col); err != nil {
+		return fmt.Errorf("seed: lock users collection: %w", err)
+	}
+	slog.Info("seed: locked users collection (no public create/delete)")
+	return nil
+}
+
+// ptr returns a pointer to v. Tiny helper so rule fields (which are
+// *string) can be set without a local variable at each call site.
+func ptr(v string) *string { return &v }

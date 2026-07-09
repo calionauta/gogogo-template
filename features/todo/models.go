@@ -18,6 +18,11 @@ type Signals struct {
 	EditTitle string `json:"editTitle"`
 	Loading   bool   `json:"loading"`
 	ItemCount int    `json:"itemCount"`
+	// ClientID is the SSE client id assigned when the stream opens. The
+	// UI uses it to route queued-job results and retry feedback back to
+	// the correct browser tab, so a Suggest triggered here lands here
+	// rather than broadcasting to every connected client.
+	ClientID string `json:"clientID"`
 	// AdminEnabled reflects whether the server was started with a
 	// non-empty ADMIN_UNLOCK_TOKEN (loaded from the age-encrypted
 	// secrets file). When true, the UI renders the "Admin unlock"
@@ -29,6 +34,12 @@ type Signals struct {
 	// non-empty GOAI_API_KEY. When true, the UI renders the "Suggest"
 	// button. When false, the entire AI pathway is hidden.
 	LLMEnabled bool `json:"llmEnabled"`
+
+	// SimulatedLLM reflects whether the server was started with
+	// SIMULATE_LLM=true. When true, the UI renders the "Suggest
+	// (simulated)" button, which exercises the same queue + retry path
+	// as Suggest but against an in-process fake LLM (no API key needed).
+	SimulatedLLM bool `json:"simulatedLLM"`
 
 	// Suggestions is the latest AI-suggested completions, populated
 	// by POST /api/todos/suggest. Empty when no suggestions or
@@ -47,4 +58,22 @@ type Signals struct {
 	// -tags turbine AND started with WORKFLOW_ENABLED=true. When true,
 	// the UI renders the "Run durable workflow" button.
 	WorkflowEnabled bool `json:"workflowEnabled"`
+
+	// Onboarding progress (Turbine durable workflow). Streamed as the
+	// workflow advances so the UI can render a live stepper. Each event
+	// carries the current step, total steps, phase, and a human-readable
+	// detail. OnboardingActive flips true on the first progress event and
+	// stays true so the stepper remains visible until the next run resets
+	// it — this is what makes the durable, restart-tolerant nature of the
+	// workflow observable in the UI.
+	OnboardingActive bool   `json:"onboardingActive"`
+	OnboardingStep   int    `json:"onboardingStep"`
+	OnboardingTotal  int    `json:"onboardingTotal"`
+	OnboardingPhase  string `json:"onboardingPhase"`
+	OnboardingDetail string `json:"onboardingDetail"`
+	// WorkflowCompleted is set true when the durable onboarding
+	// workflow finishes all five steps. The UI renders a final alert
+	// so the user gets an explicit completion signal (not just the
+	// stepper reaching 5/5).
+	WorkflowCompleted bool `json:"workflowCompleted"`
 }

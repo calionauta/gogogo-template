@@ -33,6 +33,7 @@ import (
 	"github.com/zendev-sh/goai/provider"
 	"github.com/zendev-sh/goai/provider/compat"
 
+	"github.com/calionauta/gogogo-fullstack-template/internal/llm/fakeserver"
 	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
 
@@ -63,6 +64,10 @@ type Client struct {
 	// by the queue workers; tuned for transient LLM API hiccups
 	// (5xx, 429) rather than logical errors.
 	retry queue.RetryConfig
+
+	// server is the in-process fake LLM used by NewSimulated. Nil for
+	// real clients. Closed via Close().
+	server *fakeserver.FakeServer
 }
 
 // New builds a Client from env. If apiKey is empty, New still
@@ -86,6 +91,42 @@ func New(apiKey string) *Client {
 			Delay:    500 * time.Millisecond,
 			MaxDelay: 5 * time.Second,
 		},
+	}
+}
+
+// NewSimulated returns a Client wired to an in-process fake LLM server
+// that scripts error → retry → slow response, so the queue + retry demo
+// works without a real API key. The fake returns a 500 on the first call
+// (triggering a worker retry with visible SSE feedback), then 200 on the
+// second call after a short delay. The client's own retry is disabled
+// (Attempts: 1) so the QUEUE WORKER is the unit that retries and streams
+// per-attempt toasts — that's the behavior we want to showcase.
+//
+// The caller owns the lifecycle; call Close() to shut the fake server down.
+func NewSimulated() *Client {
+	srv := fakeserver.NewServer(
+		fakeserver.WithStatusSequence(500, 200),
+		fakeserver.WithResponseDelay(1500*time.Millisecond),
+		fakeserver.WithResponse(`["Review the pull request","Write the meeting notes","Ping the on-call engineer"]`),
+	)
+	return &Client{
+		apiKey:  "simulated",
+		baseURL: srv.URL,
+		modelID: "simulated-model",
+		retry: queue.RetryConfig{
+			Attempts: 1,
+			Delay:    100 * time.Millisecond,
+			MaxDelay: time.Second,
+		},
+		server: srv,
+	}
+}
+
+// Close shuts down the in-process fake LLM server, if any. Safe to call
+// on any Client (no-op for real clients).
+func (c *Client) Close() {
+	if c.server != nil {
+		c.server.Close()
 	}
 }
 
@@ -127,7 +168,11 @@ func (c *Client) Chat(ctx context.Context, prompt string) (string, error) {
 
 	var result string
 	err := c.retry.Do(ctx, nil, "", "llm.chat", func() error {
-		r, genErr := goai.GenerateText(ctx, m, goai.WithPrompt(prompt))
+		// Disable goai's internal retry: our c.retry (and, for queued
+		// work, the worker's retry) is the single retry layer. If goai
+		// retried here it would absorb transient 5xx before our retry
+		// policy / SSE feedback ever saw them.
+		r, genErr := goai.GenerateText(ctx, m, goai.WithPrompt(prompt), goai.WithMaxRetries(0))
 		if genErr != nil {
 			return fmt.Errorf("llm: generate: %w", genErr)
 		}
@@ -192,7 +237,9 @@ func (c *Client) ChatStream(ctx context.Context, prompt string, fn func(string) 
 		return ErrNoAPIKey
 	}
 	return c.retry.DoSilent(ctx, func() error {
-		stream, err := goai.StreamText(ctx, m, goai.WithPrompt(prompt))
+		// See Chat: goai's internal retry is disabled so our retry
+		// policy is the only one in play.
+		stream, err := goai.StreamText(ctx, m, goai.WithPrompt(prompt), goai.WithMaxRetries(0))
 		if err != nil {
 			return fmt.Errorf("llm: stream: %w", err)
 		}

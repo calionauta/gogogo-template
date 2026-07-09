@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/YakirOren/turbine"
 	"github.com/pocketbase/pocketbase"
@@ -72,6 +73,15 @@ func (r *Runtime) IsWorkflowRuntime() {}
 // or scheduled jobs, not directly.
 func (r *Runtime) T() *turbine.Runtime { return r.t }
 
+// stepDelay paces the demo so a human can actually follow the durable
+// workflow advancing. Without it, all three todo-creation steps (plus
+// greet/finalize) would complete in a few milliseconds and the live
+// stepper would flash from 1→5 instantly. Turbine replays recorded steps
+// on crash recovery, so the sleeps only run on the first execution of a
+// step, never on replay — the demo stays followable without inflating
+// recovery time.
+const stepDelay = 1500 * time.Millisecond
+
 // Hello is the minimal example workflow. Each step's result is recorded
 // in SQLite and replayed on recovery after a crash, so the function may
 // be called many times per workflow run without re-executing side effects.
@@ -126,6 +136,7 @@ type ExampleTodo struct {
 // name (string); the output is the list of created ExampleTodo.
 func WelcomeOnboarding(ctx turbine.Context, user string) ([]ExampleTodo, error) {
 	greeting, err := turbine.Do(ctx, func(ctx context.Context) (string, error) {
+		time.Sleep(stepDelay) // visible pace: step 1/5
 		return fmt.Sprintf("Welcome, %s!", user), nil
 	}, turbine.WithStepName("greet"))
 	if err != nil {
@@ -147,6 +158,7 @@ func WelcomeOnboarding(ctx turbine.Context, user string) ([]ExampleTodo, error) 
 		// are replayed from SQLite).
 		var created ExampleTodo
 		created, err = turbine.Do(ctx, func(ctx context.Context) (ExampleTodo, error) {
+			time.Sleep(stepDelay) // visible pace: steps 2..4/5
 			c := getCreator()
 			if c == nil {
 				return ExampleTodo{}, ErrTodoCreatorNotRegistered
@@ -164,6 +176,7 @@ func WelcomeOnboarding(ctx turbine.Context, user string) ([]ExampleTodo, error) 
 	}
 
 	finalized, err := turbine.Do(ctx, func(ctx context.Context) ([]ExampleTodo, error) {
+		time.Sleep(stepDelay) // visible pace: finalize step 5/5
 		return todos, nil
 	}, turbine.WithStepName("finalize"))
 	if err != nil {

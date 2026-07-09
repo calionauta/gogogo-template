@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
@@ -11,12 +10,11 @@ import (
 
 	"github.com/calionauta/gogogo-fullstack-template/features/todo"
 	dshelpers "github.com/calionauta/gogogo-fullstack-template/internal/datastar"
-	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
 
 func (h *TodoHandler) handleList(c *core.RequestEvent) error {
 	filter := c.Request.URL.Query().Get("filter")
-	todos, err := h.listTodos(filter)
+	todos, err := h.listTodos(c, filter)
 	if err != nil {
 		slog.Error("todo: list failed", "filter", filter, "error", err)
 		return c.String(statusInternal, "error listing todos")
@@ -52,49 +50,30 @@ func (h *TodoHandler) handleCreate(c *core.RequestEvent) error {
 
 	h.broadcastTodo(c, "created", item)
 
-	if err := h.enqueueCreatedEvent(c, item); err != nil {
-		// Enqueue failure is non-fatal for the HTTP response: the todo
-		// was saved, so the client will see it in the patch. The toast
-		// simply won't arrive via SSE.
-		slog.Warn("todo: enqueue failed", "error", err)
-	}
-
-	todos, err := h.listTodos("all")
+	todos, err := h.listTodos(c, "all")
 	if err != nil {
 		slog.Error("todo: list after create failed", "error", err)
 		return c.String(statusInternal, "error listing todos")
 	}
 	sse := sdk.NewSSE(c.Response, c.Request)
-	// No immediate toast — the worker emits the "Added" toast via SSE
-	// once it picks up the "todo_created" job. This exercises the full
-	// HTTP → queue → worker → SSE pipeline and lets the retry layer
-	// stream per-attempt feedback if Hub delivery fails.
-	return dshelpers.RenderAndPatch(sse, h.renderTodoList(todos), sdk.WithSelector("#todo-list"))
-}
-
-// enqueueCreatedEvent packages a "todo_created" job into the queue so
-// the worker can stream the success toast back to the originating client.
-// ClientID is read from the query string so the worker routes the toast
-// to the right browser tab instead of broadcasting to everyone.
-func (h *TodoHandler) enqueueCreatedEvent(c *core.RequestEvent, item todo.Todo) error {
-	clientID := c.Request.URL.Query().Get("clientID")
-	payload, err := json.Marshal(map[string]string{
-		"type": "todo_created", "todoID": item.ID, "title": item.Title,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal create payload: %w", err)
+	// Render the updated list synchronously (the broadcaster already
+	// re-renders other connected clients in real time). No queue here:
+	// the create is fast and local, so the queue would only add latency.
+	if err := dshelpers.RenderAndPatch(sse, h.renderTodoList(todos), sdk.WithSelector("#todo-list")); err != nil {
+		return err
 	}
-	job := queue.Job{Type: "todo_created", ClientID: clientID, Payload: payload}
-	body, err := json.Marshal(job)
-	if err != nil {
-		return fmt.Errorf("marshal job envelope: %w", err)
-	}
-	return h.q.Enqueue(c.Request.Context(), body)
+	return emitToast(sse, "Added", "success")
 }
 
 func (h *TodoHandler) handleToggle(c *core.RequestEvent) error {
 	rec, err := h.app.FindRecordById("todos", c.Request.PathValue("id"))
 	if err != nil {
+		return c.String(statusNotFound, "not found")
+	}
+	// Owner-scoped: a user can only mutate their own todos. Todos with
+	// an empty owner (legacy seeds) are allowed so the single-tenant
+	// demo keeps working.
+	if c.Auth != nil && rec.GetString("owner") != "" && rec.GetString("owner") != c.Auth.Id {
 		return c.String(statusNotFound, "not found")
 	}
 	rec.Set("completed", !rec.GetBool("completed"))
@@ -110,7 +89,7 @@ func (h *TodoHandler) handleToggle(c *core.RequestEvent) error {
 	}
 	h.broadcastTodo(c, "toggled", toggled)
 
-	todos, err := h.listTodos("all")
+	todos, err := h.listTodos(c, "all")
 	if err != nil {
 		slog.Error("todo: list after toggle failed", "error", err)
 		return c.String(statusInternal, "error listing todos")
@@ -124,6 +103,10 @@ func (h *TodoHandler) handleDelete(c *core.RequestEvent) error {
 	if err != nil {
 		return c.String(statusNotFound, "not found")
 	}
+	// Owner-scoped: a user can only delete their own todos.
+	if c.Auth != nil && rec.GetString("owner") != "" && rec.GetString("owner") != c.Auth.Id {
+		return c.String(statusNotFound, "not found")
+	}
 	title := rec.GetString("title")
 	if delErr := h.app.Delete(rec); delErr != nil {
 		slog.Error("todo: delete failed", "id", rec.Id, "error", delErr)
@@ -132,7 +115,7 @@ func (h *TodoHandler) handleDelete(c *core.RequestEvent) error {
 
 	h.broadcastTodo(c, "deleted", todo.Todo{ID: rec.Id, Title: title})
 
-	todos, err := h.listTodos("all")
+	todos, err := h.listTodos(c, "all")
 	if err != nil {
 		slog.Error("todo: list after delete failed", "error", err)
 		return c.String(statusInternal, "error listing todos")
@@ -145,7 +128,7 @@ func (h *TodoHandler) handleDelete(c *core.RequestEvent) error {
 }
 
 func (h *TodoHandler) handleClearCompleted(c *core.RequestEvent) error {
-	records, err := h.app.FindRecordsByFilter("todos", "completed=true", "", 0, 0)
+	records, err := h.app.FindRecordsByFilter("todos", clearCompletedFilter(c), "", 0, 0)
 	if err != nil {
 		slog.Error("todo: find completed failed", "error", err)
 		return c.String(statusInternal, "find failed")
@@ -157,7 +140,7 @@ func (h *TodoHandler) handleClearCompleted(c *core.RequestEvent) error {
 		}
 	}
 
-	todos, err := h.listTodos("all")
+	todos, err := h.listTodos(c, "all")
 	if err != nil {
 		slog.Error("todo: list after clear failed", "error", err)
 		return c.String(statusInternal, "error listing todos")

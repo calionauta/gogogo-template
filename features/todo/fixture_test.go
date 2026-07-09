@@ -15,6 +15,7 @@ import (
 	"github.com/calionauta/gogogo-fullstack-template/db"
 	"github.com/calionauta/gogogo-fullstack-template/features/auth"
 	"github.com/calionauta/gogogo-fullstack-template/features/todo/handlers"
+	"github.com/calionauta/gogogo-fullstack-template/internal/llm"
 	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
@@ -28,16 +29,23 @@ const (
 	demoPassword = "demo1234456"
 )
 
-// testFixture spins up a real PocketBase + goqite stack on temp dirs
+func testFixture(t *testing.T) (string, *queue.Queue, *pocketbase.PocketBase, func()) {
+	return buildFixture(t, nil)
+}
+
+// testFixtureSimulated is like testFixture but wires an in-process
+// simulated LLM client, so the /api/todos/suggest-simulated route is
+// live and the full queue + retry + SSE path can be exercised keyless.
+func testFixtureSimulated(t *testing.T) (string, *queue.Queue, *pocketbase.PocketBase, func()) {
+	return buildFixture(t, llm.NewSimulated())
+}
+
+// buildFixture spins up a real PocketBase + goqite stack on temp dirs
 // and serves the todo routes via httptest.NewServer. Mirrors the
 // production wiring from db.Init + queue.New + router.Init +
-// handlers.New.
-//
-// Per cali-coding-go-standards: temp-dir PB + Bootstrap + real SQLite
-// (no mocks). Returns the base URL for HTTP calls, the queue (for
-// direct assertions), the PB app (for collection queries), and a
-// cleanup func that callers MUST defer.
-func testFixture(t *testing.T) (string, *queue.Queue, *pocketbase.PocketBase, func()) {
+// handlers.New. When simClient is non-nil it is wired as the simulated
+// LLM so the suggest-simulated route is live (and Closed on cleanup).
+func buildFixture(t *testing.T, simClient *llm.Client) (string, *queue.Queue, *pocketbase.PocketBase, func()) {
 	t.Helper()
 
 	tmpDir, err := os.MkdirTemp("", "todo-int-*")
@@ -75,6 +83,9 @@ func testFixture(t *testing.T) (string, *queue.Queue, *pocketbase.PocketBase, fu
 
 	h := handlers.New(app, q, cfg)
 	h.RegisterHandlers(q.Registry())
+	if simClient != nil {
+		h.SetSimulatedLLMClient(simClient)
+	}
 
 	workers := q.StartWorkers()
 
@@ -118,6 +129,9 @@ func testFixture(t *testing.T) (string, *queue.Queue, *pocketbase.PocketBase, fu
 	cleanup := func() {
 		server.Close()
 		workers.Stop()
+		if simClient != nil {
+			simClient.Close()
+		}
 		q.Close()
 		mustReset(t, app)
 		os.RemoveAll(tmpDir)

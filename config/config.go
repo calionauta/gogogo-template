@@ -90,15 +90,11 @@ func Load() *Config {
 		},
 	}
 
-	if os.Getenv("NATS_ENABLED") == "true" {
-		cfg.NATS.Enabled = true
-		cfg.NATS.StoreDir = getEnv("NATS_STORE_DIR", "data/nats")
-	}
+	cfg.NATS.Enabled = envBool("NATS_ENABLED", defaultNATSEnabled())
+	cfg.NATS.StoreDir = getEnv("NATS_STORE_DIR", "data/nats")
 
-	if os.Getenv("WORKFLOW_ENABLED") == "true" {
-		cfg.Workflow.Enabled = true
-		cfg.Workflow.ExecutorID = getEnv("WORKFLOW_EXECUTOR_ID", "local")
-	}
+	cfg.Workflow.Enabled = envBool("WORKFLOW_ENABLED", defaultWorkflowEnabled())
+	cfg.Workflow.ExecutorID = getEnv("WORKFLOW_EXECUTOR_ID", "local")
 
 	return cfg
 }
@@ -108,6 +104,22 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// envBool reads a boolean env var, falling back to def when unset or
+// unparseable. This lets a build tag supply the default (e.g. -tags
+// jetstream implies NATS on) while still allowing an explicit override
+// via the env var (NATS_ENABLED=false).
+func envBool(key string, def bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return def
+	}
+	return b
 }
 
 // defaultAppName falls back to the binary name when APP_NAME is unset

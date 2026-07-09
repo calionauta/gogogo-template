@@ -157,9 +157,12 @@ type FakeServer struct {
 	callCount atomic.Int64
 }
 
-// New starts a fake OpenAI server on a random local port. The test
-// argument is required so the fake can log assertions against it.
-func New(t *testing.T, opts ...Option) *FakeServer {
+// NewServer starts a fake OpenAI server on a random local port without
+// requiring a *testing.T. Useful for production demos / long-running
+// simulated clients (e.g. the template's SIMULATE_LLM mode) where no
+// test is driving the server. Pass t via New if you want assertion
+// logging; otherwise use NewServer and the fake logs nothing.
+func NewServer(opts ...Option) *FakeServer {
 	o := Options{
 		cannedResponse: "hello", // your suggested default
 	}
@@ -167,7 +170,6 @@ func New(t *testing.T, opts ...Option) *FakeServer {
 		opt(&o)
 	}
 	s := &FakeServer{
-		t:    t,
 		opts: o,
 	}
 	// Mount at /v1 AND at / so GoAI configs that include or omit
@@ -176,6 +178,14 @@ func New(t *testing.T, opts ...Option) *FakeServer {
 	mux.HandleFunc("/chat/completions", s.handle)
 	mux.HandleFunc("/v1/chat/completions", s.handle)
 	s.Server = httptest.NewServer(mux)
+	return s
+}
+
+// New starts a fake OpenAI server on a random local port. The test
+// argument is required so the fake can log assertions against it.
+func New(t *testing.T, opts ...Option) *FakeServer {
+	s := NewServer(opts...)
+	s.t = t
 	return s
 }
 
@@ -189,7 +199,9 @@ func (s *FakeServer) handle(w http.ResponseWriter, r *http.Request) {
 		if !s.opts.acceptKeys[auth] {
 			// Auth rejection is expected behavior (the test deliberately
 			// sends a wrong key to exercise the 401 path); log, don't fail.
-			s.t.Logf("fake: call %d rejected: bad/unknown API key %q", n, auth)
+			if s.t != nil {
+				s.t.Logf("fake: call %d rejected: bad/unknown API key %q", n, auth)
+			}
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -198,13 +210,17 @@ func (s *FakeServer) handle(w http.ResponseWriter, r *http.Request) {
 	// 2. Decode body.
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		s.t.Errorf("fake: read body: %v", err)
+		if s.t != nil {
+			s.t.Errorf("fake: read body: %v", err)
+		}
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 	var req openAIRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		s.t.Errorf("fake: decode request: %v", err)
+		if s.t != nil {
+			s.t.Errorf("fake: decode request: %v", err)
+		}
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -268,7 +284,9 @@ func (s *FakeServer) streamResponse(w http.ResponseWriter, _ openAIRequest) {
 	w.Header().Set("Connection", "keep-alive")
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		s.t.Errorf("fake: ResponseWriter doesn't support Flusher")
+		if s.t != nil {
+			s.t.Errorf("fake: ResponseWriter doesn't support Flusher")
+		}
 		return
 	}
 

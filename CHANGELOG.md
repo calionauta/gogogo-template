@@ -2,6 +2,27 @@
 
 All notable changes to this template are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-07-09
+
+### Added
+- **Simulated LLM mode (`SIMULATE_LLM=true`).** A keyless "Suggest (simulated)" button exercises the exact same queue + retry path as the real LLM against an in-process fake server (`internal/llm/fakeserver`) that scripts `500 → 200 + delay`, so visitors can watch the async lifecycle (enqueue → attempt failed → retry → slow → result) with no API key. `llm.NewSimulated()` starts the fake; the worker's retries stream per-attempt toasts to the originating tab via `clientID` routing.
+- **Suggest moved onto the queue.** `handleSuggest` now enqueues an async `suggest` job; a worker runs `ChatSuggest` inside `RetryConfig.Do` and streams the 3 completions back over SSE (`suggest_result` case). Result + retry feedback are routed to the originating `clientID`.
+- **Add is now synchronous.** Removed the `todo_created` queue path; `handleCreate` patches the list directly and the realtime broadcaster re-renders for other clients. The queue is reserved for slow/flaky work (Suggest, retry-demo) — cleaner mental model.
+- **Durable workflow is followable.** `WelcomeOnboarding` now paces each step with a short delay (inside the durable `turbine.Do` step, so recovery replays skip the sleep) and emits a live stepper (1→5) + a final `alert-success` completion banner in the UI.
+- **Demo user-account lock.** `db/seed.go` hardens the `users` collection so non-superusers cannot create or delete accounts via the API or the `/_/` admin dashboard (only the superuser can). Keeps the public demo safe from account spam.
+- **"Try it live" README section** with linked rows for the Todo demo app and the live PocketBase admin dashboard at `/_/`.
+- **Turbine + JetStream auto-enable** (build-tag gated): `-tags turbine` / `-tags jetstream` now enable the feature without an extra env var (`WORKFLOW_ENABLED` / `NATS_ENABLED` default true under the tag, overridable with `=false`). `make build-turbine` / `make build-jetstream` documented.
+- **`internal/llm/fakeserver.NewServer`** — test-free constructor so the fake can run in production demos, not just `*testing.T`.
+- **`internal/llm`: disable goai's internal `MaxRetries`** so the project's `RetryConfig` (and, for queued work, the worker's retry) is the single retry layer — transient 5xx surface to SSE feedback instead of being absorbed silently.
+
+### Changed
+- **README**: translated AI-suggest bullet to describe the queue + simulated mode; documented `SIMULATE_LLM`.
+- **`docs/async-demo-sequencing.md`**: detailed tech-sequencing plan for the async demo (Add sync / Suggest queued / Suggest simulated), with an honest note that Turbine v0.3.0 has no in-workflow delay/schedule primitive (only `WithSchedule(cron)` at registration) — the per-step `time.Sleep` is the substitute.
+
+### Fixed
+- **Suggest worker bug**: `body, err := json.Marshal(...)` shadowed the `ChatSuggest` error, so the worker always reported success and never retried. Now uses a distinct `marshalErr`, so failures correctly trigger worker retries + SSE feedback.
+- **Stale doc comments** referencing the removed `todo_created` job.
+
 ## [0.2.0] - 2026-07-07
 
 ### Added

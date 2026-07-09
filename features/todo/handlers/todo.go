@@ -50,13 +50,15 @@ const sseClientBuffer = 64
 type TodoBroadcaster = nats.TodoBroadcaster
 
 // TodoHandler serves /api/todos/* and /api/todos/stream, and registers
-// the worker-side handler for "todo_created" jobs.
+// the worker-side handlers for "retry_demo", "suggest", and
+// "suggest_simulated" jobs.
 type TodoHandler struct {
-	app         *pocketbase.PocketBase
-	q           *queue.Queue
-	cfg         *config.Config
-	broadcaster TodoBroadcaster
-	llm         *llm.Client
+	app          *pocketbase.PocketBase
+	q            *queue.Queue
+	cfg          *config.Config
+	broadcaster  TodoBroadcaster
+	llm          *llm.Client
+	llmSimulated *llm.Client
 }
 
 // New constructs a TodoHandler. Used by both production wiring (router.Init)
@@ -70,11 +72,21 @@ func New(app *pocketbase.PocketBase, q *queue.Queue, cfg *config.Config) *TodoHa
 // registered in that case).
 func (h *TodoHandler) SetLLMClient(c *llm.Client) { h.llm = c }
 
+// SetSimulatedLLMClient wires the in-process fake LLM client used by the
+// "Suggest (simulated)" handler. Enabled via SIMULATE_LLM=true so the
+// queue + retry async path can be demoed without a real API key.
+func (h *TodoHandler) SetSimulatedLLMClient(c *llm.Client) { h.llmSimulated = c }
+
 // llmEnabled reports whether the AI suggest pathway is live. Used
 // by handlers that build Signals so the UI hides the Suggest button
 // when the LLM isn't configured.
 func (h *TodoHandler) llmEnabled() bool {
 	return h.llm != nil && h.llm.Configured()
+}
+
+// simulatedLLMEnabled reports whether the simulated LLM pathway is live.
+func (h *TodoHandler) simulatedLLMEnabled() bool {
+	return h.llmSimulated != nil && h.llmSimulated.Configured()
 }
 
 // SetBroadcaster wires the realtime layer. Pass nil (the default) to
@@ -115,6 +127,9 @@ func (h *TodoHandler) RegisterRoutes(se *core.ServeEvent) {
 	if h.llm != nil && h.llm.Configured() {
 		se.Router.POST("/api/todos/suggest", h.handleSuggest)
 	}
+	if h.llmSimulated != nil && h.llmSimulated.Configured() {
+		se.Router.POST("/api/todos/suggest-simulated", h.handleSuggestSimulated)
+	}
 }
 
 // handleIndex serves the demo Todo page. Wraps the TodoList signal
@@ -129,7 +144,7 @@ func (h *TodoHandler) handleIndex(c *core.RequestEvent) error {
 	if c.Auth != nil {
 		userEmail = c.Auth.Email()
 	}
-	todos, err := h.listTodos("all")
+	todos, err := h.listTodos(c, "all")
 	if err != nil {
 		slog.Warn("todo: list on index failed", "error", err)
 		todos = nil
@@ -140,6 +155,7 @@ func (h *TodoHandler) handleIndex(c *core.RequestEvent) error {
 		ItemCount:        len(todos),
 		AdminEnabled:     h.cfg.AdminToken != "",
 		LLMEnabled:       h.llmEnabled(),
+		SimulatedLLM:     h.simulatedLLMEnabled(),
 		WorkflowEnabled:  h.cfg.Workflow.Enabled,
 		ConnectedClients: h.q.Hub().Stats().Clients,
 		Suggestions:      []string{},
@@ -170,50 +186,19 @@ func (h *TodoHandler) RegisterRoutesOn(r *router.Router[*core.RequestEvent]) {
 	if h.llm != nil && h.llm.Configured() {
 		r.POST("/api/todos/suggest", h.handleSuggest)
 	}
+	if h.llmSimulated != nil && h.llmSimulated.Configured() {
+		r.POST("/api/todos/suggest-simulated", h.handleSuggestSimulated)
+	}
 }
 
 // RegisterHandlers wires the todo handler's background jobs into the
 // queue's HandlerRegistry. Call before StartWorkers so the worker pool
-// dispatches incoming "todo_created" messages to the toast streamer.
+// dispatches incoming jobs (retry_demo, suggest, suggest_simulated) to
+// the right handler.
 func (h *TodoHandler) RegisterHandlers(reg *queue.HandlerRegistry) {
-	reg.Register("todo_created", h.handleTodoCreatedJob)
 	reg.Register("retry_demo", h.handleRetryDemoJob)
-}
-
-// handleTodoCreatedJob is the worker-side handler invoked when a
-// "todo_created" message is dequeued. Sends a success toast via the SSE
-// Hub to the client that originated the request. The retry layer
-// (RetryConfig.Do) wraps this so transient Hub delivery failures are
-// retried with exponential backoff and per-attempt feedback streamed
-// to the same client.
-func (h *TodoHandler) handleTodoCreatedJob(ctx context.Context, hub *queue.SSEHub, job queue.Job) error {
-	var payload struct {
-		Type   string `json:"type"`
-		TodoID string `json:"todoID"`
-		Title  string `json:"title"`
-	}
-	if err := json.Unmarshal(job.Payload, &payload); err != nil {
-		return fmt.Errorf("decode todo_created payload: %w", err)
-	}
-
-	message := fmt.Sprintf("\u201c%s\u201d added", payload.Title)
-	toastPayload, err := json.Marshal(map[string]string{
-		"toastType": "success",
-		"message":   message,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal toast payload: %w", err)
-	}
-	envelope := queue.Job{Type: jobTypeToast, Payload: toastPayload}
-	chunk, err := json.Marshal(envelope)
-	if err != nil {
-		return fmt.Errorf("marshal toast envelope: %w", err)
-	}
-	if job.ClientID != "" {
-		return hub.SendBlocking(ctx, job.ClientID, chunk)
-	}
-	hub.Broadcast(chunk)
-	return nil
+	reg.Register("suggest", h.handleSuggestJob)
+	reg.Register("suggest_simulated", h.handleSuggestJob)
 }
 
 // handleEnqueueRetryDemo enqueues a "retry_demo" background job so the

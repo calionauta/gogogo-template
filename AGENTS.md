@@ -184,11 +184,11 @@ The default build (`go build ./cmd/web`) is the recommended starting point for a
 | Build tag | Binary size impact | What you get | Where it's wired |
 |---|---|---|---|
 | _(default)_ | baseline | `goqite` queue + `InMemoryBroadcaster` (single-process cross-client SSE) + demo Todo app + auth + LLM | `router/router.go` |
-| `-tags jetstream` | +9 MB | Above + an embedded NATS server + durable `TODOS` JetStream stream for multi-instance realtime | `cmd/web/nats.go` (`//go:build jetstream`) + `cmd/web/nats_noop.go` (`//go:build !jetstream`) |
-| `-tags turbine` | +2 MB | Above + durable multi-step workflows (e.g. `WelcomeOnboarding`) and the Turbine executor in PocketBase SQLite | `cmd/web/turbine.go` + `cmd/web/turbine_noop.go` |
+| `-tags jetstream` | +9 MB | Above + an embedded NATS server + durable `TODOS` JetStream stream for multi-instance realtime (NATS enabled by default under this tag; `NATS_ENABLED=false` opts out) | `cmd/web/nats.go` (`//go:build jetstream`) + `cmd/web/nats_noop.go` (`//go:build !jetstream`) |
+| `-tags turbine` | +2 MB | Above + durable multi-step workflows (e.g. `WelcomeOnboarding`) and the Turbine executor in PocketBase SQLite (Turbine enabled by default under this tag; `WORKFLOW_ENABLED=false` opts out) | `cmd/web/turbine.go` + `cmd/web/turbine_noop.go` |
 | `-tags "jetstream turbine"` | +11 MB | Both opt-ins stacked | sum of the above |
 
-The build-tag pattern is **file-level** in `cmd/web/`. Each tag has a noop stub (e.g. `turbine_noop.go`) so the default build never references the heavy deps. The router checks `cfg.NATS.Enabled` / `cfg.Turbine` runtime flags to decide whether to call the wiring functions; feature handlers (`features/todo/handlers/admin.go`, `.../onboarding.go`) gate their behaviour on `h.llm != nil && h.llm.Configured()` and the cfg flags, so routes 404 cleanly when features are off rather than crash.
+The build-tag pattern is **file-level** in `cmd/web/`. Each tag has a noop stub (e.g. `turbine_noop.go`) so the default build never references the heavy deps. The router checks `cfg.NATS.Enabled` (defaults to true under `-tags jetstream`, override with `NATS_ENABLED=false`) / `cfg.Workflow.Enabled` (defaults to true under `-tags turbine`, override with `WORKFLOW_ENABLED=false`) runtime flags to decide whether to call the wiring functions; feature handlers (`features/todo/handlers/admin.go`, `.../onboarding.go`) gate their behaviour on `h.llm != nil && h.llm.Configured()` and the cfg flags, so routes 404 cleanly when features are off rather than crash.
 
 When adding a new feature with an optional dependency, follow the same shape: `internal/feature/<name>.go` (real impl) + `internal/feature/<name>_noop.go` (default build stub) + a `cfg.<Name>.Enabled` flag. See `docs/decisions.md` for the rationale.
 

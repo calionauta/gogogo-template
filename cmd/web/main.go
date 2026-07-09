@@ -87,6 +87,16 @@ func run() error {
 	todoH.RegisterHandlers(q.Registry())
 	todoH.SetLLMClient(llm.New(cfg.GoAI.APIKey))
 
+	// Simulated LLM mode (SIMULATE_LLM=true): swap in an in-process fake
+	// so the "Suggest (simulated)" demo exercises the queue + retry path
+	// keyless. The fake scripts 500 → 200 + delay, which the worker
+	// surfaces as per-attempt toasts. See docs/async-demo-sequencing.md.
+	if v := os.Getenv("SIMULATE_LLM"); v == "true" || v == "1" {
+		sim := llm.NewSimulated()
+		todoH.SetSimulatedLLMClient(sim)
+		defer sim.Close()
+	}
+
 	workers := q.StartWorkers()
 	_ = workers // held for parity with turbine runtime var; unused at call site
 

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/YakirOren/turbine"
@@ -54,8 +56,47 @@ func (c *PocketBaseTodoCreator) CreateExampleTodo(ctx context.Context, title, us
 		if err := c.broadcaster.PublishTodoUpdate(ctx, todoUpdateJob("created", rec.Id, title, false)); err != nil {
 			slog.Warn("onboarding: broadcast todo created failed", "error", err)
 		}
+		// Advance the live stepper: this example todo is step (n+1) of 5.
+		step := nextOnboardingCreateStep(user)
+		publishOnboardingProgress(c.broadcaster, ctx, step+1, 5, "create_todo",
+			fmt.Sprintf("Step %d/5 — Created example todo: %s", step+1, title))
 	}
 	return rec.Id, nil
+}
+
+// onboardingStepCounts tracks how many example todos a user's workflow
+// has created, so we can number the create steps (2..4 of 5) as the
+// durable workflow advances. Keyed by user; reset when a new workflow
+// starts (handleStart calls resetOnboardingSteps).
+var onboardingStepCounts sync.Map // user -> *atomic.Int32
+
+func resetOnboardingSteps(user string) {
+	onboardingStepCounts.Store(user, &atomic.Int32{})
+}
+
+func nextOnboardingCreateStep(user string) int {
+	v, _ := onboardingStepCounts.LoadOrStore(user, &atomic.Int32{})
+	return int(v.(*atomic.Int32).Add(1))
+}
+
+// publishOnboardingProgress streams a "progress" event through the
+// broadcaster so every connected client sees the durable workflow
+// advance step by step — Turbine's durability and JetStream's realtime
+// delivery, observed together in the UI stepper.
+func publishOnboardingProgress(b nats.TodoBroadcaster, ctx context.Context, step, total int, phase, detail string) {
+	if b == nil {
+		return
+	}
+	p := mustJSON(map[string]any{
+		"step":   step,
+		"total":  total,
+		"phase":  phase,
+		"detail": detail,
+	})
+	envelope := mustJSON(queue.Job{Type: "progress", Payload: p})
+	if err := b.PublishTodoUpdate(ctx, envelope); err != nil {
+		slog.Warn("onboarding: publish progress failed", "error", err)
+	}
 }
 
 // RegisterOnboardingRoutes wires the onboarding HTTP routes into the
@@ -110,6 +151,11 @@ func (h *OnboardingHandler) handleStart(c *core.RequestEvent) error {
 		user = "friend"
 	}
 
+	// Reset the per-user step counter and announce step 1 so the UI
+	// stepper lights up the moment the workflow starts.
+	resetOnboardingSteps(user)
+	publishOnboardingProgress(h.broadcaster, context.Background(), 1, 5, "greet", "Step 1/5 — Greeting user")
+
 	// Fire the workflow in a goroutine. Turbine persists state in SQLite
 	// after each step, so a crash mid-run resumes at the last completed
 	// step — no duplicate todos.
@@ -126,8 +172,9 @@ func (h *OnboardingHandler) handleStart(c *core.RequestEvent) error {
 			if err == nil {
 				slog.Info("onboarding: workflow completed",
 					"user", user, "todos", len(result))
-				// Refresh every connected client's list now that the
-				// workflow has finished creating its example todos.
+				// Step 5/5 + a final list refresh so every connected
+				// client sees the completed durable workflow.
+				publishOnboardingProgress(h.broadcaster, context.Background(), 5, 5, "finalize", "Step 5/5 — Onboarding complete")
 				if h.broadcaster != nil {
 					if err := h.broadcaster.PublishTodoUpdate(
 						context.Background(),

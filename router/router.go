@@ -88,28 +88,31 @@ func Init(
 		auth.CookieSecure = !cfg.Dev && cfg.Host != "127.0.0.1"
 		auth.RegisterAuth(se)
 
-		// Register example feature: Todo MVC. Use the same handler
-		// instance the caller registered for background jobs so route
-		// state (PocketBase app ref, queue ref, config) is consistent
-		// across HTTP and worker paths.
+		// Wire the realtime broadcaster so todo mutations are shared
+		// with every connected client (JetStream with -tags jetstream,
+		// in-memory fan-out otherwise). Build it ONCE and share it:
+		// constructing it twice in one process makes the second
+		// JetStream durable consumer fail with "already bound".
+		broadcaster := newTodoBroadcaster(q.Hub())
 		if todoH != nil {
-			// Wire the realtime broadcaster so todo mutations are shared
-			// with every connected client (JetStream with -tags jetstream,
-			// in-memory fan-out otherwise).
-			todoH.SetBroadcaster(newTodoBroadcaster(q.Hub()))
+			// Use the same handler instance the caller registered for
+			// background jobs so route state (PocketBase app ref, queue
+			// ref, config) is consistent across HTTP and worker paths.
+			todoH.SetBroadcaster(broadcaster)
 			todoH.RegisterRoutes(se)
 		} else {
 			// Defensive fallback: construct a fresh handler if the
 			// caller forgot to pass one. Lets the rest of the router
 			// keep working even in misconfigured test setups.
 			fallback := handlers.New(app, q, cfg)
+			fallback.SetBroadcaster(broadcaster)
 			fallback.RegisterRoutes(se)
 		}
 
 		// Onboarding workflow routes are wired here when Turbine is
 		// enabled. The handler reads the concrete *workflow.Runtime via
 		// RegisterOnboardingRoutes' build-tag switch.
-		registerOnboarding(app, q, se, workflowRt, newTodoBroadcaster(q.Hub()))
+		registerOnboarding(app, q, se, workflowRt, broadcaster)
 
 		return se.Next()
 	})
