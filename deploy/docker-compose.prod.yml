@@ -52,6 +52,10 @@ services:
       # stays /var/lib/<APP_NAME>/data — that is what the app's DATA_DIR
       # env points at, so the in-container path is unchanged.
       - /home/deploy/${APP_NAME:-gogogo-fullstack-template}/data:/var/lib/${APP_NAME:-gogogo-fullstack-template}/data
+      # Turbine durable-workflow state. The embedded PocketBase inside
+      # turbine (-tags turbine) stores its data in /pb_data; mount the
+      # host volume so workflow state survives container recreation.
+      - /home/deploy/${APP_NAME:-gogogo-fullstack-template}/data/turbine:/pb_data
     healthcheck:
       # Exec form (no shell) — the image is scratch, so wget/curl and
       # CMD-SHELL are unavailable. `/app health` is a built-in
