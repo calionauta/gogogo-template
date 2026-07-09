@@ -45,16 +45,6 @@ RUN go tool templ generate && \
 RUN mkdir -p /out/etc/ssl/certs && \
     cp /etc/ssl/certs/ca-certificates.crt /out/etc/ssl/certs/
 
-# Turbine (durable workflows, -tags turbine) boots an embedded PocketBase
-# whose default data dir is the relative path "pb_data". In the scratch
-# runtime the process CWD is "/", so that resolves to "/pb_data". The
-# container runs as uid 65532 (non-root) and cannot create "/pb_data"
-# itself -> "mkdir /pb_data: permission denied" aborts turbine bootstrap
-# and the workflow routes never register. Pre-create it here, owned by
-# 65532, so the embedded PB can write its state. Persisted via a volume
-# mount in docker-compose.prod.yml.
-RUN mkdir -p /out/pb_data && chown 65532:65532 /out/pb_data
-
 # ────────────────────────────
 # Stage 2: runtime (scratch)
 # ────────────────────────────
@@ -67,8 +57,14 @@ COPY --from=builder /out/app /app
 # ca-certificates for HTTPS to LLM providers (OpenAI, Groq, etc.).
 COPY --from=builder /out/etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Writable turbine state dir (see builder stage note). Owned by uid 65532.
-COPY --from=builder /out/pb_data /pb_data
+# Turbine (-tags turbine) boots an embedded PocketBase whose default data
+# dir is the relative path "pb_data". The container runs as uid 65532 and
+# the host data volume is ACL-granted to 65532 (see scripts/deploy-prod.sh),
+# so pointing WORKDIR at the volume data dir makes ./pb_data resolve to
+# /var/lib/<app>/data/pb_data — writable by 65532 AND persisted on the
+# volume. (Leaving WORKDIR at "/" would make it /pb_data, which 65532
+# cannot create.)
+WORKDIR /var/lib/gogogo-fullstack-template/data
 
 # Go's runtime expects /tmp to be writable (e.g. for memory-mapped
 # file backings in some stdlib paths). scratch has no /tmp, so
