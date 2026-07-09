@@ -3,15 +3,19 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# By default, lint both HTML/Templ files and Go SDK calls.
+# Add --analyzers html,go to enable cross-reference checks too.
+ANALYZERS="html,go"
+
 # If the tool is already installed via go install, use it.
 if command -v datastar-lint &>/dev/null; then
-	exec datastar-lint -r "$ROOT"
+	exec datastar-lint -r --analyzers "$ANALYZERS" "$ROOT"
 fi
 
 # Fallback: try to build and run from the separate repo.
 DSLINT_REPO="$HOME/Development/datastar-lint"
 if [ -d "$DSLINT_REPO" ]; then
-	exec go run "$DSLINT_REPO" -r "$ROOT"
+	exec go run "$DSLINT_REPO" -r --analyzers "$ANALYZERS" "$ROOT"
 fi
 
 echo "❌ datastar-lint not found. Install it with: go install github.com/calionauta/datastar-lint@latest"
