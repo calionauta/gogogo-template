@@ -48,6 +48,14 @@ func (h *TodoHandler) handleCreate(c *core.RequestEvent) error {
 		return c.String(statusInternal, "save failed")
 	}
 
+	// Resume the event-driven onboarding flow if this user has a
+	// pending onboarding (set by OnboardingStart on login). The first
+	// todo they create moves the durable workflow to its second half
+	// (todo captured -> scheduled pause -> complete). No-op otherwise.
+	if h.onboarding != nil {
+		h.onboarding.ResumeOnboarding(ownerOf(c))
+	}
+
 	h.broadcastTodo(c, "created", item)
 
 	todos, err := h.listTodos(c, "all")

@@ -59,6 +59,20 @@ type TodoHandler struct {
 	broadcaster  TodoBroadcaster
 	llm          *llm.Client
 	llmSimulated *llm.Client
+	// onboarding drives the event-driven Turbine onboarding flow. It is
+	// an interface so the default (non-turbine) build can hold a nil
+	// without importing the turbine-tagged OnboardingHandler. The
+	// concrete *OnboardingHandler is wired in RegisterOnboardingRoutes
+	// (turbine build only); nil when Turbine is disabled.
+	onboarding OnboardingResumer
+}
+
+// OnboardingResumer is the capability the create path needs from the
+// onboarding flow: resume it when a user with a pending onboarding adds
+// their first todo. Declared here (default build) so handleCreate can
+// call it unconditionally; the turbine build supplies the real impl.
+type OnboardingResumer interface {
+	ResumeOnboarding(user string)
 }
 
 // New constructs a TodoHandler. Used by both production wiring (router.Init)

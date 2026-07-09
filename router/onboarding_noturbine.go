@@ -6,6 +6,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 
+	"github.com/calionauta/gogogo-fullstack-template/features/todo/handlers"
 	"github.com/calionauta/gogogo-fullstack-template/internal/nats"
 	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
@@ -20,6 +21,7 @@ func registerOnboarding(
 	_ *core.ServeEvent,
 	_ WorkflowRuntime,
 	_ nats.TodoBroadcaster,
+	_ *handlers.TodoHandler,
 ) {
 	// Turbine not available without -tags turbine
 }

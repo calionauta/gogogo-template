@@ -145,16 +145,14 @@ Each phase is independently testable and keeps `make check` green.
 
 ## Known limitation: Turbine has no in-workflow delay/schedule primitive
 
-The durable onboarding workflow (Phase 0 + 7.2 stepper) uses `time.Sleep`
-*inside* each `turbine.Do` step for observable pacing (1.5s/step). This is a
-deliberate substitute for a "delay" / "schedule 1 minute ahead" step: turbine
-v0.3.0 only exposes `WithSchedule(cronExpr)` at **workflow registration** time
-— there is no per-step `turbine.Delay` / `turbine.Schedule` primitive to pause
-a running workflow mid-flight. The sleeps run only on first execution of a
-step; on crash-recovery Turbine replays recorded steps, so recovery stays
-fast. If a true scheduled continuation is needed later, the options are:
-(a) register a second workflow with `WithSchedule("@every 1m")` that resumes
-    from the first workflow's recorded state, or
-(b) upgrade Turbine once it ships an in-workflow delay primitive.
-We chose the `time.Sleep` approach because it is the simplest thing that makes
-the durable workflow followable in the UI without a cron registration.
+The event-driven onboarding flow (`OnboardingContinue`) uses `time.Sleep(60s)`
+*inside* the `scheduled_pause` durable step for the deliberate 1-minute
+pause between the user's first todo and the completion alert. Turbine
+v0.3.0 only exposes `WithSchedule(cronExpr)` at **workflow registration**
+time — there is no per-step `turbine.Delay` / `turbine.Schedule` primitive
+to pause a running workflow mid-flight. We deliberately do NOT use
+`WithSchedule` here because it is **recurring cron** (`*/1 * * * *` would
+fire every minute forever), whereas the onboarding flow wants a
+**one-shot** 1-minute pause that ends the workflow. The sleep runs only on
+the first execution of the step; on crash-recovery Turbine replays the
+recorded step without re-sleeping — recovery stays fast.

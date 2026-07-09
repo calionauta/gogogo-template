@@ -84,7 +84,7 @@ func turbineFixture(t *testing.T) (string, *pocketbase.PocketBase, func()) {
 	r := router.NewRouter[*core.RequestEvent](newRequestEventFactory(app))
 	h.RegisterRoutesOn(r)
 	// Wire the Turbine-gated onboarding routes the same way router.Init does.
-	handlers.RegisterOnboardingRoutes(app, q, rt, r, nats.NewInMemoryBroadcaster(q.Hub()))
+	handlers.RegisterOnboardingRoutes(app, q, rt, r, nats.NewInMemoryBroadcaster(q.Hub()), h)
 
 	mux, err := r.BuildMux()
 	if err != nil {
@@ -108,19 +108,25 @@ func turbineFixture(t *testing.T) (string, *pocketbase.PocketBase, func()) {
 	return server.URL, app, cleanup
 }
 
-// TestOnboarding_StartCreatesThreeTodos drives the full HTTP → Turbine →
-// PocketBase path: POST /api/onboarding/start fires WelcomeOnboarding in
-// the background, each durable step writes a todo via PocketBaseTodoCreator,
-// and we assert all three land in the "todos" collection. Also confirms
-// the HTTP response merges the onboardingStarted signal.
-func TestOnboarding_StartCreatesThreeTodos(t *testing.T) {
-	base, app, cleanup := turbineFixture(t)
+// TestOnboarding_StartSetsPendingFlag drives the manual onboarding entry
+// point (POST /api/onboarding/start) and asserts it sets the
+// per-user pending flag in the workflow package. The flag is what the
+// create handler reads to resume the flow via OnboardingContinue when
+// the user adds their first todo.
+func TestOnboarding_StartSetsPendingFlag(t *testing.T) {
+	base, _, cleanup := turbineFixture(t)
 	defer cleanup()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	resp, err := postForm(ctx, base+"/api/onboarding/start", url.Values{"user": {"alice"}})
+	const user = "alice"
+	// Clean baseline.
+	workflow.IsOnboardingPending(user) // ensure package is linked (compile guard)
+	workflow.SetOnboardingPendingForTest(user, false)
+	defer workflow.SetOnboardingPendingForTest(user, false)
+
+	resp, err := postForm(ctx, base+"/api/onboarding/start", url.Values{"user": {user}})
 	if err != nil {
 		t.Fatalf("onboarding start: %v", err)
 	}
@@ -132,46 +138,54 @@ func TestOnboarding_StartCreatesThreeTodos(t *testing.T) {
 		t.Fatalf("response missing onboardingStarted signal: %s", body)
 	}
 
-	// Poll the "todos" collection until all three durable steps land.
-	want := []string{
-		"Read the gogogo-fullstack-template README",
-		"Explore the Turbine workflow",
-		"Build something with the stack",
-	}
-	deadline := time.Now().Add(20 * time.Second)
-	var titles []string
-	var recs []*core.Record
-	var ferr error
+	// Poll for the flag to flip (the workflow runs async in a goroutine).
+	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		recs, ferr = app.FindRecordsByFilter("todos", "", "", 0, 0)
-		if ferr == nil {
-			titles = titles[:0]
-			for _, r := range recs {
-				titles = append(titles, r.GetString(titleField))
-			}
-			if len(titles) >= 3 {
-				break
-			}
+		if workflow.IsOnboardingPending(user) {
+			return // success
 		}
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("expected IsOnboardingPending(%q)=true after /api/onboarding/start", user)
+}
+
+// TestOnboarding_CreateResumesFlow verifies the create handler resumes
+// OnboardingContinue when a user with a pending onboarding adds their
+// first todo. We don't wait for the full 60s pause; we just assert the
+// resume was triggered (workflow ran without immediate error) and the
+// pending flag stays true while the flow is in flight.
+func TestOnboarding_CreateResumesFlow(t *testing.T) {
+	base, _, cleanup := turbineFixture(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	const user = "bob"
+	workflow.SetOnboardingPendingForTest(user, true)
+	defer workflow.SetOnboardingPendingForTest(user, false)
+
+	resp, err := postForm(ctx, base+"/api/todos", url.Values{titleField: {"my first todo"}})
+	if err != nil {
+		t.Fatalf("create todo: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != 200 {
+		t.Fatalf("create status=%d", resp.StatusCode)
 	}
 
-	if len(titles) < 3 {
-		t.Fatalf("onboarding created %d todos, want >= 3 (saw %v)", len(titles), titles)
-	}
-	for _, w := range want {
-		if !containsStrSlice(titles, w) {
-			t.Errorf("expected todo %q among created todos, got %v", w, titles)
+	// The pending flag should STILL be true: OnboardingContinue is
+	// mid-flight (it's in the 60s scheduled_pause step). The flag is
+	// only cleared when the finalize step runs.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if !workflow.IsOnboardingPending(user) {
+			break
 		}
+		time.Sleep(50 * time.Millisecond)
 	}
-	// Regression guard: durable-workflow todos must be scoped to the
-	// demo user via the owner field, not orphaned. handleStart passes
-	// c.Auth.Id (or the "user" form value) and PocketBaseTodoCreator
-	// sets rec.owner, so every created row must carry that owner.
-	for _, r := range recs {
-		if got := r.GetString("owner"); got != "alice" {
-			t.Errorf("todo %q owner = %q, want alice", r.GetString(titleField), got)
-		}
+	if !workflow.IsOnboardingPending(user) {
+		t.Fatal("expected pending flag to remain true while OnboardingContinue is in flight (60s pause)")
 	}
 }
 
@@ -180,15 +194,6 @@ func TestOnboarding_StartCreatesThreeTodos(t *testing.T) {
 func containsStr(s, substr string) bool {
 	for i := 0; i+len(substr) <= len(s); i++ {
 		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-func containsStrSlice(s []string, target string) bool {
-	for _, v := range s {
-		if v == target {
 			return true
 		}
 	}

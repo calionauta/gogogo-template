@@ -4,11 +4,8 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/YakirOren/turbine"
@@ -23,61 +20,6 @@ import (
 	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 	"github.com/calionauta/gogogo-fullstack-template/internal/workflow"
 )
-
-// PocketBaseTodoCreator implements workflow.TodoCreator by writing to the
-// main app's "todos" collection. Registered as the package-level creator
-// in RegisterOnboardingRoutes so the WelcomeOnboarding workflow can reach
-// the main app DB from its durable steps.
-type PocketBaseTodoCreator struct {
-	app *pocketbase.PocketBase
-	// broadcaster lets the durable workflow notify realtime clients
-	// as each example todo is created, so the list grows live on every
-	// connected screen instead of only after a manual refresh.
-	broadcaster nats.TodoBroadcaster
-}
-
-// CreateExampleTodo inserts a new todo with the given title into the main
-// app's "todos" collection and returns its PocketBase-generated id.
-func (c *PocketBaseTodoCreator) CreateExampleTodo(ctx context.Context, title, user string) (string, error) {
-	col, err := c.app.FindCollectionByNameOrId("todos")
-	if err != nil {
-		return "", fmt.Errorf("find todos collection: %w", err)
-	}
-	rec := core.NewRecord(col)
-	rec.Set("title", title)
-	rec.Set("completed", false)
-	rec.Set("owner", user)
-	if err := c.app.Save(rec); err != nil {
-		return "", fmt.Errorf("save todo: %w", err)
-	}
-	// Notify all realtime clients that a new todo was created so the
-	// list updates live as the durable workflow progresses.
-	if c.broadcaster != nil {
-		if err := c.broadcaster.PublishTodoUpdate(ctx, todoUpdateJob("created", rec.Id, title, false)); err != nil {
-			slog.Warn("onboarding: broadcast todo created failed", "error", err)
-		}
-		// Advance the live stepper: this example todo is step (n+1) of 5.
-		step := nextOnboardingCreateStep(user)
-		publishOnboardingProgress(c.broadcaster, ctx, step+1, 5, "create_todo",
-			fmt.Sprintf("Step %d/5 — Created example todo: %s", step+1, title))
-	}
-	return rec.Id, nil
-}
-
-// onboardingStepCounts tracks how many example todos a user's workflow
-// has created, so we can number the create steps (2..4 of 5) as the
-// durable workflow advances. Keyed by user; reset when a new workflow
-// starts (handleStart calls resetOnboardingSteps).
-var onboardingStepCounts sync.Map // user -> *atomic.Int32
-
-func resetOnboardingSteps(user string) {
-	onboardingStepCounts.Store(user, &atomic.Int32{})
-}
-
-func nextOnboardingCreateStep(user string) int {
-	v, _ := onboardingStepCounts.LoadOrStore(user, &atomic.Int32{})
-	return int(v.(*atomic.Int32).Add(1))
-}
 
 // publishOnboardingProgress streams a "progress" event through the
 // broadcaster so every connected client sees the durable workflow
@@ -103,23 +45,111 @@ func publishOnboardingProgress(b nats.TodoBroadcaster, ctx context.Context, step
 // router and registers the PocketBase-backed TodoCreator so the workflow
 // can write to the main app DB. Build-tag gated: only compiled when the
 // binary is built with `-tags turbine`.
+//
+// It also registers a login hook: every successful password login fires
+// OnboardingStart for THAT user (scoped by PocketBase record id), so each
+// browser session gets its own onboarding instance — not a global broadcast.
+// The flow then waits for the user to create their first todo; the create
+// handler resumes it via OnboardingContinue (see resumeOnboardingIfPending).
 func RegisterOnboardingRoutes(
 	app *pocketbase.PocketBase,
 	q *queue.Queue,
 	rt *workflow.Runtime,
 	r *router.Router[*core.RequestEvent],
 	broadcaster nats.TodoBroadcaster,
+	todoH *TodoHandler,
 ) {
-	workflow.RegisterTodoCreator(&PocketBaseTodoCreator{app: app, broadcaster: broadcaster})
+	h := &OnboardingHandler{app: app, q: q, rt: rt, broadcaster: broadcaster}
+	// Link the onboarding handler into TodoHandler so the create path
+	// can resume the flow when a user with a pending onboarding adds a
+	// todo (see ResumeOnboarding).
+	todoH.onboarding = h
 
-	if r != nil && rt != nil {
-		h := &OnboardingHandler{app: app, q: q, rt: rt, broadcaster: broadcaster}
+	// Manual "Start onboarding" button (original entry point).
+	if r != nil {
 		// LoadAppAuth populates c.Auth from the demo user's gogogo_auth
 		// cookie (the global LoadAuthFromCookie skips /api/), so the
 		// workflow scopes the created todos to the logged-in user's
 		// tenant instead of falling back to an anonymous "friend".
 		r.POST("/api/onboarding/start", h.handleStart).BindFunc(auth.LoadAppAuth)
 	}
+
+	// Automatic entry point: fire OnboardingStart on every successful
+	// password login. The app uses a custom cookie auth (not PocketBase
+	// native), so we register a callback the auth package invokes after a
+	// successful login. Scoped to the logged-in user id.
+	auth.SetOnLoginHook(func(userID string) {
+		triggerOnboardingStart(h, userID)
+	})
+}
+
+// triggerOnboardingStart fires the first half of the event-driven
+// onboarding flow for a specific user. Safe to call from the login path
+// (runs the durable workflow in a goroutine, non-blocking).
+func triggerOnboardingStart(h *OnboardingHandler, user string) {
+	if user == "" {
+		return
+	}
+	publishOnboardingProgress(h.broadcaster, context.Background(), 1, 5, "greet", "Step 1/5 — Greeting user")
+	go func() {
+		handle, err := turbine.Run(h.rt.T(), workflow.OnboardingStart, user)
+		if err != nil {
+			slog.Error("onboarding: start failed", "user", user, "error", err)
+			return
+		}
+		// Poll until the (short) first half completes, then announce the
+		// "awaiting your first todo" state so the UI shows step 2/5.
+		for {
+			_, err := handle.GetResult()
+			if err == nil {
+				publishOnboardingProgress(h.broadcaster, context.Background(), 2, 5, "await_todo", "Step 2/5 — Awaiting your first todo")
+				return
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+	}()
+}
+
+// ResumeOnboarding implements OnboardingResumer. It fires the second
+// half of the event-driven onboarding flow (OnboardingContinue) when a
+// user with a pending onboarding creates their first todo. Called from
+// the create handler via the TodoHandler.onboarding interface.
+func (h *OnboardingHandler) ResumeOnboarding(user string) {
+	resumeOnboardingIfPending(h, user)
+}
+
+// resumeOnboardingIfPending fires the second half of the event-driven
+// onboarding flow (OnboardingContinue) when a user with a pending
+// onboarding creates their first todo. No-op if the user has no pending
+// onboarding.
+func resumeOnboardingIfPending(h *OnboardingHandler, user string) {
+	if user == "" || !workflow.IsOnboardingPending(user) {
+		return
+	}
+	// Step 3/5 immediately (todo captured), then the workflow paces the
+	// rest (scheduled pause + finalize) and broadcasts progress itself.
+	publishOnboardingProgress(h.broadcaster, context.Background(), 3, 5, "todo_captured", "Step 3/5 — First todo captured")
+	go func() {
+		handle, err := turbine.Run(h.rt.T(), workflow.OnboardingContinue, user)
+		if err != nil {
+			slog.Error("onboarding: continue failed", "user", user, "error", err)
+			return
+		}
+		// Steps 4 (scheduled pause) and 5 (finalize) are announced as the
+		// durable workflow advances; the finalize step also emits the
+		// workflow-completed alert via the creator/broadcaster.
+		for {
+			_, err := handle.GetResult()
+			if err == nil {
+				publishOnboardingProgress(h.broadcaster, context.Background(), 5, 5, "finalize", "Step 5/5 — Onboarding complete")
+				if h.broadcaster != nil {
+					_ = h.broadcaster.PublishTodoUpdate(context.Background(), todoUpdateJob("workflow-completed", "", "", false))
+				}
+				return
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+	}()
 }
 
 // OnboardingHandler exposes the WelcomeOnboarding workflow over HTTP.
@@ -153,36 +183,21 @@ func (h *OnboardingHandler) handleStart(c *core.RequestEvent) error {
 
 	// Reset the per-user step counter and announce step 1 so the UI
 	// stepper lights up the moment the workflow starts.
-	resetOnboardingSteps(user)
 	publishOnboardingProgress(h.broadcaster, context.Background(), 1, 5, "greet", "Step 1/5 — Greeting user")
 
-	// Fire the workflow in a goroutine. Turbine persists state in SQLite
-	// after each step, so a crash mid-run resumes at the last completed
-	// step — no duplicate todos.
+	// Fire the first half of the event-driven onboarding flow. It ends
+	// at "awaiting your first todo"; the create handler resumes the
+	// second half (OnboardingContinue) when the user adds a todo.
 	go func() {
-		handle, err := turbine.Run(h.rt.T(), workflow.WelcomeOnboarding, user)
+		handle, err := turbine.Run(h.rt.T(), workflow.OnboardingStart, user)
 		if err != nil {
 			slog.Error("onboarding: workflow start failed", "user", user, "error", err)
 			return
 		}
-		// Poll for completion to log the outcome. The actual progress is
-		// visible in the todo list as each step's side effect lands.
 		for {
-			result, err := handle.GetResult()
+			_, err := handle.GetResult()
 			if err == nil {
-				slog.Info("onboarding: workflow completed",
-					"user", user, "todos", len(result))
-				// Step 5/5 + a final list refresh so every connected
-				// client sees the completed durable workflow.
-				publishOnboardingProgress(h.broadcaster, context.Background(), 5, 5, "finalize", "Step 5/5 — Onboarding complete")
-				if h.broadcaster != nil {
-					if err := h.broadcaster.PublishTodoUpdate(
-						context.Background(),
-						todoUpdateJob("workflow-completed", "", "", false),
-					); err != nil {
-						slog.Warn("onboarding: broadcast workflow-completed failed", "error", err)
-					}
-				}
+				publishOnboardingProgress(h.broadcaster, context.Background(), 2, 5, "await_todo", "Step 2/5 — Awaiting your first todo")
 				return
 			}
 			time.Sleep(200 * time.Millisecond)

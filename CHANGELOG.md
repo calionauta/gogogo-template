@@ -2,6 +2,13 @@
 
 All notable changes to this template are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-07-09
+
+### Changed
+- **Event-driven onboarding flow** (per user, on login). The single `WelcomeOnboarding` workflow is replaced by two split workflows driven by real app events: `OnboardingStart` (greet + mark `await_todo`) fires automatically on every successful password login via a `features/auth` login hook (scoped to the logged-in user's PocketBase record id); `OnboardingContinue` (todo captured → 1-min `time.Sleep` pause → finalize + completion alert) fires from the create-todo handler when the user has a pending onboarding. Turbine v0.3.0 has no in-workflow suspend primitive, so the split is the idiomatic event-driven alternative to polling or `WithSchedule` cron (which would be recurring, not one-shot). Each browser session gets its OWN onboarding instance — not a global broadcast.
+- Removed the now-dead `TodoCreator` interface, `ExampleTodo` struct, `PocketBaseTodoCreator`, `CreateExampleTodo`, and the `onboardingStepCounts` machinery. The workflow no longer writes example todos; the user's first todo is the onboarding trigger.
+- README + plan doc updated to describe the event-driven flow.
+
 ## [0.4.0] - 2026-07-09
 
 ### Added

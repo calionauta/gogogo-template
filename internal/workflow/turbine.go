@@ -10,7 +10,6 @@ package workflow
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -20,40 +19,40 @@ import (
 	"github.com/pocketbase/pocketbase"
 )
 
-// TodoCreator is the interface a workflow step uses to write todos to the
-// main app's PocketBase database. Production code registers a real
-// implementation via RegisterTodoCreator before the runtime starts;
-// tests can inject a stub. The workflow runtime itself does not touch
-// the main app DB — it only persists its own step results.
-type TodoCreator interface {
-	CreateExampleTodo(ctx context.Context, title, user string) (id string, err error)
-}
-
+// onboardingPending tracks which users have an in-flight onboarding
+// awaiting their first todo. Keyed by user id; set true by
+// OnboardingStart (step await_todo) and false by OnboardingContinue
+// (finalize). The create-todo handler reads this to decide whether to
+// resume the onboarding flow. In-memory only: onboarding is a demo
+// affordance, and a restart simply starts it fresh on next login.
 var (
-	creatorMu sync.RWMutex
-	creator   TodoCreator
+	pendingMu         sync.RWMutex
+	onboardingPending = make(map[string]bool)
 )
 
-// RegisterTodoCreator wires a TodoCreator implementation into the package.
-// Must be called before New() so workflows registered after this point can
-// reach the main app DB. Passing nil clears the registration (used by tests).
-func RegisterTodoCreator(c TodoCreator) {
-	creatorMu.Lock()
-	defer creatorMu.Unlock()
-	creator = c
+// setOnboardingPending flips a user's pending flag. Safe for concurrent
+// use by the workflow runtime + the create handler.
+func setOnboardingPending(user string, pending bool) {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	onboardingPending[user] = pending
 }
 
-func getCreator() TodoCreator {
-	creatorMu.RLock()
-	defer creatorMu.RUnlock()
-	return creator
+// IsOnboardingPending reports whether the given user has an onboarding
+// flow awaiting their first todo. Read by the create handler to resume
+// the flow via OnboardingContinue.
+func IsOnboardingPending(user string) bool {
+	pendingMu.RLock()
+	defer pendingMu.RUnlock()
+	return onboardingPending[user]
 }
 
-// ErrTodoCreatorNotRegistered is returned by workflows that need to write
-// to the main app DB but find no TodoCreator registered. This guards
-// against a workflow firing during test setup before the production
-// creator is wired.
-var ErrTodoCreatorNotRegistered = errors.New("workflow: no TodoCreator registered")
+// SetOnboardingPendingForTest sets a user's pending flag. Exported
+// (test-only) so integration tests can seed the state without driving
+// the full login + workflow path. Production code should not call this.
+func SetOnboardingPendingForTest(user string, pending bool) {
+	setOnboardingPending(user, pending)
+}
 
 // Runtime is a thin handle around a Turbine runtime. It is safe to use
 // zero-value before Start has been called; the embedded runtime handles
@@ -82,6 +81,12 @@ func (r *Runtime) T() *turbine.Runtime { return r.t }
 // recovery time.
 const stepDelay = 1500 * time.Millisecond
 
+// onboardingPause is the deliberate one-shot 1-minute pause in the
+// event-driven onboarding flow (OnboardingContinue). It lets the user
+// watch the stepper sit on "scheduled (1 min)" and then advance, without
+// using turbine.WithSchedule (which is RECURRING cron and would spam).
+const onboardingPause = 60 * time.Second
+
 // Hello is the minimal example workflow. Each step's result is recorded
 // in SQLite and replayed on recovery after a crash, so the function may
 // be called many times per workflow run without re-executing side effects.
@@ -98,89 +103,85 @@ func Hello(ctx turbine.Context, name string) (string, error) {
 	}, turbine.WithStepName("finalize"))
 }
 
-// ExampleTodo is the data shape produced by the WelcomeOnboarding workflow.
-// Each step's output is durable; on crash recovery, recorded steps replay
-// their saved ExampleTodo instead of re-running the side effect.
-type ExampleTodo struct {
-	Title string `json:"title"`
-	ID    string `json:"id"`
-}
-
-// WelcomeOnboarding is the canonical demonstration of Turbine in this
-// template. It models the classic onboarding flow:
+// OnboardingStart is the first half of the event-driven onboarding
+// flow, triggered automatically when a user logs in (see
+// onboarding.go's login hook). It is scoped to the logged-in user (the
+// input is the user's PocketBase record id), so each browser session
+// gets its OWN onboarding instance — it is not a global broadcast.
 //
-//  1. Greet the user (pure step, no side effects).
-//  2. Create three example todos in the main app DB via TodoCreator.
-//     Each todo creation is a separate durable step, so if the server
-//     crashes after creating 2 of 3, recovery resumes at step 2 and
-//     only creates the third.
-//  3. Finalize: returns the list of created todo IDs so the HTTP
-//     handler can show a toast / redirect.
+// Steps:
+//  1. greet — welcome the user (durable, paced).
+//  2. await_todo — marks the user's onboarding as "pending first todo"
+//     and ends. The flow then WAITS for the user to create a real todo;
+//     the create handler resumes it via OnboardingContinue.
 //
-// Why this is the right demo for Turbine in a todo app:
-//   - The side effects (DB writes) are exactly the kind of operation
-//     you want to make durable — re-running them would create duplicate
-//     todos.
-//   - The number of steps is small (5 total) but each is meaningful,
-//     keeping the example scannable.
-//   - It surfaces the recovery semantics: kill the server mid-run,
-//     restart, watch it resume at the last incomplete step.
-//
-// To trigger from a handler:
-//
-//	handle, _ := turbine.Run(rt.T(), workflow.WelcomeOnboarding, "alice")
-//	ids, _ := handle.GetResult() // []ExampleTodo
-//
-// The signature is `func(turbine.Context, T) (R, error)` because Turbine
-// dispatches workflows as plain functions. The input type is the user's
-// name (string); the output is the list of created ExampleTodo.
-func WelcomeOnboarding(ctx turbine.Context, user string) ([]ExampleTodo, error) {
-	greeting, err := turbine.Do(ctx, func(ctx context.Context) (string, error) {
-		time.Sleep(stepDelay) // visible pace: step 1/5
+// Why split into two workflows instead of one long-running paused
+// workflow: Turbine v0.3.0 has no "wait for external signal / suspend"
+// primitive, so a single workflow cannot block on a user action without
+// polling. Splitting keeps each workflow short and lets the app's own
+// events (login, create-todo) drive the transitions — the idiomatic
+// event-driven pattern, no polling, no blocked workers.
+func OnboardingStart(ctx turbine.Context, user string) (string, error) {
+	_, err := turbine.Do(ctx, func(ctx context.Context) (string, error) {
+		time.Sleep(stepDelay) // visible pace: step 1
 		return fmt.Sprintf("Welcome, %s!", user), nil
 	}, turbine.WithStepName("greet"))
 	if err != nil {
-		return nil, err
-	}
-	_ = greeting // could be surfaced via a progress channel; omitted for brevity
-
-	titles := []string{
-		"Read the gogogo-fullstack-template README",
-		"Explore the Turbine workflow",
-		"Build something with the stack",
+		return "", err
 	}
 
-	todos := make([]ExampleTodo, 0, len(titles))
-	for i, title := range titles {
-		// Each loop iteration is a separate durable step. If the server
-		// crashes between iterations, recovery resumes at the first
-		// incomplete step (the recorded results for prior iterations
-		// are replayed from SQLite).
-		var created ExampleTodo
-		created, err = turbine.Do(ctx, func(ctx context.Context) (ExampleTodo, error) {
-			time.Sleep(stepDelay) // visible pace: steps 2..4/5
-			c := getCreator()
-			if c == nil {
-				return ExampleTodo{}, ErrTodoCreatorNotRegistered
-			}
-			id, cErr := c.CreateExampleTodo(ctx, title, user)
-			if cErr != nil {
-				return ExampleTodo{}, fmt.Errorf("create example todo %q: %w", title, cErr)
-			}
-			return ExampleTodo{Title: title, ID: id}, nil
-		}, turbine.WithStepName(fmt.Sprintf("create_example_todo_%d", i+1)))
-		if err != nil {
-			return nil, err
-		}
-		todos = append(todos, created)
+	// Mark this user's onboarding as awaiting their first todo. The
+	// create handler checks this flag and resumes the flow. Recorded as
+	// a durable step so recovery replays it instead of re-flipping.
+	_, err = turbine.Do(ctx, func(ctx context.Context) (string, error) {
+		setOnboardingPending(user, true)
+		return "awaiting-first-todo", nil
+	}, turbine.WithStepName("await_todo"))
+	if err != nil {
+		return "", err
+	}
+	return "onboarding-started", nil
+}
+
+// OnboardingContinue is the second half of the event-driven onboarding
+// flow, triggered by the create-todo handler when a user with a pending
+// onboarding adds their first todo. It is also user-scoped.
+//
+// Steps:
+//  1. todo_captured — records that the user's first todo arrived.
+//  2. scheduled_pause — a deliberate 1-minute durable pause so the user
+//     can watch the stepper sit on "scheduled (1 min)" and then advance.
+//     Implemented as time.Sleep inside the durable step (Turbine replays
+//     recorded steps on crash recovery, so the sleep is skipped on replay
+//     — recovery stays fast). NOTE: this is NOT turbine.WithSchedule —
+//     that registers a RECURRING cron workflow, which would spam todos
+//     every minute; we want a one-shot 1-minute pause, so time.Sleep is
+//     the correct primitive here.
+//  3. finalize — clears the pending flag and ends with a completion alert.
+func OnboardingContinue(ctx turbine.Context, user string) (string, error) {
+	_, err := turbine.Do(ctx, func(ctx context.Context) (string, error) {
+		time.Sleep(stepDelay) // visible pace: step "todo captured"
+		return "todo-captured", nil
+	}, turbine.WithStepName("todo_captured"))
+	if err != nil {
+		return "", err
 	}
 
-	finalized, err := turbine.Do(ctx, func(ctx context.Context) ([]ExampleTodo, error) {
-		time.Sleep(stepDelay) // visible pace: finalize step 5/5
-		return todos, nil
+	// Deliberate one-shot 1-minute pause (see doc comment above).
+	_, err = turbine.Do(ctx, func(ctx context.Context) (string, error) {
+		time.Sleep(onboardingPause)
+		return "scheduled-pause-done", nil
+	}, turbine.WithStepName("scheduled_pause"))
+	if err != nil {
+		return "", err
+	}
+
+	finalized, err := turbine.Do(ctx, func(ctx context.Context) (string, error) {
+		setOnboardingPending(user, false)
+		return "onboarding-completed", nil
 	}, turbine.WithStepName("finalize"))
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	return finalized, nil
 }
@@ -228,7 +229,8 @@ func New(app *pocketbase.PocketBase, cfg Config, logger *slog.Logger) (*Runtime,
 	rt := turbine.Setup(app, tcfg)
 
 	turbine.Register(rt, Hello)
-	turbine.Register(rt, WelcomeOnboarding)
+	turbine.Register(rt, OnboardingStart)
+	turbine.Register(rt, OnboardingContinue)
 
 	return &Runtime{t: rt}, nil
 }

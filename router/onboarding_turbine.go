@@ -20,13 +20,14 @@ func registerOnboarding(
 	se *core.ServeEvent,
 	rt WorkflowRuntime,
 	broadcaster nats.TodoBroadcaster,
+	todoH *handlers.TodoHandler,
 ) {
-	if rt == nil {
+	if rt == nil || todoH == nil {
 		return
 	}
 	concrete, ok := rt.(*workflow.Runtime)
 	if !ok {
 		return
 	}
-	handlers.RegisterOnboardingRoutes(app, q, concrete, se.Router, broadcaster)
+	handlers.RegisterOnboardingRoutes(app, q, concrete, se.Router, broadcaster, todoH)
 }

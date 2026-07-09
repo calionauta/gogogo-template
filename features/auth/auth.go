@@ -41,6 +41,28 @@ const cookieName = "gogogo_auth"
 // false in dev so HTTP testing works).
 var CookieSecure bool
 
+// onLoginHook is an optional callback fired after a successful password
+// login, with the authenticated user's PocketBase record id. Used by the
+// Turbine onboarding flow to start a per-user workflow on login. Nil
+// unless SetOnLoginHook is called by the onboarding wiring.
+var onLoginHook func(userID string)
+
+// SetOnLoginHook registers a callback invoked after every successful
+// password login. The app's custom cookie auth does not go through
+// PocketBase's native OnRecordAuthWithPasswordRequest hook, so this is
+// the bridge that lets other packages react to logins. Safe to call
+// once at wiring time; subsequent calls replace the hook.
+func SetOnLoginHook(fn func(userID string)) {
+	onLoginHook = fn
+}
+
+// fireOnLogin invokes the registered login hook, if any.
+func fireOnLogin(userID string) {
+	if onLoginHook != nil {
+		onLoginHook(userID)
+	}
+}
+
 // LoadAuthFromCookie is a PocketBase middleware. Reads the gogogo_auth
 // cookie, validates the token via the SDK, and sets e.Auth so the
 // rest of the request pipeline sees the logged-in user. Invalid
@@ -153,6 +175,9 @@ func HandlePasswordLogin(e *core.RequestEvent) error {
 		return renderLoginPageTo(e, "Could not issue auth token")
 	}
 	setAuthCookie(e.Response, token)
+	// Fire the login hook (e.g. start the per-user Turbine onboarding
+	// flow). Scoped to this user's record id, not a global broadcast.
+	fireOnLogin(record.Id)
 	return e.Redirect(http.StatusSeeOther, e.Request.FormValue("next"))
 }
 
