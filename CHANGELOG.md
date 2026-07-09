@@ -2,6 +2,11 @@
 
 All notable changes to this template are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.2] - 2026-07-09
+
+### Fixed
+- **goconst lint clean.** Collapsed ~10 repeated string-literal warnings (Datastar signal keys `suggestions` / `suggestErr` / `suggestPending` and the `buy milk` test fixture) into shared package-level constants so the `jetstream` CI matrix finishes green. Two tiny files added: `features/todo/handlers/signal_keys.go` (production) and `features/todo/signal_keys_test.go` (test fixture). No behavior change.
+
 ## [0.6.1] - 2026-07-09
 
 ### Fixed
