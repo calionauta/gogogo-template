@@ -118,6 +118,23 @@ echo "→ docker compose build + up -d (context: ${REPO_DIR})"
 docker compose -f deploy/docker-compose.prod.yml build "${PROJECT}"
 docker compose -f deploy/docker-compose.prod.yml up -d "${PROJECT}"
 
+# ── 5b. Fix ACLs on the turbine/nats data subdirs, then restart ──
+# The volume mounts (data/turbine for Turbine's embedded PocketBase,
+# data/nats for JetStream) are created by Docker during `up` with a
+# 0755 mode, whose group bits cap the ACL *mask* at r-x. That leaves
+# uid 65532 (the container user) unable to write, so Turbine's
+# Bootstrap() fails with "unable to open database file". Explicitly
+# raise the named-user entry AND the mask to rwx, then restart the
+# container so Turbine re-bootstraps against a writable store.
+docker compose -f deploy/docker-compose.prod.yml stop "${PROJECT}" 2>/dev/null || true
+for d in turbine nats; do
+    sd="${DATA_DIR}/$d"
+    if [ -d "$sd" ]; then
+        setfacl -m u:65532:rwx -m m::rwx "$sd" 2>/dev/null || true
+    fi
+done
+docker compose -f deploy/docker-compose.prod.yml start "${PROJECT}" 2>/dev/null || true
+
 # ── 6. Wait for healthy + report ──
 echo "→ Waiting for /health (max 30s)..."
 for i in $(seq 1 30); do
