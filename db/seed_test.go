@@ -45,7 +45,7 @@ func TestEnsureTodosCollectionAddsOwnerRelation(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	app := newSeedTestApp(t, tmpDir)
-	if err := ensureTodosCollection(app); err != nil {
+	if err = ensureTodosCollection(app); err != nil {
 		t.Fatalf("ensureTodosCollection: %v", err)
 	}
 
@@ -74,10 +74,13 @@ func TestEnsureTodosCollectionAddsOwnerRelation(t *testing.T) {
 
 	// Idempotent re-run must not error and must keep the owner field
 	// (covers backfilling collections created by older seeds).
-	if err := ensureTodosCollection(app); err != nil {
+	if err = ensureTodosCollection(app); err != nil {
 		t.Fatalf("ensureTodosCollection (second run): %v", err)
 	}
-	col2, _ := app.FindCollectionByNameOrId("todos")
+	col2, err := app.FindCollectionByNameOrId("todos")
+	if err != nil {
+		t.Fatalf("find todos (second run): %v", err)
+	}
 	if col2.Fields.GetByName("owner") == nil {
 		t.Fatal("owner field lost after idempotent re-run")
 	}
