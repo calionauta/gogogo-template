@@ -29,13 +29,16 @@ RUN go mod download
 COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund
 
-# Now copy the rest of the source and run all the build steps.
-# linux/amd64 is forced here so a developer who runs docker build
-# on a Mac M-series still produces an x86 image for the server.
+# Build for the deployment target's native architecture. The image is
+# always built on the server (see scripts/deploy-prod.sh, which runs
+# `docker compose build` there), and the production server is arm64,
+# so a native arm64 binary runs without QEMU/binfmt. Forcing a
+# different GOARCH here produces an exec-format-error binary on the
+# server. (GOOS=linux is still set; the builder's native GOARCH is used.)
 COPY . .
 RUN go tool templ generate && \
     npm run build --silent && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    CGO_ENABLED=0 GOOS=linux go build \
         -tags "jetstream turbine" \
         -trimpath -ldflags="-s -w" \
         -o /out/app ./cmd/web/
