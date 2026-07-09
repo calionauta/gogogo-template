@@ -23,6 +23,11 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.2
+          # The action's default GitHub cache has been intermittently
+          # failing with a malformed tar restore ("/usr/bin/tar" exit 2),
+          # which aborts the whole job on infra flake rather than lint
+          # failure. Disable the cache so lint runs every time.
+          skip-cache: true
       - name: Test
         run: go test -tags "${{ matrix.tag }}" ./... -v -count=1
       - name: Build
