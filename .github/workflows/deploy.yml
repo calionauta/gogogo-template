@@ -61,12 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Clean possibly-corrupted Go toolchain cache
-        run: rm -rf "$HOME/go/pkg/mod/golang.org/toolchain@*" || true
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.26"
+          check-latest: true
           # Disable actions/cache: intermittent malformed tar restore
           # ("/usr/bin/tar" exit 2) was failing the whole build step on
           # an infra flake, not on real errors.
