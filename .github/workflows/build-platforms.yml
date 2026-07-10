@@ -56,6 +56,18 @@ jobs:
         run: go tool templ generate
         shell: bash
 
+      - name: Install Linux GUI dev libraries (wails CGO)
+        # On Linux the wails v3 desktop binary links GTK4/WebKit via CGO
+        # (pkg-config gtk4 webkitgtk-6.0). The ubuntu runner lacks these
+        # -dev packages by default.
+        if: matrix.runner == 'ubuntu-latest'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev \
+            libglib2.0-dev pkg-config gcc
+        shell: bash
+
       - name: Build desktop bundle
         # wails v3 alpha2.117 does not publish the `cmd/wails` CLI binary,
         # so native packaging (wails build) is unavailable on CI for this
