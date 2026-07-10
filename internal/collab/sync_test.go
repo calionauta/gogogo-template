@@ -59,7 +59,9 @@ func TestCollab_SyncWorkerPersists(t *testing.T) {
 	go func() { _ = worker.Run(workerCtx) }()
 
 	// Simulate the desktop edge: create a Loro doc, make a change,
-	// publish the update on the sync subject.
+	// publish the update on the sync subject. Publish in a retry loop so a
+	// slow worker subscription (JetStream init on CI) does not drop the
+	// only message — core NATS does not replay lost core messages.
 	edgeDoc := NewDoc("wb-123")
 	// A real edit would go through edgeDoc.Text(...).Insert(...); here we
 	// just export the (empty→initial) update to exercise the pipeline.
@@ -67,8 +69,15 @@ func TestCollab_SyncWorkerPersists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode update: %v", err)
 	}
-	if err := nc.Publish("app.sync.wb-123", update); err != nil {
-		t.Fatalf("publish: %v", err)
+	publishDeadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(publishDeadline) {
+		if len(fp.get("wb-123")) > 0 {
+			break
+		}
+		if err := nc.Publish("app.sync.wb-123", update); err != nil {
+			t.Fatalf("publish: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	// The worker must apply + persist. Allow time for JetStream deliver.
