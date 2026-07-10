@@ -52,7 +52,7 @@ jobs:
       - name: Install Go 1.26.5 manually
         # actions/setup-go extracts the toolchain via tar and has been
         # intermittently corrupting it on this runner image. Install the
-        # official stable tarball from go.dev instead (per-OS path).
+        # official stable tarball from go.dev instead (per-OS/arch).
         shell: bash
         run: |
           case "${{ matrix.runner }}" in
@@ -62,7 +62,19 @@ jobs:
               echo 'C:\go\bin' >> "$GITHUB_PATH"
               ;;
             *)
-              curl -fsSL https://go.dev/dl/go1.26.5.linux-amd64.tar.gz -o /tmp/go.tgz
+              detected_os=$(uname -s | tr '[:upper:]' '[:lower:]')
+              detected_arch=$(uname -m)
+              case "$detected_arch" in
+                x86_64|amd64) go_arch=amd64 ;;
+                aarch64|arm64) go_arch=arm64 ;;
+                *) echo "Unknown arch: $detected_arch"; exit 1 ;;
+              esac
+              case "$detected_os" in
+                darwin) go_os=darwin ;;
+                linux) go_os=linux ;;
+                *) echo "Unknown OS: $detected_os"; exit 1 ;;
+              esac
+              curl -fsSL "https://go.dev/dl/go1.26.5.${go_os}-${go_arch}.tar.gz" -o /tmp/go.tgz
               sudo rm -rf /usr/local/go
               sudo tar -C /usr/local -xzf /tmp/go.tgz
               echo '/usr/local/go/bin' >> "$GITHUB_PATH"

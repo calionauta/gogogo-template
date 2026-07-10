@@ -268,7 +268,8 @@ jobs:
             if [ ! -d \"/home/deploy/gogogo-fullstack-template/repo\" ]; then
               git clone \"https://github.com/${{ github.repository }}.git\" \"/home/deploy/gogogo-fullstack-template/repo\"
             else
-              git -C \"/home/deploy/gogogo-fullstack-template/repo\" pull --ff-only
+              git -C \"/home/deploy/gogogo-fullstack-template/repo\" fetch origin
+              git -C \"/home/deploy/gogogo-fullstack-template/repo\" reset --hard origin/master
             fi
 
             cp \"/home/deploy/gogogo-fullstack-template/repo/.env\" \"\${APP_DIR}/env/.env\" 2>/dev/null || true
