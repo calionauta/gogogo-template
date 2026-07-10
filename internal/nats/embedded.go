@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
@@ -62,6 +63,61 @@ func StartEmbedded(storeDir string) error {
 	}
 
 	slog.Info("NATS embedded server started (JetStream enabled)", "url", ns.ClientURL())
+	return nil
+}
+
+// StartLeafNode starts an embedded NATS server configured as a Leaf Node
+// that syncs with a central NATS server at centralURL. The local server
+// persists JetStream streams on disk and replays buffered events to the
+// central automatically when connectivity returns — this is the edge
+// sync primitive for the desktop/mobile app (offline-first).
+//
+// storeDir holds the local JetStream file storage; centralURL is the
+// ws/nats URL of the central server (e.g. nats://demo.example.com:7422).
+func StartLeafNode(storeDir, centralURL string) error {
+	u, err := url.Parse(centralURL)
+	if err != nil {
+		return fmt.Errorf("parse leaf node central url: %w", err)
+	}
+	ns, err := server.NewServer(&server.Options{
+		Port:      -1,
+		NoLog:     true,
+		NoSigs:    true,
+		StoreDir:  storeDir,
+		JetStream: true,
+		LeafNode: server.LeafNodeOpts{
+			Remotes: []*server.RemoteLeafOpts{
+				{
+					URLs: []*url.URL{u},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	ns.Start()
+	NS = ns
+
+	nc, err := natsio.Connect(ns.ClientURL())
+	if err != nil {
+		return err
+	}
+	NC = nc
+
+	js, err := nc.JetStream()
+	if err != nil {
+		return err
+	}
+	JS = js
+
+	if !ns.ReadyForConnections(10 * time.Second) {
+		return fmt.Errorf("nats: leaf node server never became ready")
+	}
+	if err := waitForJetStream(js, 10*time.Second); err != nil {
+		return err
+	}
+	slog.Info("NATS leaf node started (syncing with central)", "central", centralURL, "local", ns.ClientURL())
 	return nil
 }
 

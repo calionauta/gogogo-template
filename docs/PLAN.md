@@ -113,7 +113,12 @@
 - [x] `go build ./cmd/desktop` compiles; `make desktop` produces the
       `gogogo-desktop` binary (full `.app` bundle is Phase D via CI)
 - [x] Desktop reuses existing router/handlers via internal/server.Boot
-- [ ] Embedded NATS Leaf Node connects to central server NATS (Phase B)
+- [x] Embedded NATS Leaf Node connects to central server NATS (Phase B done 2026-07-10)
+      - `internal/nats.StartLeafNode(storeDir, centralURL)` boots an embedded
+        NATS as a Leaf Node; `config.NATS.LeafNodeURL` (env `NATS_LEAFNODE_URL`)
+        selects it. `TestLeafNode_ConnectsToCentral` guards the attachment.
+      - `cmd/desktop` built with -tags jetstream; if `NATS_LEAFNODE_URL` is set
+        it becomes a Leaf Node, else standalone embedded NATS.
 - [ ] `internal/collab` (Loro) compiles; doc create/encode/apply works
       in a unit test (Phase C)
 - [ ] SyncWorker persists Loro snapshot to PocketBase on `app.sync.>`

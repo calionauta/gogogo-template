@@ -5,9 +5,13 @@
 // reverse proxy — so the desktop app and the web app share 100% of the
 // business logic.
 //
-// Phase A (this file): desktop shell only, no edge sync. Phase B adds an
-// embedded NATS Leaf Node; Phase C adds the Loro CRDT collab layer. Those
-// are wired in subsequent sessions and do not change this boot shape.
+// Build with -tags jetstream: the desktop becomes a NATS Leaf Node that
+// syncs its JetStream streams with the central server (NATS_LEAFNODE_URL)
+// — Phase B of the edge-sync design. Phase C (Loro CRDT collab) builds on
+// top of this transport.
+//
+//go:build jetstream
+
 package main
 
 import (
@@ -20,16 +24,36 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/calionauta/gogogo-fullstack-template/config"
+	"github.com/calionauta/gogogo-fullstack-template/internal/nats"
 	"github.com/calionauta/gogogo-fullstack-template/internal/server"
 )
 
 func main() {
 	cfg := config.Load()
 
+	// Edge sync (Phase B): if a central NATS URL is configured, boot this
+	// instance as a Leaf Node so its JetStream streams replicate to/from
+	// the central server (offline edits replay on reconnect). Otherwise
+	// start a standalone embedded NATS for local realtime only.
+	var js nats.JetStreamLike
+	if cfg.NATS.LeafNodeURL != "" {
+		if err := nats.StartLeafNode(cfg.NATS.StoreDir, cfg.NATS.LeafNodeURL); err != nil {
+			log.Printf("WARN: leaf node start failed, falling back to standalone NATS: %v", err)
+		} else {
+			js = nats.JetStream()
+		}
+	} else if cfg.NATS.Enabled {
+		if err := nats.StartEmbedded(cfg.NATS.StoreDir); err != nil {
+			log.Printf("WARN: NATS start failed, in-memory broadcaster only: %v", err)
+		} else {
+			js = nats.JetStream()
+		}
+	}
+
 	// Boot the shared backend (PocketBase + queue + router + handlers).
-	// js is nil here (no realtime broadcaster in Phase A); the router
-	// falls back to in-process SSE. Phase B passes a Leaf-Node JetStream.
-	pb, _, shutdown, err := server.Run(cfg, nil)
+	// js is the JetStream the broadcaster uses (Leaf Node or standalone);
+	// nil falls back to in-process SSE.
+	pb, _, shutdown, err := server.Run(cfg, js)
 	if err != nil {
 		log.Fatalf("boot failed: %v", err)
 	}

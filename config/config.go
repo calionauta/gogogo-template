@@ -33,6 +33,11 @@ type Config struct {
 	NATS struct {
 		Enabled  bool
 		StoreDir string
+		// LeafNodeURL, when set, makes this instance a NATS Leaf Node that
+		// syncs with a central NATS server (e.g. the demo server). Used by
+		// the desktop/mobile edge to replicate JetStream streams offline
+		// and replay on reconnect. Empty = standalone embedded NATS.
+		LeafNodeURL string
 	}
 
 	// DagNats holds the DagNats durable-workflow engine settings. Built
@@ -97,6 +102,7 @@ func Load() *Config {
 
 	cfg.NATS.Enabled = envBool("NATS_ENABLED", defaultNATSEnabled())
 	cfg.NATS.StoreDir = getEnv("NATS_STORE_DIR", "data/nats")
+	cfg.NATS.LeafNodeURL = getEnv("NATS_LEAFNODE_URL", "")
 
 	cfg.DagNats.Enabled = envBool("DAGNATS_ENABLED", defaultDagNatsEnabled())
 	cfg.DagNats.HTTPAddr = getEnv("DAGNATS_HTTP_ADDR", "127.0.0.1:8090")

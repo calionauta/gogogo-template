@@ -31,12 +31,12 @@ build-all: templ
 	@go build -tags "jetstream dagnats" $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
 
 desktop: templ
-	@echo "→ Building desktop shell (Wails v3) v$(VERSION)..."
-	@go build $(LDFLAGS) -o gogogo-desktop ./cmd/desktop
+	@echo "→ Building desktop shell (Wails v3 + Leaf Node) v$(VERSION)..."
+	@go build -tags jetstream $(LDFLAGS) -o gogogo-desktop ./cmd/desktop
 
 wails-build: templ
 	@echo "→ wails build (requires wails CLI: go install github.com/wailsapp/wails/v3/cmd/wails@latest)"...
-	@wails build -app ./cmd/desktop -config ./wails.json
+	@wails build -app ./cmd/desktop -config ./wails.json -tags jetstream
 
 run:
 	@echo "→ Starting $(APP_NAME) on port $(PORT)..."
