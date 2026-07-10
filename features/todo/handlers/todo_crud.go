@@ -8,6 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	sdk "github.com/starfederation/datastar-go/datastar"
 
+	"github.com/calionauta/gogogo-fullstack-template/features/auth"
 	"github.com/calionauta/gogogo-fullstack-template/features/todo"
 	"github.com/calionauta/gogogo-fullstack-template/features/todo/components"
 	dshelpers "github.com/calionauta/gogogo-fullstack-template/internal/datastar"
@@ -72,6 +73,15 @@ func (h *TodoHandler) patchTodoListWithSelfOrigin(sse *sdk.ServerSentEventGenera
 }
 
 func (h *TodoHandler) handleCreate(c *core.RequestEvent) error {
+	// The global auth middleware skips /api/* paths, so c.Auth is nil
+	// here by default. Load the app session cookie explicitly so
+	// ownerOf(c) scopes the new todo to the logged-in user instead of
+	// saving with an empty owner (which makes it invisible to every
+	// authenticated list query).
+	if err := auth.LoadAppAuth(c); err != nil {
+		slog.Debug("todo: create auth load", "error", err)
+	}
+
 	if err := c.Request.ParseForm(); err != nil {
 		return c.String(statusBadRequest, "invalid form")
 	}
@@ -128,6 +138,15 @@ func (h *TodoHandler) handleCreate(c *core.RequestEvent) error {
 }
 
 func (h *TodoHandler) handleToggle(c *core.RequestEvent) error {
+	// The global auth middleware skips /api/* paths, so c.Auth is nil
+	// here by default. Load the app session cookie explicitly so the
+	// owner-scoped check below works correctly — without it the check
+	// is always skipped (c.Auth is nil) and any user can toggle any
+	// todo.
+	if err := auth.LoadAppAuth(c); err != nil {
+		slog.Debug("todo: toggle auth load", "error", err)
+	}
+
 	rec, err := h.app.FindRecordById("todos", c.Request.PathValue("id"))
 	if err != nil {
 		return c.String(statusNotFound, "not found")
@@ -161,6 +180,13 @@ func (h *TodoHandler) handleToggle(c *core.RequestEvent) error {
 }
 
 func (h *TodoHandler) handleConfirmDelete(c *core.RequestEvent) error {
+	// The global auth middleware skips /api/* paths, so c.Auth is nil
+	// here by default. Load the app session cookie explicitly so the
+	// owner-scoped check below works correctly.
+	if err := auth.LoadAppAuth(c); err != nil {
+		slog.Debug("todo: confirm-delete auth load", "error", err)
+	}
+
 	rec, err := h.app.FindRecordById("todos", c.Request.PathValue("id"))
 	if err != nil {
 		return c.String(statusNotFound, "not found")
@@ -184,6 +210,13 @@ func (h *TodoHandler) handleConfirmDelete(c *core.RequestEvent) error {
 }
 
 func (h *TodoHandler) handleDelete(c *core.RequestEvent) error {
+	// The global auth middleware skips /api/* paths, so c.Auth is nil
+	// here by default. Load the app session cookie explicitly so the
+	// owner-scoped check below works correctly.
+	if err := auth.LoadAppAuth(c); err != nil {
+		slog.Debug("todo: delete auth load", "error", err)
+	}
+
 	rec, err := h.app.FindRecordById("todos", c.Request.PathValue("id"))
 	if err != nil {
 		return c.String(statusNotFound, "not found")
@@ -221,6 +254,14 @@ func (h *TodoHandler) handleDelete(c *core.RequestEvent) error {
 }
 
 func (h *TodoHandler) handleClearCompleted(c *core.RequestEvent) error {
+	// The global auth middleware skips /api/* paths, so c.Auth is nil
+	// here by default. Load the app session cookie explicitly so
+	// clearCompletedFilter scopes the query to the logged-in user
+	// instead of clearing every user's completed todos.
+	if err := auth.LoadAppAuth(c); err != nil {
+		slog.Debug("todo: clear-completed auth load", "error", err)
+	}
+
 	records, err := h.app.FindRecordsByFilter("todos", clearCompletedFilter(c), "", 0, 0)
 	if err != nil {
 		slog.Error("todo: find completed failed", "error", err)

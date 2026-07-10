@@ -23,7 +23,9 @@ func (h *TodoHandler) handleSSEStream(c *core.RequestEvent) error {
 	// cookie explicitly so listTodos scopes to the logged-in owner
 	// instead of falling back to the single-tenant "all todos" view.
 	if err := auth.LoadAppAuth(c); err != nil {
-		slog.Debug("todo: sse auth load", "error", err)
+		slog.Warn("todo: sse auth load — falls back to unscoped list", "error", err)
+	} else if c.Auth == nil {
+		slog.Warn("todo: sse no auth cookie — list is unscoped")
 	}
 
 	clientID := c.Request.URL.Query().Get("clientID")
@@ -152,38 +154,63 @@ func (h *TodoHandler) streamRetry(sse *sdk.ServerSentEventGenerator, payload []b
 }
 
 func (h *TodoHandler) streamTodo(c *core.RequestEvent, sse *sdk.ServerSentEventGenerator, payload []byte) error {
-	// The durable workflow also emits a synthetic todo update of type
-	// "workflow-completed" once all five steps finish — that acts as
-	// the completion signal for the UI.
-	var tp struct {
-		Type string `json:"type"`
+	// Parse the broadcast event payload — it carries the mutation type
+	// (created/toggled/deleted/workflow-completed) plus the item data.
+	var evt struct {
+		Event string `json:"event"`
+		ID    string `json:"id"`
+		Title string `json:"title"`
+		Done  bool   `json:"done"`
 	}
-	if err := json.Unmarshal(payload, &tp); err == nil && tp.Type == "workflow-completed" {
-		// The durable workflow emits a synthetic completion event once
-		// all steps finish; mark the onboarding stepper done.
+	if err := json.Unmarshal(payload, &evt); err != nil {
+		return fmt.Errorf("decode todo event: %w", err)
+	}
+
+	// The durable workflow emits a synthetic "workflow-completed" event
+	// once all five steps finish — mark the onboarding stepper done.
+	if evt.Event == "workflow-completed" {
 		if err := h.applyOnboarding(sse, 0, 0, "completed", "Workflow completed", true); err != nil {
 			return err
 		}
 		return emitToast(sse, "Workflow completed — 3 example todos created", retryStatusSuccess)
 	}
-	todos, err := h.listTodos(c, "all")
+
+	// Load the current scoped item count from the database so the UI's
+	// header badge stays accurate.
+	count, err := h.countOwnedTodos(c)
 	if err != nil {
-		return fmt.Errorf("list todos for broadcast: %w", err)
+		return fmt.Errorf("count todos for broadcast: %w", err)
 	}
-	// Tag the incoming mutation as "remote" (it arrived via the
-	// broadcaster, so for THIS client it came from someone else).
-	// The TodoItem template reads this via data-source to pick the
-	// remote entry animation (left-slide + info pulse) vs the self
-	// one. View transitions give a free cross-fade.
+
+	// Merge the remote-source signal so new/updated items animate with
+	// the remote entry effect. Also update the live item count.
 	if err := dshelpers.MergeSignals(sse, map[string]any{
 		"lastItemSource": "remote",
-		signalItemCount:  len(todos),
+		signalItemCount:  count,
 	}); err != nil {
 		return err
 	}
-	return dshelpers.RenderAndPatch(sse, h.renderTodoList(todos),
-		sdk.WithSelector("#todo-list"),
-		sdk.WithViewTransitions())
+
+	// For deleted items, remove the element from the DOM via Datastar's
+	// remove mode. For all other events we defer to the full-list
+	// replacement so the entire list stays in sync (same-user tabs see
+	// the same data).
+	switch evt.Event {
+	case "deleted":
+		return sdk.RemoveElementByID("todo-" + evt.ID)
+	default:
+		// For "created" and "toggled" events re-render the entire list.
+		// This is safe because listTodos scopes by c.Auth, which is
+		// loaded from the cookie on every SSE connection (see
+		// handleSSEStream).
+		todos, err := h.listTodos(c, "all")
+		if err != nil {
+			return fmt.Errorf("list todos for broadcast: %w", err)
+		}
+		return dshelpers.RenderAndPatch(sse, h.renderTodoList(todos),
+			sdk.WithSelector("#todo-list"),
+			sdk.WithViewTransitions())
+	}
 }
 
 func (h *TodoHandler) streamClients(sse *sdk.ServerSentEventGenerator, payload []byte) error {
@@ -442,4 +469,20 @@ func (h *TodoHandler) renderTodoList(todos []todo.Todo) templ.Component {
 		AdminEnabled: h.cfg.AdminToken != "",
 		LLMEnabled:   h.llmEnabled(),
 	})
+}
+
+// countOwnedTodos returns the number of todos owned by the current
+// authenticated user (or the total number of todos when auth is nil).
+// Uses a simple PocketBase count query rather than loading the full
+// list, so it's fast enough for the hot broadcast path.
+func (h *TodoHandler) countOwnedTodos(c *core.RequestEvent) (int, error) {
+	var filterExpr string
+	if c != nil && c.Auth != nil {
+		filterExpr = fmt.Sprintf("owner = %q", c.Auth.Id)
+	}
+	records, err := h.app.FindRecordsByFilter("todos", filterExpr, "", 0, 0)
+	if err != nil {
+		return 0, fmt.Errorf("count todos (filter=%q): %w", filterExpr, err)
+	}
+	return len(records), nil
 }
