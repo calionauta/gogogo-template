@@ -1,0 +1,77 @@
+# build-platforms.yml — Phase D desktop artifact builds.
+#
+# Builds native desktop bundles for the Wails v3 app (cmd/desktop, jetstream
+# tag so the Leaf Node edge-sync is compiled in) on every push to master and
+# on PRs, and uploads them as release artifacts. Each platform runs on its
+# native runner because Wails needs the OS toolchain (.dmg → mac, .exe →
+# windows, .deb/.AppImage → linux).
+#
+# This workflow ONLY builds bundles. The full test/lint gate (including the
+# collab e2e guards in `make test-combined`) runs in ci.yml — a green CI is a
+# prerequisite for a trustworthy desktop binary, so we don't duplicate tests
+# here.
+
+name: Build Desktop Platforms
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin/amd64
+            runner: macos-latest
+            artifact: gogogo-desktop-darwin-amd64
+            ext: .dmg
+          - platform: darwin/arm64
+            runner: macos-latest
+            artifact: gogogo-desktop-darwin-arm64
+            ext: .dmg
+          - platform: windows/amd64
+            runner: windows-latest
+            artifact: gogogo-desktop-windows-amd64
+            ext: .exe
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            artifact: gogogo-desktop-linux-amd64
+            ext: .AppImage
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Install wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails@latest
+        shell: bash
+
+      - name: Generate templ
+        run: go tool templ generate
+        shell: bash
+
+      - name: Build desktop bundle
+        run: |
+          wails build -app ./cmd/desktop -config ./wails.json \
+            -tags jetstream -platform ${{ matrix.platform }} \
+            -outputname ${{ matrix.artifact }}
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}${{ matrix.ext }}
+          path: |
+            build/**/${{ matrix.artifact }}${{ matrix.ext }}
+            build/bin/${{ matrix.artifact }}${{ matrix.ext }}
+          if-no-files-found: warn

@@ -2,6 +2,34 @@
 
 All notable changes to this template are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.5] - 2026-07-10
+
+### Added
+- **Phase D: desktop CI bundles.** `.github/workflows/build-platforms.yml`
+  builds the four native desktop artifacts on every push — `darwin/amd64`
+  + `darwin/arm64` (`.dmg`), `windows/amd64` (`.exe`), `linux/amd64`
+  (`.AppImage`) — on native runners via `wails build -app ./cmd/desktop
+  -config ./wails.json -tags jetstream -platform <p>`, uploaded as
+  artifacts. The full test/lint gate (including the collab e2e guards)
+  stays in `ci.yml`; the platform workflow only builds bundles.
+- **Phase D: e2e regression guards for the collab surfaces** (run in `make
+  test-combined`, `-tags "jetstream dagnats"`):
+  - `TestCollab_LeafNodeE2E`: a REAL central NATS (JetStream + leaf listen
+    port) runs the SyncWorker while a SEPARATE leaf-node server (the desktop
+    edge) publishes a Loro update on `app.sync.<docID>`. Asserts the leaf
+    replicates to central and the worker persists a valid snapshot — the
+    exact Phase B transport + Phase C merge/persist path, no mocks.
+  - `TestPresence_SSEBridgeE2E`: drives `collab.PresenceSSEHandler` (the
+    handler registered at `GET /api/collab/presence/{docID}`) over httptest
+    and publishes an edge cursor on `app.presence.<docID>`; asserts the SSE
+    response carries it to the browser client. (Found + fixed a real bug:
+    the SSE handler blocked before writing headers, so the client request
+    hung — now writes `200` + a priming comment up front.)
+  - All collab tests finish in ~2s; no flaky long sleeps.
+- **Phase D docs:** README "Desktop & Mobile" section (build commands,
+  Leaf Node edge-sync requirement, experimental mobile note); PLAN.md Phase
+  D items marked done.
+
 ## [0.6.4] - 2026-07-10
 
 ### Added

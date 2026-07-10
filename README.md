@@ -189,6 +189,43 @@ The pre-commit hook regenerates `app.min.css` automatically whenever
 `.templ` or `.go` files change, and `make check` includes a `css-check`
 step that fails the gate if the working CSS file is out of date.
 
+## Desktop & Mobile (Wails v3 + Loro CRDT + NATS Leaf Node)
+
+The same Go backend (PocketBase + queue + router + handlers) also runs as a
+**native desktop app** via Wails v3. The desktop build reuses 100% of the
+business logic — it boots `internal/server.Run`, serves PocketBase in a
+goroutine, and points the webview at it through a reverse proxy.
+
+Build the desktop shell:
+
+```bash
+make desktop            # go build -tags jetstream ./cmd/desktop  →  gogogo-desktop
+# or a full native bundle (needs the wails CLI):
+make wails-build        # wails build -app ./cmd/desktop -config ./wails.json -tags jetstream
+```
+
+**Edge sync (Phase B + C).** Build the desktop with `-tags jetstream`. If
+`NATS_LEAFNODE_URL` is set, the desktop boots as a **NATS Leaf Node** that
+syncs its JetStream streams with your central server — offline edits replay
+on reconnect. Without it, it runs a standalone embedded NATS for local
+realtime. On top of that transport, **Loro CRDT** collaboration
+(`internal/collab`) publishes whiteboard updates on `app.sync.<docID>` and
+ephemeral multi-user **cursors** on `app.presence.<docID>`; the central
+server persists resolved Loro snapshots to PocketBase (`whiteboards`
+collection) and streams presence to browser clients via SSE
+(`GET /api/collab/presence/{docID}`).
+
+CI builds the four desktop bundles (`.dmg` ×2, `.exe`, `.AppImage`) in
+`.github/workflows/build-platforms.yml` on every push. The full e2e gate
+(incl. `TestCollab_LeafNodeE2E` and `TestPresence_SSEBridgeE2E`) runs in
+`ci.yml` under `-tags "jetstream dagnats"`.
+
+> **Mobile is experimental.** `wails build -platform android` / `ios` is a
+> documented stretch goal and is **not** wired into CI or required for
+> exit. The edge-sync transport (Leaf Node) and collab layers are shared,
+> so a mobile target would reuse them — but the native UI bindings are
+> unproven and intentionally non-blocking.
+
 ## Deploy to your own box
 
 The default workflow is to **clone + `make dev`** for local work. For a permanent

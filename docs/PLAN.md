@@ -148,10 +148,37 @@
       - Central SSE bridge `GET /api/collab/presence/{docID}`
         (`router/collab_jetstream.go`) streams NATS presence to browser
         clients. Desktop edge starts a `Presence` session + demo cursor.
-- [ ] `.github/workflows/build-platforms.yml` builds 4 desktop
-      artifacts and uploads them (Phase D)
-- [ ] README has a "Desktop & Mobile" section
-- [ ] Mobile marked experimental; not required for exit (Phase D)
+- [x] `.github/workflows/build-platforms.yml` builds 4 desktop
+      artifacts and uploads them (Phase D done 2026-07-10)
+      - Matrix over darwin/amd64+arm64 (.dmg), windows/amd64 (.exe),
+        linux/amd64 (.AppImage) on native runners. Uses `wails build
+        -app ./cmd/desktop -config ./wails.json -tags jetstream
+        -platform <p>`. Artifacts uploaded via upload-artifact.
+      - The full test/lint gate (including the collab e2e guards in
+        `make test-combined`) runs in ci.yml — a green CI is the
+        prerequisite for a trustworthy desktop binary, so the platform
+        workflow only builds bundles (no duplicated tests).
+- [x] e2e regression guards for all Phase C surfaces (Phase D done 2026-07-10)
+      - `TestCollab_LeafNodeE2E`: REAL central NATS (JetStream + leaf
+        listen port) + a SEPARATE leaf-node server (the desktop edge)
+        publishing a Loro update on `app.sync.<docID>`. Asserts the leaf
+        replicates to central and the SyncWorker persists a valid snapshot.
+        Exercises Phase B transport + Phase C merge/persist, no mocks.
+      - `TestPresence_SSEBridgeE2E`: drives `collab.PresenceSSEHandler`
+        (the exact handler registered at `GET /api/collab/presence/{docID}`)
+        over httptest; publishes an edge cursor on `app.presence.<docID>`;
+        asserts the SSE response carries it to the browser client.
+      - Both run in `make test-combined` (`-tags "jetstream dagnats"`), so
+        they are covered by CI's combined matrix. All collab tests finish
+        in ~2s (performant; no flaky sleeps beyond tight deadlines).
+- [x] Mobile marked experimental; not required for exit (Phase D done 2026-07-10)
+      - `wails build -platform android` / `ios` is a documented stretch
+        goal. Not attempted in CI; non-blocking. See README "Desktop &
+        Mobile".
+- [x] README has a "Desktop & Mobile" section (Phase D done 2026-07-10)
+- [ ] Future: real whiteboard UI (canvas + multi-cursor rendering) binding
+      to `collab.Doc` / `collab.Presence`. The transport + CRDT + presence
+      layers are done; the UI is a follow-up.
 
 ### Open questions resolved
 

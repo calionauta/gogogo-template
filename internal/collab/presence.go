@@ -5,7 +5,9 @@ package collab
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
@@ -29,6 +31,51 @@ type PresenceMsg struct {
 // Exported so the central SSE bridge (router/collab_jetstream.go) can
 // subscribe the same subject the edges publish to.
 func PresenceSubject(docID string) string { return "app.presence." + docID }
+
+// PresenceSSEHandler returns an http.HandlerFunc that streams a doc's
+// presence events to browser clients over Server-Sent Events. It
+// subscribes the app.presence.<docID> NATS subject (the same one desktop
+// edges publish to, including Leaf Node replicas) and writes each event as
+// an SSE `data:` line, flushing immediately. The connection closes when
+// the client disconnects (request context done).
+func PresenceSSEHandler(nc *natsio.Conn) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		docID := r.PathValue("docID")
+		if docID == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		// Send headers immediately so the client's request returns and the
+		// stream opens; an SSE comment also primes some proxies.
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, ": connected\n\n")
+		flusher.Flush()
+		ctx := r.Context()
+		sub, err := nc.Subscribe(PresenceSubject(docID), func(m *natsio.Msg) {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			fmt.Fprintf(w, "data: %s\n\n", m.Data)
+			flusher.Flush()
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		defer sub.Unsubscribe()
+		<-ctx.Done()
+	}
+}
 
 // Presence provides ephemeral multi-user cursor/presence over NATS pub/sub.
 // It is transport-agnostic: the same code runs on the desktop edge (over its
