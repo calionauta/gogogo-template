@@ -110,8 +110,9 @@ paused:
 		t.Fatalf("signal: %v", err)
 	}
 
-	// Run must now complete with all steps done.
-	deadline = time.Now().Add(10 * time.Second)
+	// Run must now complete with all steps done. Under -race the
+	// engine is much slower, so allow up to 30s.
+	deadline = time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		st, err := client.GetRun(ctx, runID)
 		if err == nil && st.Status == "completed" {
