@@ -80,7 +80,7 @@ jobs:
               echo '/usr/local/go/bin' >> "$GITHUB_PATH"
               ;;
           esac
-          go version
+          /usr/local/go/bin/go version
 
       - name: Generate templ
         run: go tool templ generate

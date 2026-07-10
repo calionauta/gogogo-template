@@ -26,7 +26,7 @@
 # Stage 1: builder
 # ────────────────────────────
 FROM golang:1.26-alpine AS builder
-RUN apk add --no-cache git ca-certificates nodejs npm
+RUN apk add --no-cache git ca-certificates nodejs npm gcc musl-dev
 WORKDIR /src
 
 # Install Go module deps first (cached independently of source).
@@ -47,7 +47,7 @@ RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
     --mount=type=cache,target=/root/.npm,sharing=locked \
     go tool templ generate && \
     npm run build --silent && \
-    CGO_ENABLED=0 go build -tags "jetstream dagnats" -trimpath -ldflags="-s -w" -o /out/app ./cmd/web/
+    CGO_ENABLED=1 go build -tags "jetstream dagnats" -trimpath -ldflags="-s -w -extldflags=-static" -o /out/app ./cmd/web/
 
 # Stash the ca-certificates bundle so the runtime stage can copy it
 # without needing a shell. The alpine image installs the bundle at
