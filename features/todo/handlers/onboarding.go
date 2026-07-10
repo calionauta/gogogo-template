@@ -27,7 +27,7 @@ import (
 // "started" toast + signal, and the handler polls the run status and
 // streams progress to every connected client via the broadcaster so the
 // UI stepper lights up live — DagNats durability + JetStream realtime
-// observed together. This replaces the old Turbine-based onboarding.
+// observed together.
 type OnboardingHandler struct {
 	app         *pocketbase.PocketBase
 	client      *dagnats.Client
@@ -147,8 +147,7 @@ func (h *OnboardingHandler) handleStart(c *core.RequestEvent) error {
 }
 
 // pollRun watches the DagNats run and streams progress to the UI until
-// the run reaches a terminal state. This mirrors the old Turbine path's
-// result polling but reads DagNats' REST status instead of a Go handle.
+// the run reaches a terminal state, reading DagNats' REST status.
 func (h *OnboardingHandler) pollRun(runID string) {
 	ctx := context.Background()
 	steps := []string{
