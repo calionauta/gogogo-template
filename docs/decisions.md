@@ -11,9 +11,9 @@ JetStream is available as an **additional** layer for multi-user real-time, when
 
 ## Why DagNats for Durable Workflows
 
-[DagNats](https://github.com/danmestas/dagnats) is a DAG-based durable workflow engine built on NATS JetStream. Workflows are **declarative JSON** (not Go code), which is the key advantage over function-name based engines (Turbine / go-workflows / ebind): renaming a Go handler never orphans an in-flight run, because the workflow references task *names* (strings), not Go symbols. Each step's result is recorded in the event-sourced history; on crash, the workflow resumes from the last completed step.
+[DagNats](https://github.com/danmestas/dagnats) is a DAG-based durable workflow engine built on NATS JetStream. Workflows are **declarative JSON** (not Go code): the workflow references task *names* (strings), not Go symbols, so renaming a Go handler never orphans an in-flight run. Each step's result is recorded in the event-sourced history; on crash, the workflow resumes from the last completed step.
 - ✅ Multi-step transactions that survive restarts
-- ✅ Native in-step suspend via `WaitForSignal` (the engine blocks a step until an external signal arrives) — something Turbine lacked, which forced the old onboarding flow to fake suspension with two workflows + an in-memory flag
+- ✅ Native in-step suspend via `WaitForSignal` (the engine blocks a step until an external signal arrives)
 - ✅ Step retries with exponential backoff
 - ✅ Scheduling (cron), human-in-the-loop approvals, sub-workflows, agent loops
 - ✅ Runs as a library (the `server` package boots an embedded NATS + orchestrator + REST API + console) — no separate service to operate

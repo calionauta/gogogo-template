@@ -32,10 +32,9 @@ pattern keyless.
 - JetStream realtime fixed + auto-enabled under `-tags jetstream`
   (`internal/nats/embedded.go`, `config/nats_default.go`).
 - DagNats durable workflows auto-enabled under `-tags dagnats`
-  (`config/dagnats_default.go`). DagNats replaces the old Turbine layer:
-  workflows are declarative JSON (not Go), so handler renames never orphan
-  an in-flight run, and it has a native in-step signal/wait primitive
-  (`WaitForSignal`) that Turbine lacked.
+  (`config/dagnats_default.go`). Workflows are declarative JSON (not Go),
+  so handler renames never orphan an in-flight run, and it has a native
+  in-step signal/wait primitive (`WaitForSignal`).
 - JetStream broadcasting e2e test (`internal/nats/realtime_test.go`,
   `//go:build jetstream`) — guards the path that was previously silently
   broken.
@@ -152,9 +151,7 @@ Each phase is independently testable and keeps `make check` green.
 The event-driven onboarding flow pauses at the `onboarding-await-first-todo`
 step via `ctx.WaitForSignal("first-todo")`, which blocks the step in-process
 until the app delivers the signal (when the user creates their first todo).
-Under the old Turbine layer this was impossible — Turbine v0.3.0 had no
-in-workflow suspend primitive, so the flow was split into two workflows plus
-an in-memory flag. DagNats' `WaitForSignal` makes the durable suspend
+The durable suspend
 explicit and crash-safe: if the process restarts while the step is waiting,
 the signal KV retains the value and the step resumes on redelivery. The
 per-step `time.Sleep` pacing in the `greet`/`create-todo` handlers is a demo

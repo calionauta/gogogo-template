@@ -1,10 +1,9 @@
 # DagNats patterns (build tag `dagnats`)
 
 DagNats is a DAG-based durable workflow engine built on NATS JetStream.
-Workflows are **declarative JSON** — not Go code. This is the key advantage
-over function-name based engines (Turbine / go-workflows / ebind): renaming a
-Go handler never orphans an in-flight run, because the workflow references
-task *names* (strings), not Go symbols.
+Workflows are **declarative JSON** — not Go code. The workflow references
+task *names* (strings), not Go symbols, so renaming a Go handler never
+orphans an in-flight run.
 
 ## Wiring (this template)
 

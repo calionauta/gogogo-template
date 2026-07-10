@@ -7,9 +7,7 @@ package dagnats
 // never breaks an in-flight run — the workflow references task NAMES
 // ("onboarding-greet", "onboarding-await-first-todo",
 // "onboarding-create-todo", "onboarding-finalize"), not Go function
-// symbols. This is the key advantage over function-name based engines
-// (Turbine/go-workflows/ebind), where renaming a Go function silently
-// orphans saved workflows.
+// symbols.
 //
 // Steps:
 //  1. onboarding-greet            — welcomes the user (paced).
@@ -18,8 +16,7 @@ package dagnats
 //     resume pattern: a step handler waits for an external signal, and
 //     the app signals it when the user creates their first todo. No
 //     polling, no in-memory flag — the durable run simply suspends until
-//     the signal arrives (or a 50m timeout). This is exactly what the
-//     old Turbine path faked with two workflows + an in-memory flag.
+//     the signal arrives (or a 50m timeout).
 //  3. onboarding-create-todo (x3, sequential) — each creates one example
 //     todo in the main PocketBase collection via the worker handler,
 //     once the user's first todo has resumed the flow.

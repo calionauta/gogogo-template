@@ -6,16 +6,16 @@
 // WorkerShim). DagNats (https://github.com/danmestas/dagnats) is a
 // DAG-based workflow engine built on NATS JetStream: workflows are
 // declarative JSON (not Go code), so renaming/refactoring Go handlers
-// never breaks an in-flight workflow the way function-name-based engines
-// (Turbine/go-workflows/ebind) do. It reuses the embedded NATS JetStream
-// model the template already uses for realtime.
+// never breaks an in-flight workflow — the workflow references task
+// *names* (strings), not Go symbols. It reuses the embedded NATS
+// JetStream model the template already uses for realtime.
 //
-// DagNats runs in the SAME binary but on its OWN port (default
-// 127.0.0.1:8090) so its HTTP API + console never collide with the
-// PocketBase app on :8080. It boots its own embedded NATS (separate from
-// the jetstream tag's NATS) — the two build tags are intentionally
-// mutually exclusive: pick -tags dagnats for durable workflows, or
-// -tags jetstream for multi-instance realtime, not both.
+// DagNats runs in the SAME binary but on its OWN HTTP port (default
+// 127.0.0.1:8090) so its API + console never collide with the
+// PocketBase app on :8080. Under -tags "jetstream dagnats" it owns the
+// embedded NATS on :4222 and the realtime broadcaster attaches to it
+// (single-NATS convention); without the jetstream tag it boots its own
+// NATS.
 package dagnats
 
 import (
