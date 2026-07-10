@@ -68,11 +68,15 @@ css-check: css
 test-jetstream:
 	@go test -race -tags jetstream ./... -count=1
 
+# DagNats boots an embedded NATS + durable-workflow engine per package
+# that tests it; running those packages in parallel under -race starves
+# the engine and causes flaky timeouts. -p 1 serializes packages so the
+# engine always gets enough CPU to complete runs within the test timeout.
 test-dagnats:
-	@go test -race -tags dagnats ./... -count=1
+	@go test -race -tags dagnats -p 1 ./... -count=1
 
 test-combined:
-	@go test -race -tags "jetstream dagnats" ./... -count=1
+	@go test -race -tags "jetstream dagnats" -p 1 ./... -count=1
 
 # fmt checks formatting with gofumpt + goimports (no --fast shortcuts).
 fmt:

@@ -88,7 +88,8 @@ func TestOnboarding_ResumeSignalsRun(t *testing.T) {
 	h.ResumeOnboarding("tester")
 
 	// Run must now complete (greet → await-signaled → create x3 → finalize).
-	deadline := time.Now().Add(15 * time.Second)
+	// Under -race the engine is slower, so allow up to 30s.
+	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		st, err := h.client.GetRun(ctx, runID)
 		if err == nil && st.Status == "completed" {

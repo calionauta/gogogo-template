@@ -29,6 +29,14 @@ jobs:
           # failure. Disable the cache so lint runs every time.
           skip-cache: true
       - name: Test
-        run: go test -tags "${{ matrix.tag }}" ./... -v -count=1
+        # DagNats boots an embedded NATS + workflow engine per package under
+        # test; under -race, parallel packages starve the engine and cause
+        # flaky timeouts. Serialize packages (-p 1) for the dagnats tags.
+        run: |
+          case "${{ matrix.tag }}" in
+            "dagnats"|"jetstream dagnats") P=-p1 ;;
+            *) P= ;;
+          esac
+          go test -tags "${{ matrix.tag }}" $P ./... -v -count=1
       - name: Build
         run: go build -tags "${{ matrix.tag }}" -o /dev/null ./cmd/web/
