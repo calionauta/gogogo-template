@@ -6,7 +6,7 @@ COMMIT      := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILDTIME   := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS     := -ldflags="-w -X main.Version=$(VERSION) -X main.CommitHash=$(COMMIT) -X main.BuildTime=$(BUILDTIME)"
 
-.PHONY: all build build-jetstream build-turbine build-all run clean restart templ fmt css css-install datastar-lint test lint vet check-sizes deadcode check deps dev docker-image setup help
+.PHONY: all build build-jetstream build-dagnats build-all run clean restart templ fmt css css-install datastar-lint test lint vet check-sizes deadcode check deps dev docker-image setup help
 
 all: build
 
@@ -22,13 +22,13 @@ build-jetstream: templ
 	@echo "→ Building $(APP_NAME) (with JetStream) v$(VERSION)..."
 	@go build -tags jetstream $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
 
-build-turbine: templ
-	@echo "→ Building $(APP_NAME) (with Turbine workflows) v$(VERSION)..."
-	@go build -tags turbine $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
+build-dagnats: templ
+	@echo "→ Building $(APP_NAME) (with DagNats durable workflows) v$(VERSION)..."
+	@go build -tags dagnats $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
 
 build-all: templ
-	@echo "→ Building $(APP_NAME) (JetStream + Turbine) v$(VERSION)..."
-	@go build -tags "jetstream turbine" $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
+	@echo "→ Building $(APP_NAME) (JetStream + DagNats) v$(VERSION)..."
+	@go build -tags "jetstream dagnats" $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
 
 run:
 	@echo "→ Starting $(APP_NAME) on port $(PORT)..."
@@ -68,8 +68,11 @@ css-check: css
 test-jetstream:
 	@go test -race -tags jetstream ./... -count=1
 
-test-turbine:
-	@go test -race -tags turbine ./... -count=1
+test-dagnats:
+	@go test -race -tags dagnats ./... -count=1
+
+test-combined:
+	@go test -race -tags "jetstream dagnats" ./... -count=1
 
 # fmt checks formatting with gofumpt + goimports (no --fast shortcuts).
 fmt:
@@ -102,7 +105,7 @@ deadcode:
 # scans dead code, runs the full race test suite, and verifies the
 # generated CSS is up to date. make setup installs the blocking
 # pre-commit hook that enforces the same gate on every commit.
-check: fmt datastar-lint css-check lint check-sizes deadcode test
+check: fmt datastar-lint css-check lint check-sizes deadcode test test-jetstream test-dagnats test-combined
 	@echo "✅ All checks passed"
 
 deps:
@@ -128,8 +131,8 @@ help:
 	@echo "Targets:"
 	@echo "  build          Build binary (runs templ generate first)"
 	@echo "  build-jetstream Build with JetStream support"
-	@echo "  build-turbine  Build with Turbine workflow support"
-	@echo "  build-all      Build with JetStream + Turbine"
+	@echo "  build-dagnats  Build with DagNats durable workflow support"
+	@echo "  build-all      Build with JetStream + DagNats"
 	@echo "  fmt            Check formatting (gofumpt + goimports)"
 	@echo "  datastar-lint  Lint .templ files for Datastar anti-patterns"
 	@echo "  test           Run tests with race detector"
