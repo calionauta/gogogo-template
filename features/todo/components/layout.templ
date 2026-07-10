@@ -97,9 +97,12 @@ templ Layout(title string, signals todo.Signals, userEmail string) {
 
 				/* Remote-origin: broadcast from another client. Slide in
 				   from the LEFT (incoming from elsewhere), info-tint pulse
-				   that decays over ~900ms, plus a small "from-elsewhere"
-				   indicator pill. */
+				   that decays over ~900ms, plus a floating badge that
+				   briefly labels it as remote. The badge is position:absolute
+				   (never affects layout / margins of the todo row). */
 				.todo-item[data-source="remote"] {
+					position: relative;
+					overflow: visible;
 					animation: todo-enter-remote 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both,
 					           remote-pulse 900ms ease-out 320ms both;
 					background-color: oklch(var(--in) / 0.18);
@@ -113,17 +116,28 @@ templ Layout(title string, signals todo.Signals, userEmail string) {
 					100% { background-color: oklch(var(--in) / 0.0); }
 				}
 				.todo-item[data-source="remote"]::before {
-					content: "from someone else";
-					font-size: 0.625rem;
-					text-transform: uppercase;
-					letter-spacing: 0.05em;
-					color: oklch(var(--in));
-					opacity: 0.85;
-					animation: remote-label-fade 1500ms ease-out 320ms both;
+					content: "↳ from elsewhere";
+					position: absolute;
+					left: 0.5rem;
+					top: -0.6rem;
+					font-size: 0.6rem;
+					font-weight: 500;
+					background: oklch(var(--in));
+					color: oklch(1 0 0);
+					padding: 0.08rem 0.5rem;
+					border-radius: 999px;
+					white-space: nowrap;
+					opacity: 0;
+					animation: remote-badge 2.5s ease-out forwards;
+					pointer-events: none;
+					z-index: 10;
+					box-shadow: 0 2px 6px oklch(0 0 0 / 0.18);
 				}
-				@keyframes remote-label-fade {
-					from { opacity: 0.85; }
-					to   { opacity: 0; }
+				@keyframes remote-badge {
+					0%   { opacity: 0; transform: translateY(-8px) scale(0.7); }
+					15%  { opacity: 0.95; transform: translateY(0) scale(1); }
+					65%  { opacity: 0.95; transform: translateY(0) scale(1); }
+					100% { opacity: 0; transform: translateX(12px) scale(0.9); }
 				}
 
 				/* View Transitions: cross-fade when Datastar morphs the
