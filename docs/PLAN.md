@@ -9,30 +9,130 @@
 
 ---
 
-## 1. Wails v3 — desktop + mobile builds
+## 1. Wails v3 — desktop + mobile builds (Loro CRDT + NATS Leaf Node sync)
 
-### What we'll do
+### Scope decision (2026-07-10)
 
-Add an optional second frontend target to the same project: a native
-desktop app (Windows/macOS/Linux) and a mobile app (Android/iOS),
-both built on top of the same Go business logic that already powers
-the web app. Wails v3 wraps the existing handlers in a webview and
-binds Go methods to JS — we add two thin entry points (`cmd/desktop/`,
-`cmd/mobile/`) without rewriting the web stack.
+- **Desktop first** (macOS / Windows / Linux). Mobile (Android/iOS) is a
+  stretch goal — Wails v3 mobile is still experimental in 2026 and may
+  not yield runnable artifacts reliably.
+- **Add edge sync** in the same effort: the desktop app embeds NATS
+  (Leaf Node) to sync with the central server when connectivity returns,
+  and uses **Loro CRDT** as the collaboration model for shared state
+  (whiteboard, multi-cursor presence, conflict-free offline edits).
+- **Web demo stays Datastar/SSE** (server-driven, not offline-first).
+  Loro is for the desktop edge; the web uses Yjs if/when collaborative
+  features land there (browser-native, no Go bridge needed).
 
-CI strategy: GitHub Actions runners build all platform artifacts.
-A forker who can push a tag gets a release with `.dmg`, `.msi`,
-`.deb`, `.AppImage`, `.apk`, `.ipa` attached — zero local
-toolchains required.
+### Why Loro (not Yjs) for the desktop/Wails target
+
+- `loro-go` (official Rust-core binding via CGO) runs **natively in the
+  Wails Go backend** — no JS bridge. Yjs has no mature Go core; it would
+  force a webview-JS path inside a desktop app.
+- Smaller, faster binary (Rust core ~200-400KB) than Yjs-at-scale;
+  better delta encoding for large whiteboard docs.
+- **Offline-first is first-class**: `Repo` (local-first store) +
+  `PartialLoad` let the app load/edit a slice of a doc offline and sync
+  only the diff on reconnect.
+- CRDT merge resolves concurrent edits of the same node (whiteboard),
+  which **LWW/UUID cannot** (LWW discards one writer's work). For the
+  todo-list we already have DagNats event-sourcing (LWW-by-version is
+  fine there); for collaborative whiteboard, CRDT is the right model.
+
+### Architecture
+
+```
+[Wails v3 desktop app]
+  ├─ Go backend (reuses router/handlers, adds cmd/desktop)
+  │    ├─ embedded NATS server (Leaf Node)  ← edge
+  │    ├─ loro-go Repo (local-first CRDT store)
+  │    └─ PocketBase client (source of truth on server)
+  └─ webview (Tailwind/DaisyUI UI, Datastar signals for local UI)
+        │
+        │ Leaf Node sync (auto, when net returns)
+        ▼
+[Central NATS on server]  (same NATS the jetstream/dagnats tags boot)
+        │
+        ▼
+[Sync Worker (Go, on server)] — applies Loro updates → PocketBase
+  whiteboards collection (snapshot base64) = final source of truth
+```
+
+**Transport vs merge are separate concerns:**
+- **NATS Leaf Node** = transport (delivers Loro updates to the central
+  NATS; replays buffered edge events on reconnect). Native, no custom
+  code.
+- **Loro CRDT** = merge (resolves concurrent edits locally, conflict-
+  free). The Worker just persists the resolved doc.
+- **PocketBase** = final source of truth (survives restarts; web
+  clients read from it).
+
+### What we'll do (phased)
+
+**Phase A — Wails v3 desktop shell (no sync yet)**
+1. Add `cmd/desktop/main.go` (< 200 lines) that boots the existing
+   `router.Init` + PocketBase inside a Wails v3 `app.Run()`. Reuse
+   `config`, `db`, `features/*` unchanged.
+2. `wails.json` at repo root: build web assets (`npm run build`), set
+   `frontend: web/`, output `build/bin/`. `make desktop` →
+   `wails build` producing a macOS `.app` (and `.exe`/`.deb` on those
+   hosts).
+3. Verify the app serves the same UI on `http://localhost:34115`
+   (Wails dev server) and the demo todo flow works end-to-end.
+
+**Phase B — Embedded NATS Leaf Node**
+4. In `cmd/desktop`, start an embedded NATS server with a `leaf`
+   remote pointing at the central server's NATS port (same port the
+   `jetstream`/`dagnats` tags use). Use `nats-server.conf`
+   (`leaf { remotes: [{ url: "nats://<server>:7422" }] }`).
+5. Add a `sync` subject (`app.sync.>`) for Loro doc updates; the edge
+   publishes, the central receives, no custom replay logic.
+
+**Phase C — Loro CRDT + sync worker**
+6. Add `internal/collab` package: `loro-go` `Repo` per whiteboard doc;
+   `EncodeSnapshot`/`ApplySnapshot` helpers; `DocID` = UUID v7.
+7. Desktop publishes Loro updates on `app.sync.<docID>`; on reconnect
+   Leaf Node replays buffered events to the central NATS.
+8. Server-side `SyncWorker` (new `cmd/web` handler or standalone) subscribes
+   to `app.sync.>`, merges into the Loro `Repo`, persists snapshot to
+   PocketBase `whiteboards` collection (base64). Idempotent by `DocID`+
+   version.
+9. Presence/cursors: NATS pub/sub on `app.presence.>` (ephemeral, no
+   persistence) — lightweight multi-user cursor broadcast.
+
+**Phase D — CI + mobile stretch**
+10. `.github/workflows/build-platforms.yml`: matrix builds `.dmg`,
+    `.exe`, `.deb`, `.AppImage` on push; upload as release artifacts.
+11. Mobile: attempt `wails build -platform android` / `ios` in a
+    follow-up session; mark experimental, do not block desktop exit.
 
 ### Exit criteria
 
-- [ ] `make desktop` produces a runnable macOS `.app` locally
-- [ ] `make android` produces a runnable `.apk`
-- [ ] `.github/workflows/build-platforms.yml` runs on every push and
-      uploads 6 platform artifacts
-- [ ] `cmd/desktop/main.go` and `cmd/mobile/main.go` are < 200 lines
-      each, reusing the existing router/handlers
+- [ ] `make desktop` produces a runnable macOS `.app` locally (Phase A)
+- [ ] Desktop app reuses existing router/handlers; `cmd/desktop/main.go`
+      < 200 lines
+- [ ] Embedded NATS Leaf Node connects to central server NATS (Phase B)
+- [ ] `internal/collab` (Loro) compiles; doc create/encode/apply works
+      in a unit test (Phase C)
+- [ ] SyncWorker persists Loro snapshot to PocketBase on `app.sync.>`
+      receive (Phase C)
+- [ ] Presence/cursors broadcast over `app.presence.>` (Phase C)
+- [ ] `.github/workflows/build-platforms.yml` builds 4 desktop
+      artifacts and uploads them (Phase D)
+- [ ] README has a "Desktop & Mobile" section
+- [ ] Mobile marked experimental; not required for exit (Phase D)
+
+### Open questions resolved
+
+- **LWW vs CRDT**: CRDT (Loro) for whiteboard/cursors (concurrent edits
+  must merge); LWW/event-sourcing (DagNats) already covers todo-list.
+- **Yjs vs Loro**: Loro wins for Wails/Go (native binding, lighter,
+  offline-first ergonomics). Yjs stays the web-only option.
+- **Leaf Node vs custom replay**: Leaf Node is native NATS — no custom
+  code. Use it.
+- **PocketBase as source of truth**: yes — Worker persists resolved
+  Loro snapshot; web + desktop both read final state from it.
+
 - [ ] README has a "Desktop & Mobile" section with screenshot
 
 ---
