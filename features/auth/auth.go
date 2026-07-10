@@ -43,7 +43,7 @@ var CookieSecure bool
 
 // onLoginHook is an optional callback fired after a successful password
 // login, with the authenticated user's PocketBase record id. Used by the
-// Turbine onboarding flow to start a per-user workflow on login. Nil
+// onboarding flow to start a per-user workflow on login. Nil
 // unless SetOnLoginHook is called by the onboarding wiring.
 var onLoginHook func(userID string)
 
@@ -175,7 +175,7 @@ func HandlePasswordLogin(e *core.RequestEvent) error {
 		return renderLoginPageTo(e, "Could not issue auth token")
 	}
 	setAuthCookie(e.Response, token)
-	// Fire the login hook (e.g. start the per-user Turbine onboarding
+	// Fire the login hook (e.g. start the per-user durable onboarding
 	// flow). Scoped to this user's record id, not a global broadcast.
 	fireOnLogin(record.Id)
 	return e.Redirect(http.StatusSeeOther, e.Request.FormValue("next"))
