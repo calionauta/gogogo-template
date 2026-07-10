@@ -87,12 +87,12 @@ type Signals struct {
 	// the first mutation.
 	LastItemSource string `json:"lastItemSource"`
 
-	// WorkflowEnabled reflects whether the binary was built with
-	// -tags turbine AND started with WORKFLOW_ENABLED=true. When true,
+	// DagNatsEnabled reflects whether the binary was built with
+	// -tags dagnats AND started with DAGNATS_ENABLED=true. When true,
 	// the UI renders the "Run durable workflow" button.
-	WorkflowEnabled bool `json:"workflowEnabled"`
+	DagNatsEnabled bool `json:"dagNatsEnabled"`
 
-	// Onboarding progress (Turbine durable workflow). Streamed as the
+	// Onboarding progress (DagNats durable workflow). Streamed as the
 	// workflow advances so the UI can render a live stepper. Each event
 	// carries the current step, total steps, phase, and a human-readable
 	// detail. OnboardingActive flips true on the first progress event and

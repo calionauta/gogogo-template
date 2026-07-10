@@ -59,18 +59,18 @@ type TodoHandler struct {
 	broadcaster  TodoBroadcaster
 	llm          *llm.Client
 	llmSimulated *llm.Client
-	// onboarding drives the event-driven Turbine onboarding flow. It is
-	// an interface so the default (non-turbine) build can hold a nil
-	// without importing the turbine-tagged OnboardingHandler. The
-	// concrete *OnboardingHandler is wired in RegisterOnboardingRoutes
-	// (turbine build only); nil when Turbine is disabled.
+	// onboarding drives the event-driven onboarding flow. It is an
+	// interface so the default build can hold a nil without importing
+	// the dagnats-tagged OnboardingHandler. The concrete
+	// *OnboardingHandler is wired in RegisterOnboardingRoutes (dagnats
+	// build only); nil when dagnats is disabled.
 	onboarding OnboardingResumer
 }
 
 // OnboardingResumer is the capability the create path needs from the
 // onboarding flow: resume it when a user with a pending onboarding adds
 // their first todo. Declared here (default build) so handleCreate can
-// call it unconditionally; the turbine build supplies the real impl.
+// call it unconditionally; the dagnats build supplies the real impl.
 type OnboardingResumer interface {
 	ResumeOnboarding(user string)
 }
@@ -90,6 +90,17 @@ func (h *TodoHandler) SetLLMClient(c *llm.Client) { h.llm = c }
 // "Suggest (simulated)" handler. Enabled via SIMULATE_LLM=true so the
 // queue + retry async path can be demoed without a real API key.
 func (h *TodoHandler) SetSimulatedLLMClient(c *llm.Client) { h.llmSimulated = c }
+
+// CreateTodoForOnboarding programmatically creates a todo. Used by the
+// DagNats onboarding worker handlers (build tag dagnats) to write example
+// todos into the main PocketBase collection as the durable workflow
+// advances. owner scopes the todo to a user; pass "" for the unscoped
+// demo fallback. It reuses the same validation/save path as the HTTP
+// create handler so the todos appear identically in the UI and broadcast
+// to all connected clients.
+func (h *TodoHandler) CreateTodoForOnboarding(title, owner string) error {
+	return h.saveTodo(&todo.Todo{Title: title, Completed: false}, owner)
+}
 
 // llmEnabled reports whether the AI suggest pathway is live. Used
 // by handlers that build Signals so the UI hides the Suggest button
@@ -171,7 +182,7 @@ func (h *TodoHandler) handleIndex(c *core.RequestEvent) error {
 		AdminEnabled:     h.cfg.AdminToken != "",
 		LLMEnabled:       h.llmEnabled(),
 		SimulatedLLM:     h.simulatedLLMEnabled(),
-		WorkflowEnabled:  h.cfg.Workflow.Enabled,
+		DagNatsEnabled:   h.cfg.DagNats.Enabled,
 		ConnectedClients: h.q.Hub().Stats().Clients,
 		Suggestions:      []string{},
 		SuggestErr:       "",

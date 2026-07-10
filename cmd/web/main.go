@@ -1,7 +1,7 @@
 // Package main wires the binary's startup sequence: PocketBase, the
-// goqite queue, optional NATS JetStream and Turbine runtimes, and the
-// HTTP routes. Run with `make dev` (live reload) or `make build`
-// (single binary).
+// goqite queue, optional NATS JetStream realtime, the DagNats durable
+// workflow engine (build tag dagnats), and the HTTP routes. Run with
+// `make dev` (live reload) or `make build` (single binary).
 //
 // All Fatalf calls live at the top of main and the actual long-running
 // call (pb.Start) returns instead of Fatalf-ing so deferred shutdown
@@ -98,20 +98,16 @@ func run() error {
 	}
 
 	workers := q.StartWorkers()
-	_ = workers // held for parity with turbine runtime var; unused at call site
+	_ = workers // held for lifecycle parity; workers run until queue close
+
+	// DagNats (build tag dagnats) owns the embedded NATS on :4222 and
+	// must boot first so the realtime broadcaster can attach to it.
+	startDagNats(cfg, pb, todoH)
+	defer shutdownDagNats()
 
 	js := startNATS(cfg)
 
-	startTurbine(pb, cfg)
-	defer shutdownTurbine()
-
-	var workflowRt router.WorkflowRuntime
-	if rt := getTurbineRuntime(); rt != nil {
-		if typed, ok := rt.(router.WorkflowRuntime); ok {
-			workflowRt = typed
-		}
-	}
-	router.Init(pb, q, cfg, workflowRt, js, todoH)
+	router.Init(pb, q, cfg, js, todoH)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	// PocketBase v0.39+ uses a Cobra root command. pb.Start() calls

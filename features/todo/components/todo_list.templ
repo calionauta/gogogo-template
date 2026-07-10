@@ -192,7 +192,7 @@ templ TechstackPanel(signals todo.Signals) {
 				>
 					Queue + retry
 				</li>
-				if signals.WorkflowEnabled {
+				if signals.DagNatsEnabled {
 					<li
 						class="step"
 						data-class={ stepClass("workflow") }
@@ -213,7 +213,7 @@ templ TechstackPanel(signals todo.Signals) {
 						<span class="loading loading-spinner loading-xs" data-show="$suggestPending"></span>
 					</span>
 				</button>
-				if signals.WorkflowEnabled {
+				if signals.DagNatsEnabled {
 					<button
 						class="btn btn-sm btn-outline"
 						data-attr:disabled="$onboardingActive"
@@ -227,10 +227,10 @@ templ TechstackPanel(signals todo.Signals) {
 				}
 			</div>
 
-			if signals.WorkflowEnabled && signals.OnboardingActive && signals.WorkflowCompleted {
+			if signals.DagNatsEnabled && signals.OnboardingActive && signals.WorkflowCompleted {
 				<div class="alert alert-success text-xs py-2">
 					<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-					<span>Workflow completed — 3 example todos created via Turbine.</span>
+					<span>Workflow completed — 3 example todos created via DagNats.</span>
 				</div>
 			}
 		</div>

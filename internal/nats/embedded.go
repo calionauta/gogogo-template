@@ -85,6 +85,44 @@ func waitForJetStream(js natsio.JetStreamContext, timeout time.Duration) error {
 	}
 }
 
+// ConnectExisting connects to an already-running NATS server (e.g. the
+// one booted by the DagNats engine under -tags dagnats) and wires the
+// package-level NC/JS singletons. This is the single-NATS setup: instead
+// of starting a second embedded server, the realtime broadcaster reuses
+// the JetStream instance DagNats already owns on the conventional port.
+//
+// RetryOnFailedConnect makes nats.Connect block until the server is
+// reachable (the library retries internally) rather than returning
+// immediately — so callers get a clean synchronous "NATS is ready" point
+// with no polling loop of their own. If the server never comes up, the
+// call returns an error after the configured timeout and the caller
+// falls back to the in-memory broadcaster.
+func ConnectExisting(url string) error {
+	nc, err := natsio.Connect(
+		url,
+		natsio.RetryOnFailedConnect(true),
+		natsio.Timeout(15*time.Second),
+	)
+	if err != nil {
+		return err
+	}
+	NC = nc
+
+	js, err := nc.JetStream()
+	if err != nil {
+		return err
+	}
+	JS = js
+
+	if err := waitForJetStream(js, 10*time.Second); err != nil {
+		return err
+	}
+	slog.Info("NATS connected to existing server (JetStream enabled)", "url", url)
+	return nil
+}
+
+// Stop shuts down the embedded server (if one was started) and closes
+// the connection.
 func Stop() {
 	if NC != nil {
 		NC.Close()
@@ -94,8 +132,8 @@ func Stop() {
 	}
 }
 
-// JetStream returns the JetStream context established by StartEmbedded.
-// It is nil until StartEmbedded has succeeded.
+// JetStream returns the JetStream context established by StartEmbedded
+// (or ConnectExisting). It is nil until one of them has succeeded.
 func JetStream() natsio.JetStreamContext {
 	return JS
 }

@@ -35,9 +35,14 @@ type Config struct {
 		StoreDir string
 	}
 
-	Workflow struct {
-		Enabled    bool
-		ExecutorID string
+	// DagNats holds the DagNats durable-workflow engine settings. Built
+	// with -tags dagnats. DagNats reuses the embedded NATS JetStream that
+	// the jetstream build already starts, so it needs no extra infra.
+	DagNats struct {
+		Enabled  bool
+		HTTPAddr string // HTTP/API/console listen addr (separate port from the app)
+		NATSPort int    // NATS port the engine owns (default 4222; the realtime broadcaster connects here)
+		StoreDir string
 	}
 
 	GoAI GoAIConfig
@@ -93,8 +98,10 @@ func Load() *Config {
 	cfg.NATS.Enabled = envBool("NATS_ENABLED", defaultNATSEnabled())
 	cfg.NATS.StoreDir = getEnv("NATS_STORE_DIR", "data/nats")
 
-	cfg.Workflow.Enabled = envBool("WORKFLOW_ENABLED", defaultWorkflowEnabled())
-	cfg.Workflow.ExecutorID = getEnv("WORKFLOW_EXECUTOR_ID", "local")
+	cfg.DagNats.Enabled = envBool("DAGNATS_ENABLED", defaultDagNatsEnabled())
+	cfg.DagNats.HTTPAddr = getEnv("DAGNATS_HTTP_ADDR", "127.0.0.1:8090")
+	cfg.DagNats.NATSPort = envInt("DAGNATS_NATS_PORT", defaultDagNatsNATSPort)
+	cfg.DagNats.StoreDir = getEnv("DAGNATS_STORE_DIR", "data/dagnats")
 
 	return cfg
 }
@@ -121,6 +128,24 @@ func envBool(key string, def bool) bool {
 	}
 	return b
 }
+
+// envInt reads an integer env var, falling back to def when unset or
+// unparseable.
+func envInt(key string, def int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return def
+	}
+	return n
+}
+
+// defaultDagNatsNATSPort is the conventional NATS port the DagNats engine
+// owns. The realtime broadcaster connects here (single-NATS convention).
+const defaultDagNatsNATSPort = 4222
 
 // defaultAppName falls back to the binary name when APP_NAME is unset
 // so the secrets file scope tracks whatever the project owner actually

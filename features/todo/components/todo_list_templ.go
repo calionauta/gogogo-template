@@ -391,7 +391,7 @@ func TechstackPanel(signals todo.Signals) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if signals.WorkflowEnabled {
+		if signals.DagNatsEnabled {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<li class=\"step\" data-class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -414,7 +414,7 @@ func TechstackPanel(signals todo.Signals) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if signals.WorkflowEnabled {
+		if signals.DagNatsEnabled {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<button class=\"btn btn-sm btn-outline\" data-attr:disabled=\"$onboardingActive\" data-on:click=\"$techStep = 'workflow'; $onboardingActive = true; $workflowCompleted = false; @post('/api/onboarding/start')\"><span class=\"inline-flex items-center gap-2\"><span>Run durable workflow</span> <span class=\"loading loading-spinner loading-xs\" data-show=\"$techStep === 'workflow' && !$workflowCompleted && $onboardingActive\"></span></span></button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -424,8 +424,8 @@ func TechstackPanel(signals todo.Signals) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if signals.WorkflowEnabled && signals.OnboardingActive && signals.WorkflowCompleted {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"alert alert-success text-xs py-2\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"w-4 h-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\"></path></svg> <span>Workflow completed — 3 example todos created via Turbine.</span></div>")
+		if signals.DagNatsEnabled && signals.OnboardingActive && signals.WorkflowCompleted {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"alert alert-success text-xs py-2\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"w-4 h-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\"></path></svg> <span>Workflow completed — 3 example todos created via DagNats.</span></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

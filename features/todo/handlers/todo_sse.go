@@ -42,7 +42,7 @@ func (h *TodoHandler) handleSSEStream(c *core.RequestEvent) error {
 		AdminEnabled:     h.cfg.AdminToken != "",
 		LLMEnabled:       h.llmEnabled(),
 		SimulatedLLM:     h.simulatedLLMEnabled(),
-		WorkflowEnabled:  h.cfg.Workflow.Enabled,
+		DagNatsEnabled:   h.cfg.DagNats.Enabled,
 		ConnectedClients: h.q.Hub().Stats().Clients,
 		ClientID:         clientID,
 	}); err != nil {
@@ -119,10 +119,7 @@ func (h *TodoHandler) streamRetry(sse *sdk.ServerSentEventGenerator, payload []b
 	// stuck. The button click sets $techStep='retry-demo' up front;
 	// we only complete it here on the real success event.
 	if p.Status == retryStatusSuccess {
-		if err := dshelpers.MergeSignals(sse, map[string]any{
-			"techDone":  true,
-			"techPhase": "",
-		}); err != nil {
+		if err := h.applyTechStep(sse, "retry-demo", true, ""); err != nil {
 			return err
 		}
 	}
@@ -153,11 +150,9 @@ func (h *TodoHandler) streamTodo(c *core.RequestEvent, sse *sdk.ServerSentEventG
 		Type string `json:"type"`
 	}
 	if err := json.Unmarshal(payload, &tp); err == nil && tp.Type == "workflow-completed" {
-		if err := dshelpers.MergeSignals(sse, map[string]any{
-			"onboardingActive":  true,
-			"onboardingPhase":   "completed",
-			"workflowCompleted": true,
-		}); err != nil {
+		// The durable workflow emits a synthetic completion event once
+		// all steps finish; mark the onboarding stepper done.
+		if err := h.applyOnboarding(sse, 0, 0, "completed", "Workflow completed", true); err != nil {
 			return err
 		}
 		return emitToast(sse, "Workflow completed — 3 example todos created", retryStatusSuccess)
@@ -208,17 +203,19 @@ func (h *TodoHandler) streamSuggestResult(sse *sdk.ServerSentEventGenerator, pay
 		signalSuggestions:    p.Suggestions,
 		signalSuggestErr:     p.SuggestErr,
 		signalSuggestPending: p.SuggestPending,
-		// Techstack diagnostic panel: flip techStep to "retry-demo" so the
-		// DaisyUI <ul class="steps"> highlights the right node (the single
-		// "Queue + retry" affordance exercises goqite + retry-go + the fake
-		// LLM), and mark done once the result lands so the success colour
-		// replaces the primary highlight. Always reset techPhase so a prior
-		// error does not stick on the next (successful) result.
-		"techStep":  "retry-demo",
-		"techDone":  p.SuggestErr == "" && !p.SuggestPending,
-		"techPhase": map[bool]string{true: "error", false: ""}[p.SuggestErr != ""],
 	}
 	if err := dshelpers.MergeSignals(sse, merge); err != nil {
+		return err
+	}
+	// Techstack diagnostic panel: highlight the single "Queue + retry"
+	// node (goqite + retry-go + fake LLM) and mark done once the result
+	// lands. Always reset techPhase so a prior error does not stick on
+	// the next (successful) result.
+	phase := ""
+	if p.SuggestErr != "" {
+		phase = "error"
+	}
+	if err := h.applyTechStep(sse, "retry-demo", p.SuggestErr == "" && !p.SuggestPending, phase); err != nil {
 		return err
 	}
 	if p.SuggestErr != "" {
@@ -228,7 +225,7 @@ func (h *TodoHandler) streamSuggestResult(sse *sdk.ServerSentEventGenerator, pay
 }
 
 func (h *TodoHandler) streamProgress(sse *sdk.ServerSentEventGenerator, payload []byte) error {
-	// Durable-workflow progress (Turbine). Streamed as each step
+	// Durable-workflow progress (DagNats). Streamed as each step
 	// completes so the UI can render a live stepper and the user can
 	// watch the workflow advance. Merged as signals and echoed as a
 	// toast so the progression is both visible and narrated.
@@ -241,26 +238,57 @@ func (h *TodoHandler) streamProgress(sse *sdk.ServerSentEventGenerator, payload 
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return fmt.Errorf("decode progress payload: %w", err)
 	}
-	signals := map[string]any{
-		"onboardingActive": true,
-		"onboardingStep":   p.Step,
-		"onboardingTotal":  p.Total,
-		"onboardingPhase":  p.Phase,
-		"onboardingDetail": p.Detail,
-		"techStep":         "workflow",
-	}
-	// Tech panel: mark done if the workflow has reached the finalize
-	// phase (Turbine broadcasts the final step on completion). The
-	// streamTodo dispatcher also flips $workflowCompleted via the
-	// "workflow-completed" event type.
-	if p.Phase == "finalize" {
-		signals["workflowCompleted"] = true
-		signals["techDone"] = true
-	}
-	if err := dshelpers.MergeSignals(sse, signals); err != nil {
+	// Mark done on the finalize phase; the streamTodo dispatcher also
+	// flips $workflowCompleted via the "workflow-completed" event type.
+	completed := p.Phase == "finalize"
+	if err := h.applyOnboarding(sse, p.Step, p.Total, p.Phase, p.Detail, completed); err != nil {
 		return err
 	}
 	return emitToast(sse, p.Detail, "info")
+}
+
+// applyTechStep centralises the techstack diagnostics panel state machine.
+// The panel is a DaisyUI <ul class="steps"> whose nodes light up via the
+// $techStep / $techDone / $techPhase signals. Previously each stream
+// dispatcher built this map inline, scattering the panel logic across
+// four handlers; a regression in one (e.g. forgetting to flip techDone on
+// success) was invisible to the others. Now there is a single source of
+// truth.
+//
+// step  — the active slug: "retry-demo" (goqite+retry) or "workflow"
+//
+//	(dagnats). Empty keeps the current node.
+//
+// done  — true once the action succeeded (green check).
+// phase — "error" on failure, "" otherwise.
+func (h *TodoHandler) applyTechStep(sse *sdk.ServerSentEventGenerator, step string, done bool, phase string) error {
+	return dshelpers.MergeSignals(sse, map[string]any{
+		"techStep":  step,
+		"techDone":  done,
+		"techPhase": phase,
+	})
+}
+
+// applyOnboarding centralises the durable-workflow (DagNats) progress
+// signals. step/total/phase/detail drive the live stepper; when completed
+// is true the workflow has finalised and the panel marks done.
+func (h *TodoHandler) applyOnboarding(
+	sse *sdk.ServerSentEventGenerator,
+	step, total int, phase, detail string, completed bool,
+) error {
+	signals := map[string]any{
+		"onboardingActive": true,
+		"onboardingStep":   step,
+		"onboardingTotal":  total,
+		"onboardingPhase":  phase,
+		"onboardingDetail": detail,
+		"techStep":         "workflow",
+	}
+	if completed {
+		signals["workflowCompleted"] = true
+		signals["techDone"] = true
+	}
+	return dshelpers.MergeSignals(sse, signals)
 }
 
 // dispatchStreamMessage routes a single SSE envelope to the matching

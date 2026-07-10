@@ -16,26 +16,14 @@ import (
 	"github.com/calionauta/gogogo-fullstack-template/web/resources"
 )
 
-// WorkflowRuntime is a marker for the Turbine runtime. The router only
-// checks for non-nil to decide whether to wire onboarding routes; the
-// type assertion to *workflow.Runtime happens in the build-tag-gated
-// onboarding file. Keeping this as a marker (no methods) means default
-// builds don't need to construct anything that satisfies it.
-type WorkflowRuntime interface {
-	// Marker method — implemented by *workflow.Runtime.
-	IsWorkflowRuntime()
-}
-
 // Init registers custom routes on PocketBase's serve event.
-// Call before pb.Start(). Pass workflowRt = nil if Turbine is not
-// enabled (default builds without `-tags turbine`). Pass todoH as the
+// Call before pb.Start(). Pass todoH as the
 // same handler instance the caller used for RegisterHandlers so the
 // routes and the SSE worker path share state.
 func Init(
 	app *pocketbase.PocketBase,
 	q *queue.Queue,
 	cfg *config.Config,
-	workflowRt WorkflowRuntime,
 	js nats.JetStreamLike,
 	todoH *handlers.TodoHandler,
 ) {
@@ -121,10 +109,10 @@ func Init(
 			fallback.RegisterRoutes(se)
 		}
 
-		// Onboarding workflow routes are wired here when Turbine is
-		// enabled. The handler reads the concrete *workflow.Runtime via
-		// RegisterOnboardingRoutes' build-tag switch.
-		registerOnboarding(app, q, se, workflowRt, broadcaster, todoH)
+		// Onboarding workflow routes (dagnats build tag) are wired here
+		// when DagNats is enabled. The handler reads the DagNats HTTP addr
+		// from config and registers the onboarding routes.
+		registerOnboarding(app, q, se, broadcaster, todoH, cfg.DagNats.HTTPAddr)
 
 		return se.Next()
 	})
