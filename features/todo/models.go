@@ -39,13 +39,6 @@ type Signals struct {
 	// the correct browser tab, so a Suggest triggered here lands here
 	// rather than broadcasting to every connected client.
 	ClientID string `json:"clientID"`
-	// AdminEnabled reflects whether the server was started with a
-	// non-empty ADMIN_UNLOCK_TOKEN (loaded from the age-encrypted
-	// secrets file). When true, the UI renders the "Admin unlock"
-	// form. When false, the entire admin pathway is hidden — there is
-	// no client-side check to bypass.
-	AdminEnabled bool `json:"adminEnabled"`
-
 	// LLMEnabled reflects whether the server was started with a
 	// non-empty GOAI_API_KEY. When true, the UI renders the "Suggest"
 	// button. When false, the entire AI pathway is hidden.

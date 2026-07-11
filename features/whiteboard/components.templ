@@ -26,8 +26,10 @@ templ BoardList(boards []BoardMeta) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>Whiteboards — gogogo-fullstack-template</title>
 			<link rel="stylesheet" href="/static/app.min.css"/>
+				<link rel="stylesheet" href="/static/app.css"/>
 			@auth.ThemeHead()
 			<script defer type="module" src="/static/theme.js"></script>
+			<script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.1.0/dist/iconify-icon.min.js"></script>
 		</head>
 		<body>
 			@auth.Navbar("")
@@ -63,8 +65,10 @@ templ Board(docID string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>Whiteboard { docID } — gogogo-fullstack-template</title>
 			<link rel="stylesheet" href="/static/app.min.css"/>
+				<link rel="stylesheet" href="/static/app.css"/>
 			@auth.ThemeHead()
 			<script defer type="module" src="/static/theme.js"></script>
+			<script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.1.0/dist/iconify-icon.min.js"></script>
 			<script src="https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.min.js"></script>
 		</head>
 		<body>
@@ -78,8 +82,8 @@ templ Board(docID string) {
 					<button class="btn btn-sm" data-tool="pen" data-on:click="$tool='pen'">Pen</button>
 					<input class="input input-sm w-16" type="color" value="#1f2937"
 					       id="color-input" name="color" aria-label="Shape color" data-bind="color" data-on:input="$color = $evt.target.value"/>
-					<div class="flex items-center gap-1 ml-2 text-xs text-base-content/70" title="People connected to this board">
-						<span class="inline-block h-2 w-2 rounded-full bg-success animate-pulse"></span>
+					<div class="online-pill" title="People connected to this board">
+						<span class="pulse-dot"></span>
 						<span id="peer-count">1</span>
 						<span>online</span>
 					</div>

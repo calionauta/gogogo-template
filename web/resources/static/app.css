@@ -83,3 +83,42 @@
 .bottom-4 { bottom: 1rem; }
 .right-4 { right: 1rem; }
 .mx-auto { margin-left: auto; margin-right: auto; }
+
+/* Theme toggle icon micro-animation (matches treinador project). */
+.theme-toggle-icon {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.theme-toggle-spin {
+  animation: theme-toggle-spin 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes theme-toggle-spin {
+  0%   { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(180deg) scale(0.7); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Shared "X online" pulsing indicator (realtime card + whiteboard). */
+.online-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  background-color: color-mix(in oklab, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+}
+.online-pill .pulse-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--color-success);
+  animation: online-pulse 1.6s ease-in-out infinite;
+}
+@keyframes online-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.8); }
+}

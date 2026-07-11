@@ -153,9 +153,6 @@ func (h *TodoHandler) RegisterRoutes(se *core.ServeEvent) {
 	se.Router.GET("/api/todos/{id}/confirm-delete", h.handleConfirmDelete)
 	se.Router.GET("/api/todos/stream", h.handleSSEStreamWithAuth)
 	se.Router.POST("/api/todos/retry-demo", h.handleEnqueueRetryDemo)
-	if h.cfg.AdminToken != "" {
-		se.Router.POST("/api/admin/unlock", h.handleAdminUnlock)
-	}
 	if h.llm != nil && h.llm.Configured() {
 		se.Router.POST("/api/todos/suggest", h.handleSuggest)
 	}
@@ -197,7 +194,6 @@ func (h *TodoHandler) handleIndex(c *core.RequestEvent) error {
 		Todos:            todos,
 		Filter:           "all",
 		ItemCount:        len(todos),
-		AdminEnabled:     h.cfg.AdminToken != "",
 		LLMEnabled:       h.llmEnabled(),
 		SimulatedLLM:     h.simulatedLLMEnabled(),
 		DagNatsEnabled:   h.cfg.DagNats.Enabled,
@@ -227,9 +223,6 @@ func (h *TodoHandler) RegisterRoutesOn(r *router.Router[*core.RequestEvent]) {
 	r.GET("/api/todos/{id}/confirm-delete", h.handleConfirmDelete)
 	r.GET("/api/todos/stream", h.handleSSEStreamWithAuth)
 	r.POST("/api/todos/retry-demo", h.handleEnqueueRetryDemo)
-	if h.cfg.AdminToken != "" {
-		r.POST("/api/admin/unlock", h.handleAdminUnlock)
-	}
 	if h.llm != nil && h.llm.Configured() {
 		r.POST("/api/todos/suggest", h.handleSuggest)
 	}

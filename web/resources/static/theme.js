@@ -47,10 +47,24 @@
   // Expose a stable API for the navbar toggle button.
   window.Theme = {
     get: current,
+    current: current,
     set: apply,
     toggle: function () {
-      apply(current() === DARK ? LIGHT : DARK);
-      return current();
+      var next = current() === DARK ? LIGHT : DARK;
+      apply(next);
+      // Micro-animation: briefly spin/scale the toggle icon (matches the
+      // treinador project's feel). The CSS class is added then removed.
+      var icons = document.querySelectorAll(".theme-toggle-icon");
+      icons.forEach(function (el) {
+        el.classList.remove("theme-toggle-spin");
+        // Force reflow so the animation can retrigger on rapid toggles.
+        void el.offsetWidth;
+        el.classList.add("theme-toggle-spin");
+        setTimeout(function () {
+          el.classList.remove("theme-toggle-spin");
+        }, 320);
+      });
+      return next;
     },
   };
 

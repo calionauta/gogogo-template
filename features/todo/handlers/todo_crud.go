@@ -31,19 +31,17 @@ func (h *TodoHandler) handleList(c *core.RequestEvent) error {
 	// the active-tab class and the visible rows update in lockstep.
 	sse := sdk.NewSSE(c.Response, c.Request)
 	if err := dshelpers.MergeSignals(sse, todo.Signals{
-		Filter:       filter,
-		ItemCount:    len(todos),
-		Loading:      false,
-		AdminEnabled: h.cfg.AdminToken != "",
-		LLMEnabled:   h.llmEnabled(),
+		Filter:     filter,
+		ItemCount:  len(todos),
+		Loading:    false,
+		LLMEnabled: h.llmEnabled(),
 	}); err != nil {
 		return err
 	}
 	return dshelpers.RenderAndPatch(
 		sse, components.TodoListRegion(todo.Signals{
 			Todos: todos, Filter: filter, ItemCount: len(todos),
-			AdminEnabled: h.cfg.AdminToken != "",
-			LLMEnabled:   h.llmEnabled(),
+			LLMEnabled: h.llmEnabled(),
 		}),
 		sdk.WithSelector("#todo-list"),
 	)

@@ -100,9 +100,6 @@ templ TodoList(signals todo.Signals) {
 						</div>
 					</div>
 
-					if signals.AdminEnabled {
-						@adminUnlockForm()
-					}
 				</div>
 
 				<!-- ──────────── RIGHT: ASYNC LAYERS (2/5) ──────────── -->
@@ -122,14 +119,13 @@ templ TodoList(signals todo.Signals) {
 								</div>
 								<span class="badge badge-xs badge-ghost" data-text="$realtimeKind"></span>
 							</div>
-							<div class="mt-2 flex items-center justify-between">
+							<div class="mt-3">
 								<div class="flex items-center gap-2">
-									<span class="text-2xl font-bold tabular-nums" data-text="$connectedClients"></span>
-									<span class="text-xs text-base-content/40" data-text="$connectedClients + ' online'"></span>
-								</div>
-								<div class="flex items-center gap-1.5 text-xs text-base-content/40">
-									<span>NATS broadcast</span>
-								</div>
+									<span class="online-pill">
+									<span class="pulse-dot"></span>
+									<span data-text="$connectedClients + ' online'"></span>
+								</span>
+							</div>
 							</div>
 							<div class="mt-2 text-[0.6rem] text-base-content/30 leading-relaxed">
 								Every CRUD mutation is broadcast to all connected clients via SSE. Open this page in two tabs to see todos sync in real time.
@@ -146,9 +142,9 @@ templ TodoList(signals todo.Signals) {
 				shows the DagNats event-sourced pipeline. -->
 				<div class="card bg-base-100 shadow-sm border border-base-200 transition-all hover:shadow-md duration-300 overflow-visible">
 					<div class="card-body p-4">
-						<div class="tabs tabs-box w-full mb-3" role="tablist">
+						<div class="tabs tabs-box w-full mt-0 mb-2" role="tablist">
 							<button
-								class="tab tab-sm transition-all"
+								class="tab tab-sm flex-1 transition-all"
 								data-on:click="$sidebarTab = 'queue'"
 								data-class={ "{'tab-active': $sidebarTab === 'queue'}" }
 							>
@@ -156,7 +152,7 @@ templ TodoList(signals todo.Signals) {
 							</button>
 							if signals.LLMEnabled {
 								<button
-									class="tab tab-sm transition-all"
+									class="tab tab-sm flex-1 transition-all"
 									data-on:click="$sidebarTab = 'ai'"
 									data-class={ "{'tab-active': $sidebarTab === 'ai'}" }
 								>
@@ -165,7 +161,7 @@ templ TodoList(signals todo.Signals) {
 							}
 							if signals.DagNatsEnabled {
 								<button
-									class="tab tab-sm transition-all"
+									class="tab tab-sm flex-1 transition-all"
 									data-on:click="$sidebarTab = 'workflow'"
 									data-class={ "{'tab-active': $sidebarTab === 'workflow'}" }
 								>
@@ -251,7 +247,7 @@ templ TodoList(signals todo.Signals) {
 										</div>
 										<span class="text-xs font-semibold">AI Suggest</span>
 									</div>
-									<span class="badge badge-xs badge-primary">Groq</span>
+									<span class="badge badge-xs badge-primary">GoAI</span>
 								</div>
 
 								<div class="text-xs text-base-content/60 mb-3">
@@ -323,16 +319,16 @@ templ TodoList(signals todo.Signals) {
 									</div>
 
 									<ul class="steps steps-vertical w-full mb-3 text-xs">
-										<li class="step step-neutral transition-all duration-500"
+										<li class="step transition-all duration-500"
 											data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && $onboardingPhase === 'greet', 'step-success': $workflowCompleted}" }
 										>Greeting</li>
-										<li class="step step-neutral transition-all duration-500"
+										<li class="step transition-all duration-500"
 											data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && ($onboardingStep === 2 || $onboardingPhase === 'workflow'), 'step-success': $workflowCompleted}" }
 										>Waiting for first todo</li>
-										<li class="step step-neutral transition-all duration-500"
+										<li class="step transition-all duration-500"
 											data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && $onboardingStep >= 3 && $onboardingStep <= 5, 'step-success': $workflowCompleted}" }
 										>Create example todos (×3)</li>
-										<li class="step step-neutral transition-all duration-500"
+										<li class="step transition-all duration-500"
 											data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && $onboardingPhase === 'finalize', 'step-success': $workflowCompleted}" }
 										>Finalize</li>
 									</ul>
@@ -556,33 +552,5 @@ templ deleteConfirmModal() {
 	</dialog>
 }
 
-// adminUnlockForm renders the master-password form. Only mounted when
-// signals.AdminEnabled is true (server has ADMIN_UNLOCK_TOKEN configured
-// via the age-encrypted secrets file). The form posts to
-// /api/admin/unlock, which compares the token constant-time and clears
-// all todos on match. Wrong token returns 403.
-templ adminUnlockForm() {
-	<details class="card bg-base-100 shadow-sm border border-base-200">
-		<summary class="card-body p-4 cursor-pointer text-sm text-base-content/50 hover:text-base-content/70 transition-colors">
-			Admin unlock
-		</summary>
-		<form
-			class="join w-full px-4 pb-4"
-			data-on:submit__prevent="@post('/api/admin/unlock', {contentType: 'form'})"
-		>
-			<input
-				type="password"
-				name="token"
-				class="input input-sm join-item flex-1"
-				placeholder="Master password"
-				required
-				autocomplete="off"
-			/>
-			<button type="submit" class="btn btn-warning btn-sm join-item" data-attr:disabled="$loading">
-				Clear all
-			</button>
-		</form>
-	</details>
-}
 
 
