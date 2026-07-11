@@ -11,6 +11,7 @@ All notable changes to this template are documented here. The format is based on
 ### Fixed
 - **Theme toggle showed both moon and sun.** `iconify-icon` is a custom element whose host stylesheet overrode the `[data-theme]` CSS rule. `theme.js` now has `syncIcons()` that explicitly hides the inactive icon (CSS polarity also corrected: light → sun, dark → moon).
 - **Navbar did not highlight the active section.** `Navbar` now takes an `active` param (`todos`/`whiteboard`) and applies `btn-active` via `templ.Classes(... map[string]bool{...})`.
+- **Whiteboard was completely dead (`WB_DOC_ID missing`).** `whiteboard.js` loaded as a plain external `<script>`, so it executed *before* the inline `<script>` that sets `window.WB_DOC_ID` from `<main data-doc-id>`. The guard bailed out of the whole IIFE, killing drawing, the color picker wiring, the online counter, and remote cursors. `whiteboard.js` is now `defer`-loaded so it runs after the DOM assignment. Added `cursor-pointer` to the color input.
 - **`make ci-local` then ask before push.** Documented in `AGENTS.md`: run the local gate first; the agent asks (via `ask_user_question`) before pushing to master rather than auto-pushing. A `pi-yaml-hooks` `pre-push` hook mirrors this (runs `make ci-local`, then `confirm`).
 
 ### Changed

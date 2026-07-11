@@ -80,7 +80,7 @@ templ Board(email string, docID string) {
 					<button class="btn btn-sm" data-tool="ellipse" data-on:click="$tool='ellipse'">Ellipse</button>
 					<button class="btn btn-sm" data-tool="line" data-on:click="$tool='line'">Line</button>
 					<button class="btn btn-sm" data-tool="pen" data-on:click="$tool='pen'">Pen</button>
-					<input class="input input-sm w-16" type="color" value="#1f2937"
+					<input class="input input-sm w-16 cursor-pointer" type="color" value="#1f2937"
 					       id="color-input" name="color" aria-label="Shape color" data-bind="color" data-on:input="$color = $evt.target.value"/>
 					<div class="online-pill" title="People connected to this board">
 						<span class="pulse-dot"></span>
@@ -95,7 +95,7 @@ templ Board(email string, docID string) {
 					<div id="cursors" class="absolute inset-0 pointer-events-none"></div>
 				</div>
 			</main>
-			<script src="/static/whiteboard.js"></script>
+			<script defer src="/static/whiteboard.js"></script>
 			<script>
 				// The doc id is carried on <main data-doc-id> (templ escapes
 				// attribute values safely). Reading it from the DOM avoids the
