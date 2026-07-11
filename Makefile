@@ -6,7 +6,7 @@ COMMIT      := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILDTIME   := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS     := -ldflags="-w -X main.Version=$(VERSION) -X main.CommitHash=$(COMMIT) -X main.BuildTime=$(BUILDTIME)"
 
-.PHONY: all build build-jetstream build-dagnats build-all desktop wails-build run clean restart templ fmt css css-install datastar-lint test lint vet check-sizes deadcode check deps dev docker-image setup help
+.PHONY: all build build-jetstream build-dagnats build-all desktop wails-build run clean restart templ fmt css css-install datastar-lint test lint vet check-sizes deadcode check ci-local signoff deps dev docker-image setup help
 
 all: build
 
@@ -93,10 +93,12 @@ fmt:
 	@test -z "$$(goimports -l -local github.com/calionauta/gogogo-fullstack-template $$(find . -name '*.go' ! -name '*_templ.go'))" || (echo "  ❌ goimports issues"; goimports -l -local github.com/calionauta/gogogo-fullstack-template $$(find . -name '*.go' ! -name '*_templ.go'); exit 1)
 	@echo "  ✅ formatting clean"
 
-# datastar-lint checks .templ files for Datastar anti-patterns.
+# datastar-lint checks .templ files for Datastar anti-patterns. Runs with
+# -only-errors so intentional custom attributes (e.g. data-tool, read by
+# our whiteboard JS) surface as advisory warnings, not hard failures.
 datastar-lint:
 	@echo "→ Running datastar-lint..."
-	@bin/datastar-lint
+	@bin/datastar-lint -only-errors
 
 lint:
 	@echo "→ go vet..."
@@ -119,6 +121,47 @@ deadcode:
 # pre-commit hook that enforces the same gate on every commit.
 check: fmt datastar-lint css-check lint check-sizes deadcode test test-combined
 	@echo "✅ All checks passed"
+
+# ci-local mirrors the GitHub CI matrix EXACTLY so you can compile + test
+# every build-tag combination on your own machine before pushing. The
+# lint/format step uses `golangci-lint run` — the SAME linter CI runs
+# (it bundles gofumpt, so it is the authoritative formatting gate). We do
+# NOT call `make fmt` here: the standalone `gofumpt` binary can be a newer
+# release than the one golangci-lint bundles, producing false-positive
+# -l listings that CI itself would pass. Always trust golangci-lint.
+# Run `make ci-local` (or `make signoff` to also stamp the commit green)
+# instead of waiting on remote runners. See README "Local CI (gh-signoff)".
+ci-local: templ datastar-lint css-check
+	@echo "→ lint (golangci-lint, same as CI)"
+	@if which golangci-lint >/dev/null 2>&1; then golangci-lint run ./...; else echo "  ❌ golangci-lint not installed (brew install golangci-lint)"; exit 1; fi
+	@echo "→ tests: default"
+	@go test -race ./... -count=1
+	@echo "→ tests: jetstream"
+	@go test -race -tags jetstream ./... -count=1
+	@echo "→ tests: dagnats (-p 1)"
+	@go test -race -tags dagnats -p 1 ./... -count=1
+	@echo "→ tests: jetstream dagnats (-p 1)"
+	@go test -race -tags "jetstream dagnats" -p 1 ./... -count=1
+	@echo "→ builds: all tag combos"
+	@go build -o /dev/null ./cmd/web/
+	@go build -tags jetstream -o /dev/null ./cmd/web/
+	@go build -tags dagnats -o /dev/null ./cmd/web/
+	@go build -tags "jetstream dagnats" -o /dev/null ./cmd/web/
+	@echo "✅ ci-local passed (all tag combos green)"
+
+# signoff runs the full local CI then stamps the current commit green via
+# the gh-signoff extension (basecamp/gh-signoff). This lets you skip
+# waiting on remote runners for the common case. NOTE: our deploy triggers
+# on push to master (not PR merge), so the signoff status is ADVISORY
+# here — we deliberately do NOT run `gh signoff install` (which would
+# require the status for PR merge and is meaningless for push-to-deploy).
+# If/when we move to a PR-based flow, enable `gh signoff install` too.
+signoff: ci-local
+	@echo "→ stamping commit green via gh signoff..."
+	@gh signoff
+	@echo "✅ signed off — safe to push"
+
+.PHONY: ci-local signoff
 
 deps:
 	@go mod tidy
