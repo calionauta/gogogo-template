@@ -105,5 +105,3 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.53.0 // indirect
 )
-
-replace github.com/starfederation/datastar-go => /Users/cali/go/pkg/mod/github.com/starfederation/datastar-go@v1.2.2
