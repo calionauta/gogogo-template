@@ -10,6 +10,9 @@
 package collab
 
 import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
 	"sync"
 
 	loro "github.com/aholstenson/loro-go"
@@ -82,4 +85,141 @@ func (d *Doc) StateVersion() *loro.VersionVector {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.loro.StateVv()
+}
+
+// ApplyShapeOp applies a whiteboard shape op to the doc's "shapes"
+// LoroMap. Op "add" inserts/updates one shape (keyed by its id); op
+// "clear" empties the map. Because the map is a CRDT, concurrent adds
+// from different clients merge without data loss. Returns the resolved
+// shape list after the op. Must be called with the doc mutex held by the
+// caller path; this method locks internally for safety.
+func (d *Doc) ApplyShapeOp(op ShapeOp) ([]Shape, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	shapesMap := d.loro.GetMap(loro.AsContainerId("shapes"))
+	switch op.Op {
+	case "add":
+		var entry *loro.LoroMap
+		vc := shapesMap.Lookup(op.Shape.ID)
+		if vc != nil && vc.IsContainer() {
+			if m := vc.AsLoroMap(); m != nil && *m != nil {
+				entry = *m
+			}
+		}
+		if entry == nil {
+			child, err := shapesMap.InsertMapContainer(op.Shape.ID, loro.NewLoroMap())
+			if err != nil {
+				return nil, err
+			}
+			entry = child
+		}
+		if err := writeShape(entry, op.Shape); err != nil {
+			return nil, err
+		}
+	case "clear":
+		if err := shapesMap.Clear(); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unknown shape op %q", op.Op)
+	}
+	d.loro.Commit()
+	return readShapes(shapesMap)
+}
+
+// Shapes returns the current resolved shape list (read-only snapshot).
+func (d *Doc) Shapes() []Shape {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	shapesMap := d.loro.GetMap(loro.AsContainerId("shapes"))
+	out, err := readShapes(shapesMap)
+	if err != nil {
+		slog.Warn("collab: read shapes", "doc", d.id, "error", err)
+		return nil
+	}
+	return out
+}
+
+// writeShape stores a Shape's primitive fields into a LoroMap. Points are
+// serialized to a JSON string to avoid a nested LoroList (simpler +
+// fully round-trippable).
+func writeShape(m *loro.LoroMap, s Shape) error {
+	if err := m.InsertAny("id", s.ID); err != nil {
+		return err
+	}
+	if err := m.InsertAny("type", s.Type); err != nil {
+		return err
+	}
+	if err := m.InsertAny("x", s.X); err != nil {
+		return err
+	}
+	if err := m.InsertAny("y", s.Y); err != nil {
+		return err
+	}
+	if err := m.InsertAny("w", s.W); err != nil {
+		return err
+	}
+	if err := m.InsertAny("h", s.H); err != nil {
+		return err
+	}
+	pts, mErr := json.Marshal(s.Points)
+	if mErr != nil {
+		return mErr
+	}
+	if err := m.InsertAny("points", string(pts)); err != nil {
+		return err
+	}
+	if err := m.InsertAny("color", s.Color); err != nil {
+		return err
+	}
+	if err := m.InsertAny("author", s.Author); err != nil {
+		return err
+	}
+	return nil
+}
+
+// readShapes reconstructs the Shape slice from a shapes LoroMap.
+func readShapes(shapesMap *loro.LoroMap) ([]Shape, error) {
+	if shapesMap == nil {
+		return nil, nil
+	}
+	out := make([]Shape, 0)
+	for id, vc := range shapesMap.All() {
+		if vc == nil || !vc.IsContainer() {
+			continue
+		}
+		m := vc.AsLoroMap()
+		if m == nil || *m == nil {
+			continue
+		}
+		entry := *m
+		var pts []float64
+		if raw, ok := entry.GetString("points"); ok && raw != "" {
+			if uErr := json.Unmarshal([]byte(raw), &pts); uErr != nil {
+				return nil, uErr
+			}
+		}
+		out = append(out, Shape{
+			ID:     id,
+			Type:   getStr(entry, "type"),
+			X:      getF64(entry, "x"),
+			Y:      getF64(entry, "y"),
+			W:      getF64(entry, "w"),
+			H:      getF64(entry, "h"),
+			Points: pts,
+			Color:  getStr(entry, "color"),
+			Author: getStr(entry, "author"),
+		})
+	}
+	return out, nil
+}
+
+func getStr(m *loro.LoroMap, k string) string {
+	v, _ := m.GetString(k)
+	return v
+}
+
+func getF64(m *loro.LoroMap, k string) float64 {
+	v, _ := m.GetFloat64(k)
+	return v
 }

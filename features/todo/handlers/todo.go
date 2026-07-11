@@ -122,15 +122,21 @@ func (h *TodoHandler) SetBroadcaster(b TodoBroadcaster) {
 	h.broadcaster = b
 }
 
-// broadcastTodo publishes a todo mutation event to every connected
-// client. No-op when no broadcaster is configured.
+// broadcastTodo publishes a todo mutation event to every connected client
+// EXCEPT the originator (identified by the ?clientID= query param on the
+// mutating request). The originator already patched its own DOM via the
+// per-request SSE response, so re-broadcasting to it would clobber the
+// local view (e.g. replace its freshly-patched list with a full-list
+// re-render that wipes rows). No-op when no broadcaster is configured.
 func (h *TodoHandler) broadcastTodo(c *core.RequestEvent, event string, item todo.Todo) {
 	if h.broadcaster == nil {
 		return
 	}
-	if err := h.broadcaster.PublishTodoUpdate(
+	fromClientID := c.Request.URL.Query().Get("clientID")
+	if err := h.broadcaster.PublishTodoUpdateFrom(
 		c.Request.Context(),
 		todoUpdateJob(event, "remote", item.ID, item.Title, item.Completed),
+		fromClientID,
 	); err != nil {
 		slog.Warn("todo: broadcast failed", "error", err)
 	}
@@ -145,7 +151,7 @@ func (h *TodoHandler) RegisterRoutes(se *core.ServeEvent) {
 	se.Router.POST("/api/todos/completed/delete", h.handleClearCompleted)
 	se.Router.POST("/api/todos/{id}/delete", h.handleDelete)
 	se.Router.GET("/api/todos/{id}/confirm-delete", h.handleConfirmDelete)
-	se.Router.GET("/api/todos/stream", h.handleSSEStream)
+	se.Router.GET("/api/todos/stream", h.handleSSEStreamWithAuth)
 	se.Router.POST("/api/todos/retry-demo", h.handleEnqueueRetryDemo)
 	if h.cfg.AdminToken != "" {
 		se.Router.POST("/api/admin/unlock", h.handleAdminUnlock)
@@ -199,6 +205,7 @@ func (h *TodoHandler) handleIndex(c *core.RequestEvent) error {
 		Suggestions:      []string{},
 		SuggestErr:       "",
 		RealtimeKind:     realtimeLabel(h.cfg),
+		SidebarTab:       "queue",
 	}
 	c.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	return components.Layout(
@@ -218,7 +225,7 @@ func (h *TodoHandler) RegisterRoutesOn(r *router.Router[*core.RequestEvent]) {
 	r.POST("/api/todos/completed/delete", h.handleClearCompleted)
 	r.POST("/api/todos/{id}/delete", h.handleDelete)
 	r.GET("/api/todos/{id}/confirm-delete", h.handleConfirmDelete)
-	r.GET("/api/todos/stream", h.handleSSEStream)
+	r.GET("/api/todos/stream", h.handleSSEStreamWithAuth)
 	r.POST("/api/todos/retry-demo", h.handleEnqueueRetryDemo)
 	if h.cfg.AdminToken != "" {
 		r.POST("/api/admin/unlock", h.handleAdminUnlock)

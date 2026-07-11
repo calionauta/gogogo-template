@@ -208,6 +208,26 @@ func (h *SSEHub) SendBlocking(ctx context.Context, clientID string, data []byte)
 	}
 }
 
+// BroadcastExcept sends data to all currently connected clients EXCEPT
+// excludeClientID. Used by the realtime broadcaster so a mutation's
+// originator (which already patched its own DOM via the per-request SSE
+// response) does not receive a redundant full-list re-render that would
+// clobber its local view. Drop policy is identical to Broadcast.
+func (h *SSEHub) BroadcastExcept(data []byte, excludeClientID string) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for id, ch := range h.clients {
+		if id == excludeClientID {
+			continue
+		}
+		select {
+		case ch <- data:
+		default:
+			h.onDrop(id, data, "slow-client-broadcast")
+		}
+	}
+}
+
 // Broadcast sends data to all currently connected clients. Drop
 // policy: a client whose channel is full has the event dropped
 // (logged). Producers never block. Disconnected clients are not

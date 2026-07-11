@@ -98,6 +98,12 @@ type Signals struct {
 	// "in-memory". The default build uses the InMemoryBroadcaster.
 	RealtimeKind string `json:"realtimeKind"`
 
+	// SidebarTab selects the active async-demo tab in the right sidebar:
+	// "queue" (Queue + Retry) or "workflow" (Durable Workflow). Seeded
+	// "queue" so the first tab is active on paint; the Durable Workflow
+	// tab is only shown when DagNatsEnabled is true.
+	SidebarTab string `json:"sidebarTab"`
+
 	// Onboarding progress (DagNats durable workflow). Streamed as the
 	// workflow advances so the UI can render a live stepper. Each event
 	// carries the current step, total steps, phase, and a human-readable

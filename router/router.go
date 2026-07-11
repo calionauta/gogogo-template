@@ -118,6 +118,10 @@ func Init(
 		// to app.sync.> and persists resolved whiteboard docs to PocketBase.
 		registerCollabSync(se)
 
+		// Web-only whiteboard (works in every build, no JetStream). Uses
+		// the shared SSE hub for shape + presence broadcast.
+		registerWhiteboard(se, q)
+
 		return se.Next()
 	})
 }

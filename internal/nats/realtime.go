@@ -10,6 +10,7 @@
 package nats
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"sync"
@@ -31,6 +32,10 @@ type (
 		// PublishTodoUpdate broadcasts a serialized todo event (JSON) to all
 		// connected clients.
 		PublishTodoUpdate(ctx context.Context, payload []byte) error
+		// PublishTodoUpdateFrom broadcasts a todo event to all clients EXCEPT
+		// fromClientID, so the originator (which already patched its own DOM
+		// via the per-request SSE response) is not redundantly re-rendered.
+		PublishTodoUpdateFrom(ctx context.Context, payload []byte, fromClientID string) error
 		// Subscribe binds the broadcaster's transport to hub so published
 		// events are re-emitted to every connected client. No-op for the
 		// in-memory variant (which already holds the hub directly).
@@ -92,6 +97,19 @@ func (b *JetStreamBroadcaster) PublishTodoUpdate(_ context.Context, payload []by
 	return err
 }
 
+// PublishTodoUpdateFrom publishes payload to the TODOS stream tagged with
+// the originating clientID so the subscriber (below) can skip re-emitting
+// it to the originator's own SSE channel — the originator already patched
+// its DOM via the per-request SSE response.
+func (b *JetStreamBroadcaster) PublishTodoUpdateFrom(_ context.Context, payload []byte, fromClientID string) error {
+	if fromClientID == "" {
+		return b.PublishTodoUpdate(context.Background(), payload)
+	}
+	tagged := append([]byte("\x00"+fromClientID+"\x00"), payload...)
+	_, err := b.js.Publish(todoSubject, tagged)
+	return err
+}
+
 // Subscribe registers a durable consumer that pumps every TODOS event
 // to the SSE Hub's Broadcast. Safe to call once; subsequent calls are
 // idempotent.
@@ -102,6 +120,20 @@ func (b *JetStreamBroadcaster) Subscribe(hub *queue.SSEHub) {
 		return
 	}
 	sub, err := b.js.Subscribe(todoSubject, func(msg *natsio.Msg) {
+		data := msg.Data
+		// Strip the optional \x00<clientID>\x00 origin tag and skip
+		// re-emitting to the originator (it already patched locally).
+		if len(data) > 0 && data[0] == 0 {
+			if idx := bytes.IndexByte(data, 0); idx >= 0 && idx+1 < len(data) && data[idx+1] == 0 {
+				from := string(data[1:idx])
+				data = data[idx+2:]
+				if from != "" {
+					b.hub.BroadcastExcept(data, from)
+					_ = msg.Ack()
+					return
+				}
+			}
+		}
 		hub.Broadcast(msg.Data)
 		_ = msg.Ack()
 	}, natsio.Durable("gogogo-fullstack-template-todos"), natsio.ManualAck())

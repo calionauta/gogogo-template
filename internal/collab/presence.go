@@ -14,19 +14,6 @@ import (
 	natsio "github.com/nats-io/nats.go"
 )
 
-// PresenceMsg is one ephemeral presence event on app.presence.<docID>.
-// Type is "cursor" | "join" | "leave". Cursor carries normalized
-// coordinates (0..1) so any viewport can place it. There is no persisted
-// state — a client tracks who is online by heartbeats with TTL.
-type PresenceMsg struct {
-	Type  string  `json:"type"` // "cursor" | "join" | "leave"
-	DocID string  `json:"doc"`  // whiteboard doc id
-	User  string  `json:"user"` // participant id / display name
-	X     float64 `json:"x"`    // normalized 0..1 (cursor only)
-	Y     float64 `json:"y"`    // normalized 0..1 (cursor only)
-	TS    int64   `json:"ts"`   // epoch ms
-}
-
 // presenceSubject returns the pub/sub subject for a doc's presence.
 // Exported so the central SSE bridge (router/collab_jetstream.go) can
 // subscribe the same subject the edges publish to.
@@ -107,7 +94,7 @@ func NewPresence(nc *natsio.Conn, docID, user string, hb, ttl time.Duration) *Pr
 		hb:        hb,
 		ttl:       ttl,
 		roster:    make(map[string]PresenceMsg),
-		heartbeat: PresenceMsg{Type: "join", DocID: docID, User: user, TS: time.Now().UnixMilli()},
+		heartbeat: PresenceMsg{Type: "join", Doc: docID, User: user, TS: time.Now().UnixMilli()},
 	}
 }
 
@@ -122,7 +109,7 @@ func (p *Presence) OnChange(fn func(PresenceMsg)) {
 // PublishCursor broadcasts the local user's cursor position (normalized
 // 0..1). It also refreshes the local roster entry.
 func (p *Presence) PublishCursor(x, y float64) error {
-	msg := PresenceMsg{Type: "cursor", DocID: p.heartbeat.DocID, User: p.heartbeat.User, X: x, Y: y, TS: time.Now().UnixMilli()}
+	msg := PresenceMsg{Type: "cursor", Doc: p.heartbeat.Doc, User: p.heartbeat.User, X: x, Y: y, TS: time.Now().UnixMilli()}
 	p.mu.Lock()
 	p.roster[msg.User] = msg
 	p.mu.Unlock()
@@ -132,7 +119,7 @@ func (p *Presence) PublishCursor(x, y float64) error {
 // Subscribe starts receiving presence for the doc and begins heartbeating.
 // It blocks until ctx is cancelled, then publishes a "leave" and returns.
 func (p *Presence) Subscribe(ctx context.Context) error {
-	sub, err := p.nc.Subscribe(PresenceSubject(p.heartbeat.DocID), func(m *natsio.Msg) {
+	sub, err := p.nc.Subscribe(PresenceSubject(p.heartbeat.Doc), func(m *natsio.Msg) {
 		var msg PresenceMsg
 		if err := json.Unmarshal(m.Data, &msg); err != nil {
 			return
@@ -153,7 +140,7 @@ func (p *Presence) Subscribe(ctx context.Context) error {
 	defer beat.Stop()
 	defer func() {
 		// Best-effort leave on shutdown.
-		_ = p.publish(PresenceMsg{Type: "leave", DocID: p.heartbeat.DocID, User: p.heartbeat.User, TS: time.Now().UnixMilli()})
+		_ = p.publish(PresenceMsg{Type: "leave", Doc: p.heartbeat.Doc, User: p.heartbeat.User, TS: time.Now().UnixMilli()})
 		_ = sub.Unsubscribe()
 	}()
 
@@ -163,7 +150,7 @@ func (p *Presence) Subscribe(ctx context.Context) error {
 			return nil
 		case <-beat.C:
 			// Re-affirm join so peers don't expire us during idle presence.
-			_ = p.publish(PresenceMsg{Type: "join", DocID: p.heartbeat.DocID, User: p.heartbeat.User, TS: time.Now().UnixMilli()})
+			_ = p.publish(PresenceMsg{Type: "join", Doc: p.heartbeat.Doc, User: p.heartbeat.User, TS: time.Now().UnixMilli()})
 		case <-expire.C:
 			p.expireStale()
 		}
@@ -197,7 +184,7 @@ func (p *Presence) expireStale() {
 		}
 		if now-m.TS > p.ttl.Milliseconds() {
 			delete(p.roster, u)
-			expired = append(expired, PresenceMsg{Type: "leave", DocID: p.heartbeat.DocID, User: u, TS: now})
+			expired = append(expired, PresenceMsg{Type: "leave", Doc: p.heartbeat.Doc, User: u, TS: now})
 		}
 	}
 	handlers := append([]func(PresenceMsg){}, p.handlers...)
@@ -214,7 +201,7 @@ func (p *Presence) publish(msg PresenceMsg) error {
 	if err != nil {
 		return err
 	}
-	return p.nc.Publish(PresenceSubject(msg.DocID), data)
+	return p.nc.Publish(PresenceSubject(msg.Doc), data)
 }
 
 // Roster returns a snapshot copy of currently-present peers (excluding self).

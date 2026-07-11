@@ -8,15 +8,7 @@ import (
 	"sync"
 
 	natsio "github.com/nats-io/nats.go"
-	"github.com/pocketbase/pocketbase/core"
 )
-
-// Persister stores the resolved snapshot of a collaborative doc. The
-// server-side implementation writes to the PocketBase "whiteboards"
-// collection; tests use an in-memory fake.
-type Persister interface {
-	SaveSnapshot(docID string, snapshot []byte) error
-}
 
 // SyncWorker subscribes to collaborative doc updates on the JetStream
 // subject app.sync.> and applies them to its local CRDT, then persists the
@@ -44,7 +36,6 @@ func NewSyncWorker(nc *natsio.Conn, p Persister) *SyncWorker {
 	}
 }
 
-// doc returns the in-memory CRDT for docID, creating it on first use.
 func (w *SyncWorker) doc(docID string) *Doc {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -88,36 +79,4 @@ func docIDFromSubject(subject string) string {
 		return ""
 	}
 	return parts[2]
-}
-
-// PocketBasePersister implements Persister against the "whiteboards"
-// collection. Upsert by doc_id; stores the Loro snapshot as base64 in the
-// "snapshot" field and a monotonic "version" for idempotent writes.
-type PocketBasePersister struct {
-	app core.App
-}
-
-// NewPocketBasePersister builds a persister for the given PocketBase app.
-func NewPocketBasePersister(app core.App) *PocketBasePersister {
-	return &PocketBasePersister{app: app}
-}
-
-// SaveSnapshot upserts the whiteboard record keyed by docID.
-func (p *PocketBasePersister) SaveSnapshot(docID string, snapshot []byte) error {
-	// See db/seed.go ensureWhiteboardsCollection for the schema:
-	//   doc_id (text, unique), snapshot (text/base64), version (int).
-	col, err := p.app.FindCollectionByNameOrId("whiteboards")
-	if err != nil {
-		return err
-	}
-	rec, err := p.app.FindFirstRecordByFilter("whiteboards", "doc_id = {:doc}", map[string]any{"doc": docID})
-	if err != nil || rec == nil {
-		rec = core.NewRecord(col)
-		rec.Set("doc_id", docID)
-		rec.Set("version", 1)
-	} else {
-		rec.Set("version", rec.GetInt("version")+1)
-	}
-	rec.Set("snapshot", string(snapshot))
-	return p.app.Save(rec)
 }

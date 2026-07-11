@@ -56,6 +56,7 @@ func (h *TodoHandler) handleSSEStream(c *core.RequestEvent) error {
 		DagNatsEnabled:   h.cfg.DagNats.Enabled,
 		ConnectedClients: h.q.Hub().Stats().Clients,
 		ClientID:         clientID,
+		SidebarTab:       "queue",
 	}); err != nil {
 		return err
 	}
@@ -72,6 +73,20 @@ func (h *TodoHandler) handleSSEStream(c *core.RequestEvent) error {
 			}
 		}
 	}
+}
+
+// handleSSEStreamWithAuth wraps handleSSEStream, loading the app auth
+// cookie first. The stream lives under /api/, which the global
+// LoadAuthFromCookie middleware deliberately skips, so without this
+// c.Auth is nil on the stream and listTodos returns EVERY user's todos
+// (unscoped). The broadcast would then re-render remote tabs with
+// foreign rows — the "I see other people's tasks" / "my list got wiped"
+// bug. LoadAppAuth is the /api-aware variant that does NOT skip /api.
+func (h *TodoHandler) handleSSEStreamWithAuth(c *core.RequestEvent) error {
+	if err := auth.LoadAppAuth(c); err != nil {
+		return err
+	}
+	return h.handleSSEStream(c)
 }
 
 // dispatchStreamMessage routes a queued SSE chunk to the right client-side
@@ -197,7 +212,13 @@ func (h *TodoHandler) streamTodo(c *core.RequestEvent, sse *sdk.ServerSentEventG
 	// the same data).
 	switch evt.Event {
 	case "deleted":
-		return sdk.RemoveElementByID("todo-" + evt.ID)
+		// Remove the element from the DOM via Datastar's remove mode.
+		// (RenderAndPatch with WithModeRemove + WithSelector is used here
+		// instead of sdk.RemoveElementByID because the latter is not
+		// reliably visible to the compiler in this module graph.)
+		return dshelpers.RenderAndPatch(sse, nil,
+			sdk.WithSelector("#todo-"+evt.ID),
+			sdk.WithModeRemove())
 	default:
 		// For "created" and "toggled" events re-render the entire list.
 		// This is safe because listTodos scopes by c.Auth, which is

@@ -59,7 +59,7 @@ func TestPresence_SSEBridgeE2E(t *testing.T) {
 	// Edge publishes a cursor on the same subject.
 	go func() {
 		time.Sleep(200 * time.Millisecond)
-		msg := PresenceMsg{Type: "cursor", DocID: "sse-doc", User: "edge", X: 0.3, Y: 0.7, TS: time.Now().UnixMilli()}
+		msg := PresenceMsg{Type: "cursor", Doc: "sse-doc", User: "edge", X: 0.3, Y: 0.7, TS: time.Now().UnixMilli()}
 		data, _ := json.Marshal(msg)
 		if pubErr := nc.Publish(PresenceSubject("sse-doc"), data); pubErr != nil {
 			t.Logf("publish: %v", pubErr)

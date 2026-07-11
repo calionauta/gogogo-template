@@ -43,10 +43,12 @@ func TestRender_TodoItemCheckboxReflectsCompleted(t *testing.T) {
 }
 
 // TestRender_QueueRetryButtonEnabled is a regression guard for the
-// "suggest simulated button came disabled" bug. The single "Queue + retry"
-// affordance must render ENABLED (no static disabled attribute) so the
-// goqite + retry-go + fake-LLM demo is usable out of the box. Only
-// signal-driven disabling (e.g. while onboarding runs) is acceptable.
+// "suggest simulated button came disabled" bug. The Queue + Retry demo
+// button must render ENABLED (no static disabled attribute) so the
+// goqite + retry-go demo is usable out of the box. Only signal-driven
+// disabling (e.g. while the demo runs) is acceptable. In the current UI
+// the button lives on the "Queue + Retry" tab and reads
+// "Run queue + retry demo".
 func TestRender_QueueRetryButtonEnabled(t *testing.T) {
 	signals := todo.Signals{
 		Todos:            nil,
@@ -55,6 +57,7 @@ func TestRender_QueueRetryButtonEnabled(t *testing.T) {
 		ConnectedClients: 1,
 		Suggestions:      []string{},
 		SimulatedLLM:     true,
+		SidebarTab:       "queue",
 	}
 	var buf bytes.Buffer
 	if err := TodoList(signals).Render(context.Background(), &buf); err != nil {
@@ -62,8 +65,8 @@ func TestRender_QueueRetryButtonEnabled(t *testing.T) {
 	}
 	html := buf.String()
 
-	if !strings.Contains(html, "Queue + retry") {
-		t.Fatalf("Queue + retry button missing from rendered UI")
+	if !strings.Contains(html, "Run queue + retry demo") {
+		t.Fatalf("Queue + retry demo button missing from rendered UI")
 	}
 	// The button itself must not carry a hard-coded disabled attribute;
 	// only the data-attr:disabled with a *signal* expression is allowed

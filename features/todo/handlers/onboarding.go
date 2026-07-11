@@ -75,15 +75,24 @@ func (h *OnboardingHandler) ResumeOnboarding(_ string) {
 	runID := h.activeRunID
 	h.mu.Unlock()
 	if runID == "" {
+		slog.Debug("onboarding: resume called but no active run")
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := h.client.Signal(ctx, runID, "first-todo", []byte(`{"resumed":true}`)); err != nil {
 		slog.Warn("onboarding: signal first-todo failed", "run", runID, "error", err)
+		if h.broadcaster != nil {
+			_ = h.broadcaster.PublishTodoUpdate(ctx, todoUpdateJob("workflow-error", "remote", "", "resume failed: "+err.Error(), false))
+		}
 		return
 	}
 	slog.Info("onboarding: signalled first-todo", "run", runID)
+	// Surface to the UI that creating the todo resumed the durable run,
+	// so the user understands the event-driven link (step 2 → step 3).
+	if h.broadcaster != nil {
+		_ = h.broadcaster.PublishTodoUpdate(ctx, todoUpdateJob("workflow-resumed", "remote", "", "First todo captured — workflow resuming", false))
+	}
 }
 
 // publishProgress streams a "progress" event through the broadcaster so

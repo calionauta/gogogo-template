@@ -20,7 +20,7 @@ templ RealtimeStream(streamURL string) {
 	<button
 		id="sse-opener"
 		class="hidden"
-		data-on:click={ "@get('" + streamURL + "')" }
+		data-on:click={ "@get('" + streamURL + "', { permanent: true })" }
 		aria-hidden="true"
 	></button>
 	<script type="module">
