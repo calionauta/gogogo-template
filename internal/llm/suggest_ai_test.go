@@ -13,7 +13,8 @@ import (
 // "AI Suggest" button on the Queue+Retry tab.
 func TestChatSuggest_AISuggestPath(t *testing.T) {
 	srv := fakeserver.NewServer(fakeserver.WithResponse(
-		`["Write the integration tests","Fix the flaky retry","Review the open PR"]`))
+		`["Write the integration tests","Fix the flaky retry","Review the open PR"]`,
+	))
 	defer srv.Close()
 
 	t.Setenv("GOAI_BASE_URL", srv.URL)
