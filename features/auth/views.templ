@@ -23,8 +23,8 @@ templ Navbar(userEmail string) {
 				title="Alternar tema claro/escuro"
 				data-on:click="window.Theme && window.Theme.toggle()"
 			>
-				<iconify-icon icon="material-symbols:dark-mode" data-show="window.Theme && window.Theme.current() === 'light'" class="text-lg theme-toggle-icon"></iconify-icon>
-				<iconify-icon icon="material-symbols:light-mode" data-show="window.Theme && window.Theme.current() === 'dark'" class="text-lg theme-toggle-icon"></iconify-icon>
+				<iconify-icon icon="material-symbols:dark-mode" class="text-lg theme-toggle-icon icon-dark-mode"></iconify-icon>
+				<iconify-icon icon="material-symbols:light-mode" class="text-lg theme-toggle-icon icon-light-mode"></iconify-icon>
 			</button>
 			if userEmail == "" {
 				<a

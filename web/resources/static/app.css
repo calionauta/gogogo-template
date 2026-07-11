@@ -122,3 +122,9 @@
   0%, 100% { opacity: 1; transform: scale(1); }
   50%      { opacity: 0.4; transform: scale(0.8); }
 }
+
+/* Theme toggle icons: show the correct one based on the current
+   data-theme on <html> (set by ThemeHead before paint + theme.js).
+   Pure CSS so it works at first paint with no JS evaluation. */
+[data-theme="light"] .icon-light-mode { display: none; }
+[data-theme="dark"] .icon-dark-mode { display: none; }
