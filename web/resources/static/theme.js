@@ -45,13 +45,12 @@
     );
   }
 
-  // Explicitly show only the icon that matches the active theme. In
-  // light mode the moon (icon-dark-mode) is shown so the button reads
-  // "switch to dark"; in dark mode the sun is shown. The CSS [data-theme]
-  // rules are the primary mechanism, but iconify-icon is a custom element
-  // whose own stylesheet can override the host display; setting it
-  // directly here guarantees exactly one icon is visible regardless of
-  // cascade order. Called on init and after every change.
+  // Explicitly show only the active theme's icon. In light mode the sun
+  // (icon-light-mode) is shown; in dark mode the moon is shown. The CSS
+  // [data-theme] rules are the primary mechanism, but iconify-icon is a
+  // custom element whose own stylesheet can override the host display;
+  // setting it directly here guarantees exactly one icon is visible
+  // regardless of cascade order. Called on init and after every change.
   function syncIcons(theme) {
     var icons = document.querySelectorAll(".theme-toggle-icon");
     icons.forEach(function (el) {

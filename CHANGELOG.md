@@ -2,6 +2,20 @@
 
 All notable changes to this template are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.2] - 2026-07-11
+
+### Added
+- **DagNats dashboard reachable through the app origin.** A reverse proxy mounts the DagNats console (`:8090`, not Cloudflare-tunneled) under `/dagnats/` with path rewriting, so the dashboard loads without extra tunnel/infra config. The user-menu "DagNats" link now points to `/dagnats/`.
+- **Stronger static analysis.** `.golangci.yml` now enables `dupl`, `goconst`, `revive`, `tagliatelle`, `modernize`, `nolintlint` (plus the existing `staticcheck`, `errcheck`, `ineffassign`, `govet`, `gocritic`, `gosec`, `noctx`, `gocyclo`, `lll`, `funlen`, `mnd`). `gofumpt` is configured as a formatter (not a linter); `stylecheck` is bundled into `staticcheck` in golangci-lint v2, so it is no longer a separate entry. Pin golangci-lint **v2.12.2+**.
+
+### Fixed
+- **Theme toggle showed both moon and sun.** `iconify-icon` is a custom element whose host stylesheet overrode the `[data-theme]` CSS rule. `theme.js` now has `syncIcons()` that explicitly hides the inactive icon (CSS polarity also corrected: light → sun, dark → moon).
+- **Navbar did not highlight the active section.** `Navbar` now takes an `active` param (`todos`/`whiteboard`) and applies `btn-active` via `templ.Classes(... map[string]bool{...})`.
+- **`make ci-local` then ask before push.** Documented in `AGENTS.md`: run the local gate first; the agent asks (via `ask_user_question`) before pushing to master rather than auto-pushing. A `pi-yaml-hooks` `pre-push` hook mirrors this (runs `make ci-local`, then `confirm`).
+
+### Changed
+- Intentional API/UI wire contracts (`clientID`, `simulatedLLM` JSON tags bound by Datastar signals) keep `//nolint:tagliatelle` with a reason instead of being renamed.
+
 ## [0.9.1] - 2026-07-10
 
 ### Fixed
