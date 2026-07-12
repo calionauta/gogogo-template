@@ -162,7 +162,7 @@ A running deployment of this exact template is live. You can touch every feature
 
 The AI Suggest + Queue/Retry demo is wired through [GoAI](https://github.com/zendev-sh/goai) and reads its configuration from the environment (or your age-encrypted secrets file). Two paths:
 
-**1. A real OpenAI-compatible provider (recommended for production).** Set `GOAI_API_KEY`, point `GOAI_BASE_URL` at the provider's `/v1` endpoint, and pick a `GOAI_MODEL`. Any OpenAI-compatible endpoint works (Groq, OpenRouter, Together, Cloudflare, Ollama-via-shim, …) — we do not hardcode a provider, you choose. With a key present, the Todo UI shows the **Suggest** button.
+**1. A real OpenAI-compatible provider (recommended for production).** Set `GOAI_API_KEY`, point `GOAI_BASE_URL` at the provider's `/v1` endpoint, and pick a `GOAI_MODEL`. Any OpenAI-compatible endpoint works — we do not hardcode a provider, you choose. With a key present, the Todo UI shows the **Suggest** button.
 
 ```bash
 GOAI_API_KEY=sk-...
