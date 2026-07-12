@@ -293,11 +293,13 @@ server persists resolved Loro snapshots to PocketBase (`whiteboards`
 collection) and streams presence to browser clients via SSE
 (`GET /api/collab/presence/{docID}`).
 
-**CI.** `.github/workflows/build-platforms.yml` builds and uploads a real
-macOS **`.dmg`** (Apple Silicon + Intel) on every push/PR. Windows and Linux
-are intentionally not built in CI — use the commands above locally. The full
-e2e gate (incl. `TestCollab_LeafNodeE2E` and `TestPresence_SSEBridgeE2E`)
-runs in `ci.yml` under `-tags "jetstream dagnats"`.
+**Desktop builds are local-only — not in CI.** Generate them with the
+commands above: `wails3 build` for a binary, `wails3 package GOOS=darwin`
+for a macOS `.app` (wrap in a `.dmg` with `hdiutil` if you want a
+redistributable installer). Keeping the desktop out of CI keeps the pipeline
+lean; the full e2e gate (incl. `TestCollab_LeafNodeE2E` and
+`TestPresence_SSEBridgeE2E`) still runs in `ci.yml` under
+`-tags "jetstream dagnats"`.
 
 > **Mobile (Android) is opt-in, not in CI.** Wails v3 targets Android from
 the same `main.go` (Go → `libwails.so`, WebView frontend) — no separate

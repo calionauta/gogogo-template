@@ -36,7 +36,7 @@ desktop: templ
 
 wails-build: templ
 	@echo "→ wails build (requires wails CLI: go install github.com/wailsapp/wails/v3/cmd/wails@latest)"...
-	@wails build -app ./cmd/desktop -config ./wails.json -tags jetstream
+	@wails3 build --tags jetstream
 
 run:
 	@echo "→ Starting $(APP_NAME) on port $(PORT)..."
