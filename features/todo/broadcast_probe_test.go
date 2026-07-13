@@ -47,7 +47,8 @@ func TestTodoRecordsNotBroadcastViaHub(t *testing.T) {
 	// would broadcast a "created" record event to client B (and exclude A).
 	// With PocketBase realtime owning records, the hub carries NO record
 	// event at all.
-	createResp, err := doPostForm(ctx, httpClient, base+"/api/todos?clientID="+clientA, url.Values{titleField: {"hub-leak-check"}})
+	createResp, err := doPostForm(ctx, httpClient,
+		base+"/api/todos?clientID="+clientA, url.Values{titleField: {"hub-leak-check"}})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -62,7 +63,8 @@ func TestTodoRecordsNotBroadcastViaHub(t *testing.T) {
 	fullB := pumpSSEUntil(t, streamB, 6*time.Second, recordEvent)
 
 	if recordEvent(fullA) {
-		t.Fatalf("origin client wrongly received a record event via the hub (records should be PB realtime):\n%s", tailString(fullA, 600))
+		t.Fatalf("origin client wrongly received a record event via the hub "+
+			"(records should be PB realtime):\n%s", tailString(fullA, 600))
 	}
 	if recordEvent(fullB) {
 		t.Fatalf("peer client received a record event via the hub — cross-user leak NOT fixed:\n%s", tailString(fullB, 600))
@@ -85,11 +87,17 @@ func TestTodoListFragment_ReturnsListRegion(t *testing.T) {
 	httpClient := &http.Client{Jar: jar, Timeout: 20 * time.Second}
 	loginUser(ctx, t, httpClient, base, demoEmail, demoPassword)
 
-	if _, err := doPostForm(ctx, httpClient, base+"/api/todos", url.Values{titleField: {"frag-todo"}}); err != nil {
-		t.Fatalf("seed todo: %v", err)
+	if _, perr := doPostForm(ctx, httpClient, base+"/api/todos",
+		url.Values{titleField: {"frag-todo"}}); perr != nil {
+		t.Fatalf("seed todo: %v", perr)
 	}
 
-	resp, err := httpClient.Get(base + "/api/todos/fragment")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		base+"/api/todos/fragment", nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		t.Fatalf("get fragment: %v", err)
 	}

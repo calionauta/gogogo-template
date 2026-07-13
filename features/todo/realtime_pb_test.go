@@ -35,7 +35,10 @@ func TestLoginIssuesPbAuthCookie(t *testing.T) {
 	httpClient := &http.Client{Jar: jar, Timeout: 20 * time.Second}
 	loginUser(ctx, t, httpClient, base, demoEmail, demoPassword)
 
-	u, _ := url.Parse(base)
+	u, err := url.Parse(base)
+	if err != nil {
+		t.Fatalf("url.Parse(base): %v", err)
+	}
 	var gogogo, pb string
 	for _, c := range jar.Cookies(u) {
 		switch c.Name {

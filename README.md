@@ -420,9 +420,13 @@ references/             # Reference documentation
 docs/                   # Decision logs and guides
 ```
 
+## Acknowledgements
+
+This template was partially inspired by [northstar](https://github.com/zangster300/northstar) by Nicholas Zanghi — a Go + NATS + Datastar + Templ + DaisyUI application starter. northstar is released under the MIT License; if you build on this template, please also credit northstar.
+
 ## License, feedback
 
-This project is open to feedback, PRs, and adaptations. If something doesn't make sense, if the stack doesn't fit your problem, or if you have a better idea — open an issue.
+Licensed under the [MIT License](./LICENSE). This project is open to feedback, PRs, and adaptations. If something doesn't make sense, if the stack doesn't fit your problem, or if you have a better idea — open an issue.
 
 ---
 

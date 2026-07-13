@@ -45,8 +45,10 @@ import (
 // subscriptions — authenticate as the same user. Without pb_auth set,
 // /api/realtime is unauthenticated and PB's per-subscriber record-access
 // check silently drops every record event.
-const cookieName = "gogogo_auth"
-const pbAuthCookieName = "pb_auth"
+const (
+	cookieName       = "gogogo_auth"
+	pbAuthCookieName = "pb_auth"
+)
 
 // CookieSecure is set at startup from config (true in production,
 // false in dev so HTTP testing works).
@@ -227,6 +229,8 @@ func setAuthCookie(w http.ResponseWriter, token string) {
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   sessionMaxAgeSeconds,
 	})
+	// #nosec G124 — same attribute set as the app cookie above
+	// (HttpOnly + Secure configurable via CookieSecure + SameSite=Lax).
 	http.SetCookie(w, &http.Cookie{
 		Name:     pbAuthCookieName,
 		Value:    token,

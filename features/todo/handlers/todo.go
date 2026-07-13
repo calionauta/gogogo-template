@@ -305,26 +305,6 @@ func (h *TodoHandler) broadcastRetryFeedback(hub *queue.SSEHub, attempt int, opE
 	hub.Broadcast(mustJSON(queue.Job{Type: "retry", Payload: payload}))
 }
 
-// todoUpdateJob builds the queue.Job envelope for SSE-hub todo events.
-// Record mutations (create/toggle/delete) now propagate through
-// PocketBase realtime (the OnModelAfter*Success hooks broadcast to every
-// subscriber of the "todos" topic), so this envelope is only used for
-// EPHEMERAL signals still carried by the SSE hub — the durable
-// workflow's "workflow-completed" / "workflow-error" notifications sent
-// from onboarding.go via broadcaster.PublishTodoUpdate.
-func todoUpdateJob(event, source, id, title string, done bool) []byte {
-	ev := mustJSON(map[string]any{
-		"event":  event,
-		"source": source,
-		"id":     id,
-		"title":  title,
-		"done":   done,
-	})
-	j := mustJSON(queue.Job{Type: "todo", Payload: ev})
-	return j
-}
-
-
 // toastJob builds a "toast" queue.Job envelope for hub.Broadcast.
 func toastJob(message, kind string) []byte {
 	p := mustJSON(map[string]string{"toastType": kind, "message": message})

@@ -2,6 +2,18 @@
 
 All notable changes to this template are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] - 2026-07-13
+
+### Fixed
+- **Realtime resync on (re)connect and tab-visibility.** `PbRealtimeRecords` now refetches the todo fragment on `PB_CONNECT` and on `visibilitychange` (tab becomes visible). PocketBase realtime has **no event replay buffer**, so a create that occurred before the subscription was live (or while the tab was backgrounded) was permanently missed — the other tab stayed out of sync until a full reload. This is the most likely cause of the reported "add doesn't show in the other tab" symptom (`features/todo/components/realtime.templ`).
+
+### Added
+- **Cross-session realtime regression test.** `TestCrossSessionCreatePropagates` boots the real dev binary (`-tags "jetstream dagnats"`) and asserts a todo created in one session is delivered as a PocketBase realtime `create` event to a *subscribed* session. `TestCrossSessionFragmentScoped` guards list-fragment owner scoping across sessions. Both run on the `dagnats` build variant that previously had **zero** realtime coverage — the e2e only asserted the `pb_auth` cookie was issued, never that a record change fans out to a second subscriber (`features/todo/realtime_propagation_test.go`).
+
+### Docs
+- **Auth cookie design documented.** Clarified *why* the app issues two cookies (`gogogo_auth` + `pb_auth`) instead of reusing `pb_auth`: PocketBase keeps admin (`_superusers`) and users as separate auth namespaces, so sharing `pb_auth` clobbers the admin session in the same browser (known gotcha #5050/#1780). Added the explanation to `README.md`, `AGENTS.md`, and the `features/auth/auth.go` cookie constants (`features/auth/auth.go`, `AGENTS.md`, `README.md`).
+- **LICENSE + northstar attribution.** Added `LICENSE` (MIT) and credited [northstar](https://github.com/zangster300/northstar) (by Nicholas Zanghi) as the inspiration in `README.md` — the template shares northstar's Go + NATS + Datastar + Templ + DaisyUI scaffold (`LICENSE`, `README.md`).
+
 ## [0.11.0] - 2026-07-13
 
 ### Added
