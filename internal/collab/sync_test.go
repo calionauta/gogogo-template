@@ -1,5 +1,3 @@
-//go:build jetstream
-
 package collab
 
 import (
@@ -60,7 +58,8 @@ func TestCollab_SyncWorkerPersists(t *testing.T) {
 	defer nc.Close()
 
 	fp := &fakePersister{snapshots: make(map[string][]byte)}
-	worker := NewSyncWorker(nc, fp)
+	docs := NewDocStore()
+	worker := NewSyncWorker(nc, fp, docs)
 	workerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() { _ = worker.Run(workerCtx) }()

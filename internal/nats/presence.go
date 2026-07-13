@@ -1,5 +1,3 @@
-//go:build jetstream
-
 package nats
 
 import (

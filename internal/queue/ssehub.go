@@ -148,6 +148,30 @@ func (h *SSEHub) Unregister(clientID string) {
 	delete(h.userOf, clientID)
 }
 
+// UnregisterIfCurrent removes a client only if the provided channel
+// still matches the registered one. This prevents a stale deferred
+// Unregister (from a previous EventSource connection) from wiping out
+// a newer registration made by a reconnect handler.
+//
+// Race scenario:
+//  1. Tab A's EventSource reconnects → new HTTP request arrives
+//  2. New handler creates ch_new, calls Register(clientID, "", ch_new)
+//  3. Old handler's context is cancelled (old connection closed)
+//  4. Old handler's deferred Unregister(clientID) would DELETE ch_new
+//  5. Tab A stops receiving events (ghost connection)
+//
+// UnregisterIfCurrent checks that h.clients[clientID] == ch before
+// removing, so step 4 becomes a no-op and ch_new continues to work.
+func (h *SSEHub) UnregisterIfCurrent(clientID string, ch chan []byte) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.clients[clientID] == ch {
+		delete(h.clients, clientID)
+		delete(h.buffer, clientID)
+		delete(h.userOf, clientID)
+	}
+}
+
 // Send pushes data to a specific client. Non-blocking: if the
 // client's channel is full, the event is dropped (logged via
 // onDrop) AND also recorded in the replay buffer. If the client

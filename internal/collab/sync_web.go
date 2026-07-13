@@ -3,7 +3,8 @@ package collab
 import (
 	"encoding/json"
 	"log/slog"
-	"sync"
+
+	natsio "github.com/nats-io/nats.go"
 
 	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
@@ -38,57 +39,58 @@ type WebShapesEvent struct {
 	Shapes []Shape `json:"shapes"`
 }
 
-// WebSyncWorker is the web-only transport for collaborative docs. It
-// mirrors the jetstream SyncWorker but uses the existing SSEHub fan-out
-// (the same broadcast primitive the todo feature uses) instead of NATS.
-// This keeps the whiteboard functional in the default build with ZERO
-// extra infrastructure — no JetStream, no Leaf Node.
+// WebSyncWorker is the unified transport for collaborative docs. It uses
+// the SSE hub for in-process fan-out (same as the todo feature) AND
+// publishes updates to NATS (subject app.sync.<docID>) so that other
+// instances (or the SyncWorker subscriber) can converge the same docs.
+//
+// With NATS always compiled in (unified build), shape ops are dual-broadcast:
+//  1. Via the SSE Hub to every connected browser on this instance
+//  2. Via NATS to the SyncWorker (and other instances behind a LB)
 //
 // Flow per doc:
 //   - The browser POSTs its Loro update bytes to /api/whiteboard/<id>/update.
-//   - The handler calls ApplyUpdate, which merges into the in-memory Doc
-//     and persists the resolved snapshot via the Persister (PocketBase).
-//   - The worker then broadcasts the same update to every OTHER connected
-//     client on the doc's SSE stream, which merges it locally.
-//
-// Because Loro updates are commutative, applying them in any order
-// converges — so a simple broadcast of raw update bytes is sufficient; no
-// central ordering is required.
+//   - The handler calls ApplyOp, which merges into the in-memory Doc
+//     (shared via DocStore with the NATS SyncWorker) and persists the
+//     resolved snapshot via the Persister (PocketBase).
+//   - The worker broadcasts to the SSE hub (all instances) AND publishes
+//     to NATS (other instances via SyncWorker).
 type WebSyncWorker struct {
 	hub       *queue.SSEHub
 	persister Persister
-
-	mu   sync.Mutex
-	docs map[string]*Doc
+	nc        *natsio.Conn // optional NATS connection for cross-instance sync
+	docs      *DocStore    // shared with SyncWorker
 }
 
 // NewWebSyncWorker builds a web transport worker bound to the SSE hub.
 // The Persister is typically the PocketBase whiteboards collection.
-func NewWebSyncWorker(hub *queue.SSEHub, p Persister) *WebSyncWorker {
+// docs is the shared doc store (pass collab.NewDocStore() or reuse the
+// one passed to SyncWorker). nc is the NATS connection for cross-instance
+// publishing; pass nil for SSE-only mode.
+func NewWebSyncWorker(hub *queue.SSEHub, p Persister, docs *DocStore, nc *natsio.Conn) *WebSyncWorker {
+	if docs == nil {
+		docs = NewDocStore()
+	}
 	return &WebSyncWorker{
 		hub:       hub,
 		persister: p,
-		docs:      make(map[string]*Doc),
+		nc:        nc,
+		docs:      docs,
 	}
 }
 
-// doc returns the in-memory CRDT for docID, creating it on first use.
+// doc returns the in-memory CRDT for docID from the shared DocStore.
 func (w *WebSyncWorker) doc(docID string) *Doc {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	d, ok := w.docs[docID]
-	if !ok {
-		d = NewDoc(docID)
-		w.docs[docID] = d
-	}
-	return d
+	return w.docs.GetOrCreate(docID)
 }
+
+// natsSubject returns the NATS subject for a doc's sync updates.
+func natsSyncSubject(docID string) string { return "app.sync." + docID }
 
 // ApplyUpdate merges an incoming Loro update for docID, persists the
 // resolved snapshot, and broadcasts the update to every other connected
-// client on the doc's stream. fromClientID is the originator (excluded
-// from the broadcast). Returns the merged snapshot length for callers
-// that want to confirm progress.
+// client on the doc's stream (SSE hub) and to NATS (cross-instance).
+// fromClientID is the originator (excluded from the broadcast).
 func (w *WebSyncWorker) ApplyUpdate(docID, fromClientID string, update []byte) (int, error) {
 	d := w.doc(docID)
 	if err := d.ApplyUpdate(update); err != nil {
@@ -100,9 +102,7 @@ func (w *WebSyncWorker) ApplyUpdate(docID, fromClientID string, update []byte) (
 			slog.Warn("collab: persist snapshot failed", "doc", docID, "error", err)
 		}
 	}
-	// Broadcast the raw update so peers can merge it directly. The
-	// originator already applied it locally; exclude to avoid a
-	// redundant re-merge (and a flicker).
+	// SSE Hub broadcast (in-process, to every browser on this instance).
 	payload, err := json.Marshal(WebUpdateEvent{
 		Type: "update",
 		Doc:  docID,
@@ -113,13 +113,23 @@ func (w *WebSyncWorker) ApplyUpdate(docID, fromClientID string, update []byte) (
 		slog.Warn("collab: marshal update", "doc", docID, "error", err)
 		return len(snapshot), err
 	}
-	w.hub.BroadcastExcept(payload, fromClientID)
+	w.hub.Broadcast(payload)
+
+	// NATS broadcast (cross-instance): publish the raw Loro update so the
+	// SyncWorker on other instances (subscribed to app.sync.>) also
+	// converges this doc. Published regardless of fromClientID because
+	// other instances did NOT originate this op.
+	if w.nc != nil {
+		if nErr := w.nc.Publish(natsSyncSubject(docID), update); nErr != nil {
+			slog.Warn("collab: nats publish update", "doc", docID, "error", nErr)
+		}
+	}
+
 	return len(snapshot), nil
 }
 
 // ApplyOp applies a shape op (add / clear) to the doc's LoroMap, persists
-// the snapshot, and broadcasts the resolved shapes list to peers
-// (excluding the originator). Returns the current shapes after the op.
+// the snapshot, and broadcasts to the SSE hub AND NATS.
 func (w *WebSyncWorker) ApplyOp(docID, fromClientID string, op ShapeOp) ([]Shape, error) {
 	d := w.doc(docID)
 	shapes, err := d.ApplyShapeOp(op)
@@ -142,7 +152,18 @@ func (w *WebSyncWorker) ApplyOp(docID, fromClientID string, op ShapeOp) ([]Shape
 		slog.Warn("collab: marshal shapes", "doc", docID, "error", err)
 		return shapes, err
 	}
-	w.hub.BroadcastExcept(payload, fromClientID)
+	w.hub.Broadcast(payload)
+
+	// NATS broadcast: publish the raw Loro update so the SyncWorker on
+	// other instances converges this doc too.
+	if w.nc != nil {
+		// Encode the shape op as a Loro update for the NATS sync path.
+		// The SyncWorker persists and re-broadcasts to its own SSE hub.
+		if nErr := w.nc.Publish(natsSyncSubject(docID), d.EncodeSnapshot()); nErr != nil {
+			slog.Warn("collab: nats publish shapes", "doc", docID, "error", nErr)
+		}
+	}
+
 	return shapes, nil
 }
 

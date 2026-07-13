@@ -81,19 +81,12 @@ func Init(
 		// pb_auth cookie before reaching feature handlers.
 		auth.CookieSecure = !cfg.Dev && cfg.Host != "127.0.0.1"
 		auth.RegisterAuth(se)
+		// Remove auth: delete this line + delete features/auth/
 
 		// Wire the realtime broadcaster so todo mutations are shared
-		// with every connected client (JetStream with -tags jetstream,
-		// in-memory fan-out otherwise). Build it ONCE and share it:
-		// constructing it twice in one process makes the second
-		// JetStream durable consumer fail with "already bound".
-		//
-		// The jetstream broadcaster must Subscribe to its stream BEFORE
-		// any publish, so it re-emits every mutation to the SSE Hub that
-		// fans out to all connected tabs. Without Subscribe the published
-		// events sit in JetStream unread and the demo shows no realtime
-		// sync (the bug we hit: broadcasts registered but never reached
-		// remote clients).
+		// with every connected client. Uses NATS JetStream when available,
+		// falls back to in-memory SSE Hub fan-out. Built ONCE and shared
+		// across all handlers to avoid "already bound" consumer errors.
 		broadcaster := newTodoBroadcaster(js, q.Hub())
 		if jsBroadcaster, ok := broadcaster.(interface{ Subscribe(*queue.SSEHub) }); ok {
 			jsBroadcaster.Subscribe(q.Hub())
@@ -103,25 +96,28 @@ func Init(
 			todoH.RegisterRoutes(se)
 		} else {
 			// Defensive fallback: construct a fresh handler if the
-			// caller forgot to pass one. Lets the rest of the router
-			// keep working even in misconfigured test setups.
+			// caller forgot to pass one.
 			fallback := handlers.New(app, q, cfg)
 			fallback.SetBroadcaster(broadcaster)
 			fallback.RegisterRoutes(se)
 		}
+		// Remove todos: delete this block + delete features/todo/ + delete db/pocketbase.go seed
 
-		// Onboarding workflow routes (dagnats build tag) are wired here
-		// when DagNats is enabled. The handler reads the DagNats HTTP addr
-		// from config and registers the onboarding routes.
+		// Onboarding: DagNats durable workflow (WelcomeOnboarding).
+		// Dependencies: DagNats running on :8090, TodoHandler, NATS broadcaster.
 		registerOnboarding(app, q, se, broadcaster, todoH, cfg.DagNats.HTTPAddr)
+		// Remove onboarding: delete this line + delete features/todo/handlers/onboarding.go + delete internal/dagnats/
 
-		// Collaborative CRDT sync worker (jetstream build tag): subscribes
-		// to app.sync.> and persists resolved whiteboard docs to PocketBase.
-		registerCollabSync(se)
+		// Whiteboard: collaborative canvas (Loro CRDT + Rough.js + SSE hub + NATS sync).
+		// Dependencies: SSE Hub, PocketBase whiteboards collection, NATS sync worker.
+		// Creates the shared DocStore used by both WebSyncWorker and SyncWorker.
+		docs := registerWhiteboard(se, q)
+		// Remove whiteboard: delete this line + delete features/whiteboard/ + delete internal/collab/ + delete web/resources/static/whiteboard.js
 
-		// Web-only whiteboard (works in every build, no JetStream). Uses
-		// the shared SSE hub for shape + presence broadcast.
-		registerWhiteboard(se, q)
+		// Collab sync: subscribes app.sync.> on NATS, persists whiteboard docs.
+		// Uses the same DocStore as the whiteboard handler (shared convergence).
+		registerCollabSync(se, docs)
+		// Remove collab sync: delete this line + delete internal/collab/sync.go
 
 		return se.Next()
 	})

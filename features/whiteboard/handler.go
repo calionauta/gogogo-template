@@ -29,6 +29,7 @@ import (
 	"github.com/calionauta/gogogo-fullstack-template/features/auth"
 	"github.com/calionauta/gogogo-fullstack-template/internal/collab"
 	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
+	natsio "github.com/nats-io/nats.go"
 )
 
 const (
@@ -52,12 +53,14 @@ type Handler struct {
 }
 
 // New builds a whiteboard handler. persister is the PocketBase whiteboards
-// collection (or an in-memory fake in tests).
-func New(app core.App, hub *queue.SSEHub, persister collab.Persister) *Handler {
+// collection (or an in-memory fake in tests). docs is the shared DocStore
+// (pass collab.NewDocStore()); nc is the NATS connection for cross-instance
+// sync (pass nil for SSE-only mode).
+func New(app core.App, hub *queue.SSEHub, persister collab.Persister, docs *collab.DocStore, nc *natsio.Conn) *Handler {
 	return &Handler{
 		app:    app,
 		hub:    hub,
-		worker: collab.NewWebSyncWorker(hub, persister),
+		worker: collab.NewWebSyncWorker(hub, persister, docs, nc),
 		peers:  make(map[string]map[string]struct{}),
 	}
 }
@@ -216,7 +219,7 @@ func (h *Handler) handleStream(c *core.RequestEvent) error {
 	ch := make(chan []byte, sseChanBuf)
 	h.hub.Register(clientID, "", ch)
 	defer func() {
-		h.hub.Unregister(clientID)
+		h.hub.UnregisterIfCurrent(clientID, ch)
 		h.peerLeave(docID, clientID)
 	}()
 
@@ -258,11 +261,24 @@ func (h *Handler) handleStream(c *core.RequestEvent) error {
 		}
 	}
 
+	// Heartbeat ticker: SSE handlers only detect client disconnection when
+	// they try to write to the response; a handler blocked on <-ch would
+	// never learn the client disconnected and would leak a goroutine and a
+	// registered hub client indefinitely. The heartbeat write forces Go's
+	// HTTP server to detect the closed connection and cancel the context.
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
+
 	ctx := c.Request.Context()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-heartbeat.C:
+			if _, err := fmt.Fprintf(c.Response, ": heartbeat\n\n"); err != nil {
+				return nil
+			}
+			flusher.Flush()
 		case msg := <-ch:
 			fmt.Fprintf(c.Response, "data: %s\n\n", msg)
 			flusher.Flush()
@@ -370,15 +386,12 @@ func (h *Handler) handleUpdate(c *core.RequestEvent) error {
 	// the originator). The originator drew optimistically and cleared its
 	// in-progress shape on pointerup; receiving the authoritative shapes
 	// back keeps it convergent and — critically — means the local tab does
-	// NOT lose the shape it just drew (the earlier BroadcastExcept excluded
-	// the originator, so the local tab's shape list was never refreshed and
-	// the drawing vanished on that tab while persisting on others).
-	payload, mErr := json.Marshal(collab.WebShapesEvent{Type: "shapes", Doc: docID, From: from, Shapes: shapes})
-	if mErr != nil {
-		slog.Warn("whiteboard: marshal shapes", "error", mErr)
-	} else {
-		h.hub.Broadcast(payload)
-	}
+	// NOT lose the shape it just drew.
+	//
+	// The broadcast happens inside ApplyOp (via Broadcast to everyone),
+	// so we do NOT call Broadcast again here — that would send duplicate
+	// events to peers.
+
 	return c.JSON(http.StatusOK, map[string]any{"ok": true, "count": len(shapes)})
 }
 

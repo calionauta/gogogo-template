@@ -1,5 +1,3 @@
-//go:build jetstream
-
 package collab
 
 import (
@@ -49,7 +47,8 @@ func TestCollab_LeafNodeE2E(t *testing.T) {
 
 	// 2) Central SyncWorker with a fake persister.
 	fp := &fakePersister{snapshots: make(map[string][]byte)}
-	worker := NewSyncWorker(centralNC, fp)
+	docs := NewDocStore()
+	worker := NewSyncWorker(centralNC, fp, docs)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() { _ = worker.Run(ctx) }()

@@ -1,5 +1,3 @@
-//go:build dagnats
-
 package dagnats
 
 // OnboardingWorkflowJSON is the durable onboarding workflow definition.

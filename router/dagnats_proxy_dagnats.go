@@ -1,5 +1,3 @@
-//go:build dagnats
-
 package router
 
 import (

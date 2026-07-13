@@ -1,5 +1,3 @@
-//go:build dagnats
-
 package todo_test
 
 import (

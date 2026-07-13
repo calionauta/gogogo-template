@@ -2,6 +2,15 @@
 
 All notable changes to this template are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.14.0] - 2026-07-13
+
+### Fixed
+- **Whiteboard shapes e pontos não replicavam entre abas (intermitente).** Race condition no `SSEHub.Unregister`: quando o EventSource reconectava (ex: tab volta ao foreground), o handler NOVO registrava um channel novo com o mesmo `clientID`, mas o handler VELHO (context cancelado) executava `defer Unregister(clientID)` e removia o channel NOVO. A partir daí a tab parava de receber eventos — shapes e presença nunca chegavam. Adicionado `UnregisterIfCurrent(clientID, ch)` que só remove se o channel ainda é o mesmo, prevenindo o race. Aplicado tanto no whiteboard (`features/whiteboard/handler.go`) quanto no todo SSE stream (`features/todo/handlers/todo_sse.go`).
+- **Double broadcast no whiteboard.** `ApplyOp` já fazia `BroadcastExcept` para as outras abas, e `handleUpdate` fazia outro `Broadcast` para TODAS as abas — peers recebiam eventos duplicados. Corrigido: `ApplyOp` agora usa `Broadcast` (inclui originator) e `handleUpdate` não chama `Broadcast` novamente (`internal/collab/sync_web.go`, `features/whiteboard/handler.go`).
+
+### Added
+- **Testes de regressão para `UnregisterIfCurrent`.** `TestSSEHub_UnregisterIfCurrent_PreventsStaleCleanup` simula a race condition exata de reconexão do EventSource; `TestSSEHub_UnregisterIfCurrent_NormalCleanup` verifica que o caso normal continua funcionando (`internal/queue/ssehub_test.go`).
+
 ## [0.13.0] - 2026-07-13
 
 ### Fixed

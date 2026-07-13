@@ -1,8 +1,5 @@
-//go:build dagnats
-
 package config
 
-// defaultDagNatsEnabled is true under -tags dagnats: the whole point of
-// that build is durable JSON workflows, so opting into the tag opts into
-// DagNats. Override at runtime with DAGNATS_ENABLED=false.
+// defaultDagNatsEnabled is true: DagNats is always compiled in with
+// the unified build. Override at runtime with DAGNATS_ENABLED=false.
 func defaultDagNatsEnabled() bool { return true }

@@ -6,7 +6,7 @@ COMMIT      := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILDTIME   := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS     := -ldflags="-w -X main.Version=$(VERSION) -X main.CommitHash=$(COMMIT) -X main.BuildTime=$(BUILDTIME)"
 
-.PHONY: all build build-jetstream build-dagnats build-all desktop wails-build run clean restart templ fmt css css-install datastar-lint test lint vet check-sizes deadcode check ci-local signoff deps dev docker-image setup help
+.PHONY: all build desktop wails-build run clean restart templ fmt css css-install datastar-lint test lint vet check-sizes deadcode check ci-local signoff deps dev docker-image setup help
 
 all: build
 
@@ -18,25 +18,13 @@ build: templ
 	@echo "→ Building $(APP_NAME) v$(VERSION)..."
 	@go build $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
 
-build-jetstream: templ
-	@echo "→ Building $(APP_NAME) (with JetStream) v$(VERSION)..."
-	@go build -tags jetstream $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
-
-build-dagnats: templ
-	@echo "→ Building $(APP_NAME) (with DagNats durable workflows) v$(VERSION)..."
-	@go build -tags dagnats $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
-
-build-all: templ
-	@echo "→ Building $(APP_NAME) (JetStream + DagNats) v$(VERSION)..."
-	@go build -tags "jetstream dagnats" $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
-
 desktop: templ
 	@echo "→ Building desktop shell (Wails v3 + Leaf Node) v$(VERSION)..."
-	@go build -tags jetstream $(LDFLAGS) -o gogogo-desktop ./cmd/desktop
+	@go build $(LDFLAGS) -o gogogo-desktop ./cmd/desktop
 
 wails-build: templ
 	@echo "→ wails build (requires wails CLI: go install github.com/wailsapp/wails/v3/cmd/wails@latest)"...
-	@wails3 build --tags jetstream
+	@wails3 build
 
 run:
 	@echo "→ Starting $(APP_NAME) on port $(PORT)..."
@@ -48,7 +36,11 @@ clean:
 	@find . -name '*.log' -delete
 
 test:
-	@go test -race ./... -count=1
+	# DagNats boots an embedded NATS + durable-workflow engine per package
+	# that tests it; running those packages in parallel under -race starves
+	# the engine and causes flaky timeouts. -p 1 serializes packages so the
+	# engine always gets enough CPU to complete runs within the test timeout.
+	@go test -race -p 1 ./... -count=1
 
 # css-install installs the npm dev dependencies (Tailwind CLI + DaisyUI
 # v5). Idempotent. Run once after cloning; CI calls this in the
@@ -72,19 +64,6 @@ css: css-install
 css-check: css
 	@git diff --quiet --exit-code web/resources/static/app.min.css || (echo "  ❌ CSS out of date. Run \`make css\` and re-commit."; exit 1)
 	@echo "  ✓ CSS is up to date"
-
-test-jetstream:
-	@go test -race -tags jetstream ./... -count=1
-
-# DagNats boots an embedded NATS + durable-workflow engine per package
-# that tests it; running those packages in parallel under -race starves
-# the engine and causes flaky timeouts. -p 1 serializes packages so the
-# engine always gets enough CPU to complete runs within the test timeout.
-test-dagnats:
-	@go test -race -tags dagnats -p 1 ./... -count=1
-
-test-combined:
-	@go test -race -tags "jetstream dagnats" -p 1 ./... -count=1
 
 # fmt checks formatting with gofumpt + goimports (no --fast shortcuts).
 fmt:
@@ -122,35 +101,20 @@ deadcode:
 # scans dead code, runs the full race test suite, and verifies the
 # generated CSS is up to date. make setup installs the blocking
 # pre-commit hook that enforces the same gate on every commit.
-check: fmt datastar-lint css-check lint check-sizes deadcode test test-combined
+check: fmt datastar-lint css-check lint check-sizes deadcode test
 	@echo "✅ All checks passed"
 
-# ci-local mirrors the GitHub CI matrix EXACTLY so you can compile + test
-# every build-tag combination on your own machine before pushing. The
-# lint/format step uses `golangci-lint run` — the SAME linter CI runs
-# (it bundles gofumpt, so it is the authoritative formatting gate). We do
-# NOT call `make fmt` here: the standalone `gofumpt` binary can be a newer
-# release than the one golangci-lint bundles, producing false-positive
-# -l listings that CI itself would pass. Always trust golangci-lint.
-# Run `make ci-local` (or `make signoff` to also stamp the commit green)
-# instead of waiting on remote runners. See README "Local CI (gh-signoff)".
+# ci-local runs the same quality gate as CI but locally, so you can
+# catch issues before pushing. Runs lint, tests (-p 1 for DagNats
+# engine stability), and a single unified build — no more tag matrix.
 ci-local: templ datastar-lint css-check
 	@echo "→ lint (golangci-lint, same as CI)"
 	@if which golangci-lint >/dev/null 2>&1; then golangci-lint run ./...; else echo "  ❌ golangci-lint not installed (brew install golangci-lint)"; exit 1; fi
-	@echo "→ tests: default"
-	@go test -race ./... -count=1
-	@echo "→ tests: jetstream"
-	@go test -race -tags jetstream ./... -count=1
-	@echo "→ tests: dagnats (-p 1)"
-	@go test -race -tags dagnats -p 1 ./... -count=1
-	@echo "→ tests: jetstream dagnats (-p 1)"
-	@go test -race -tags "jetstream dagnats" -p 1 ./... -count=1
-	@echo "→ builds: all tag combos"
+	@echo "→ tests (unified, -p 1 for DagNats engine stability)"
+	@go test -race -p 1 ./... -count=1
+	@echo "→ build"
 	@go build -o /dev/null ./cmd/web/
-	@go build -tags jetstream -o /dev/null ./cmd/web/
-	@go build -tags dagnats -o /dev/null ./cmd/web/
-	@go build -tags "jetstream dagnats" -o /dev/null ./cmd/web/
-	@echo "✅ ci-local passed (all tag combos green)"
+	@echo "✅ ci-local passed"
 
 # signoff runs the full local CI then stamps the current commit green via
 # the gh-signoff extension (basecamp/gh-signoff). This lets you skip
@@ -187,10 +151,8 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build          Build binary (runs templ generate first)"
-	@echo "  build-jetstream Build with JetStream support"
-	@echo "  build-dagnats  Build with DagNats durable workflow support"
-	@echo "  build-all      Build with JetStream + DagNats"
+	@echo "  build          Build binary (unified: everything included)"
+	@echo "  desktop        Build desktop shell (Wails v3)"
 	@echo "  fmt            Check formatting (gofumpt + goimports)"
 	@echo "  datastar-lint  Lint .templ files for Datastar anti-patterns"
 	@echo "  test           Run tests with race detector"

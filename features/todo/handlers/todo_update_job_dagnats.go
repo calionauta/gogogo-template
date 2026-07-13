@@ -1,5 +1,3 @@
-//go:build dagnats
-
 package handlers
 
 import "github.com/calionauta/gogogo-fullstack-template/internal/queue"

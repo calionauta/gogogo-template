@@ -1,5 +1,3 @@
-//go:build jetstream
-
 package router
 
 import (

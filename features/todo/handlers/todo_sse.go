@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/google/uuid"
@@ -38,7 +40,10 @@ func (h *TodoHandler) handleSSEStream(c *core.RequestEvent) error {
 	h.q.Hub().Register(clientID, ownerOf(c), ch)
 	slog.Info("todo: sse registered", "clientID", clientID, "userID", ownerOf(c), "total_users", h.q.Hub().CountUserClients())
 	defer func() {
-		h.q.Hub().Unregister(clientID)
+		// Use UnregisterIfCurrent to prevent a stale deferred cleanup from
+		// a previous EventSource connection from wiping out the new handler's
+		// registration (race on reconnect).
+		h.q.Hub().UnregisterIfCurrent(clientID, ch)
 		h.broadcastClientCount()
 	}()
 
@@ -63,10 +68,34 @@ func (h *TodoHandler) handleSSEStream(c *core.RequestEvent) error {
 	// Tell every connected client how many are online now.
 	h.broadcastClientCount()
 
+	// Heartbeat ticker: SSE handlers only detect client disconnection when
+	// they try to write to the response; a handler blocked on <-ch would
+	// never learn the client disconnected and would leak a goroutine and a
+	// registered hub client indefinitely. The heartbeat write forces Go's
+	// HTTP server to detect the closed connection and cancel the context.
+	// We write a comment line (: heartbeat) which the SSE spec defines as
+	// a no-op that clients must ignore, so it is invisible to Datastar.
+	flusher, canFlush := c.Response.(http.Flusher)
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
+
 	for {
 		select {
 		case <-c.Request.Context().Done():
 			return nil
+		case <-heartbeat.C:
+			// Skip heartbeat if the response writer doesn't support flushing;
+			// writing without flushing would leave data buffered and could
+			// interleave with subsequent Datastar SSE events, corrupting the
+			// stream. In practice Go's HTTP/1.1 Response always implements
+			// Flusher, so this is a defensive guard for edge cases.
+			if !canFlush {
+				continue
+			}
+			if _, err := fmt.Fprintf(c.Response, ": heartbeat\n\n"); err != nil {
+				return nil
+			}
+			flusher.Flush()
 		case msg := <-ch:
 			if err := h.dispatchStreamMessage(c, sse, msg); err != nil {
 				slog.Warn("todo: sse dispatch failed", "error", err)

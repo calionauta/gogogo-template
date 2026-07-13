@@ -5,18 +5,21 @@ import (
 
 	"github.com/calionauta/gogogo-fullstack-template/features/whiteboard"
 	"github.com/calionauta/gogogo-fullstack-template/internal/collab"
+	"github.com/calionauta/gogogo-fullstack-template/internal/nats"
 	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
 
-// registerWhiteboard wires the web-only collaborative whiteboard. It runs
-// in EVERY build (no JetStream required): the transport is the shared SSE
-// hub, so the whiteboard works out of the box. The jetstream-tagged
-// registerCollabSync is the desktop-edge sync path; both can coexist.
+// registerWhiteboard wires the collaborative whiteboard with NATS as the
+// default cross-instance transport. Creates the shared DocStore that both
+// the whiteboard's WebSyncWorker and the SyncWorker (collab sync) use, so
+// browser ops and NATS-delivered updates converge the same in-memory docs.
 //
-// The persister writes the resolved Loro snapshot to the PocketBase
-// "whiteboards" collection, which db/seed.go creates on boot.
-func registerWhiteboard(se *core.ServeEvent, q *queue.Queue) {
+// Returns the DocStore for registerCollabSync to use.
+func registerWhiteboard(se *core.ServeEvent, q *queue.Queue) *collab.DocStore {
+	docs := collab.NewDocStore()
 	persister := collab.NewPocketBasePersister(se.App)
-	h := whiteboard.New(se.App, q.Hub(), persister)
+	nc := nats.Conn() // may be nil if NATS not started; WebSyncWorker handles nil
+	h := whiteboard.New(se.App, q.Hub(), persister, docs, nc)
 	h.RegisterRoutes(se)
+	return docs
 }

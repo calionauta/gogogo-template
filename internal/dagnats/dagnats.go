@@ -1,5 +1,3 @@
-//go:build dagnats
-
 // Package dagnats holds the DagNats client + workflow definitions used by
 // the template. The server itself is booted in cmd/web/dagnats.go (which
 // needs the *server.Server type to register worker handlers via the

@@ -282,6 +282,95 @@ func TestSSEHub_BroadcastToUser_ScopesByOwner(t *testing.T) {
 	}
 }
 
+// TestSSEHub_UnregisterIfCurrent_PreventsStaleCleanup asserts the
+// EventSource reconnect race fix: when a new handler re-registers the
+// same clientID with a new channel, the OLD handler's deferred
+// UnregisterIfCurrent with the stale channel must NOT remove the new
+// registration.
+//
+// Race scenario guarded:
+//  1. New handler: Register(c1, ch_new)
+//  2. Old handler deferred: UnregisterIfCurrent(c1, ch_old) → no-op
+//  3. ch_new still registered → client still receives events
+func TestSSEHub_UnregisterIfCurrent_PreventsStaleCleanup(t *testing.T) {
+	h := NewSSEHub()
+
+	chOld := make(chan []byte, 10)
+	chNew := make(chan []byte, 10)
+
+	// Step 1: First connection registers with chOld.
+	h.Register("c1", "", chOld)
+
+	// Step 2: Reconnect — new handler re-registers same clientID with chNew.
+	h.Register("c1", "", chNew)
+
+	// Step 3: Old handler's deferred cleanup runs with STALE channel.
+	// Must NOT remove the new registration.
+	h.UnregisterIfCurrent("c1", chOld)
+
+	// chNew must still be registered — a Send to c1 must reach chNew.
+	h.Send("c1", []byte("should-reach-new"))
+	select {
+	case msg := <-chNew:
+		if string(msg) != "should-reach-new" {
+			t.Fatalf("chNew received %q, want %q", string(msg), "should-reach-new")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for message on chNew — channel was removed")
+	}
+
+	// chOld must NOT have received the message.
+	select {
+	case msg := <-chOld:
+		t.Fatalf("chOld unexpectedly received %q", string(msg))
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Step 4: Proper cleanup with the CURRENT channel works.
+	h.UnregisterIfCurrent("c1", chNew)
+	if stats := h.Stats(); stats.Clients != 0 {
+		t.Fatalf("after unregister: Clients = %d, want 0", stats.Clients)
+	}
+}
+
+// TestSSEHub_UnregisterIfCurrent_NormalCleanup asserts the normal case:
+// when there is NO reconnect, UnregisterIfCurrent behaves identically to
+// Unregister — the current channel matches and it is removed.
+func TestSSEHub_UnregisterIfCurrent_NormalCleanup(t *testing.T) {
+	h := NewSSEHub()
+
+	ch := make(chan []byte, 10)
+	h.Register("c1", "", ch)
+
+	// Normal cleanup: same channel, no reconnect.
+	h.UnregisterIfCurrent("c1", ch)
+
+	// Client must be removed.
+	if stats := h.Stats(); stats.Clients != 0 {
+		t.Fatalf("after unregister: Clients = %d, want 0", stats.Clients)
+	}
+
+	// Send to unregistered client must go to buffer, not to ch.
+	h.Send("c1", []byte("should-buffer"))
+	select {
+	case msg := <-ch:
+		t.Fatalf("unregistered client received %q", string(msg))
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Re-register should drain the buffer.
+	ch2 := make(chan []byte, 10)
+	h.Register("c1", "", ch2)
+	select {
+	case msg := <-ch2:
+		if string(msg) != "should-buffer" {
+			t.Fatalf("replay: got %q, want %q", string(msg), "should-buffer")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("re-register did not drain replay buffer")
+	}
+}
+
 // --- helpers ---
 
 // countGoroutines is a coarse runtime check. Excludes the current

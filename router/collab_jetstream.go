@@ -1,5 +1,3 @@
-//go:build jetstream
-
 package router
 
 import (
@@ -12,22 +10,18 @@ import (
 	"github.com/calionauta/gogogo-fullstack-template/internal/nats"
 )
 
-// registerCollabSync wires the Loro CRDT SyncWorker: it subscribes to
-// app.sync.> on the embedded NATS and persists resolved whiteboard docs
-// to the PocketBase "whiteboards" collection. This is the central-server
-// side of the edge-sync design (Phase C). No-op if NATS is disabled.
-//
-// The worker runs in a goroutine until the serve event's context ends.
-func registerCollabSync(se *core.ServeEvent) {
-	if nats.JetStream() == nil {
-		return
-	}
+// registerCollabSync wires the Loro CRDT SyncWorker using the shared
+// DocStore (from registerWhiteboard). It subscribes to app.sync.> on
+// the embedded NATS and persists resolved whiteboard docs to the
+// PocketBase "whiteboards" collection. The worker runs in a goroutine
+// until the serve event's context ends. No-op if NATS is unavailable.
+func registerCollabSync(se *core.ServeEvent, docs *collab.DocStore) {
 	nc := nats.Conn()
 	if nc == nil {
 		return
 	}
 	persister := collab.NewPocketBasePersister(se.App)
-	worker := collab.NewSyncWorker(nc, persister)
+	worker := collab.NewSyncWorker(nc, persister, docs)
 	go func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		se.App.OnTerminate().BindFunc(func(e *core.TerminateEvent) error {

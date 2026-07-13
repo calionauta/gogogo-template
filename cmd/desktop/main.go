@@ -10,8 +10,6 @@
 // — Phase B of the edge-sync design. Phase C (Loro CRDT collab) builds on
 // top of this transport.
 //
-//go:build jetstream
-
 package main
 
 import (

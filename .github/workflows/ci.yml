@@ -8,15 +8,8 @@ permissions:
   contents: read
 jobs:
   ci:
-    strategy:
-      matrix:
-        tag: ["", "jetstream", "dagnats", "jetstream dagnats"]
     runs-on: ubuntu-latest
     env:
-      # Use the Go toolchain we install manually below (go1.26.5) and never
-      # let `go` try to re-download a toolchain (the actions/setup-go
-      # extraction has been observed corrupting the tar on this runner
-      # image, which breaks `go` entirely).
       GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@v4
@@ -35,24 +28,13 @@ jobs:
         run: go tool templ generate
       - name: Install C toolchain (CGO for loro-go)
         # internal/collab uses loro-go, a CGO binding to the Loro C library.
-        # The jetstream matrix tags compile collab, so CGO must be enabled
-        # and a C compiler must be present on the Linux runner.
         run: sudo apt-get update -qq && sudo apt-get install -y gcc
       - name: Lint
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.2
-          # The action's default GitHub cache has been intermittently
-          # failing with a malformed tar restore ("/usr/bin/tar" exit 2),
-          # which aborts the whole job on infra flake rather than lint
-          # failure. Disable the cache so lint runs every time.
           skip-cache: true
       - name: Datastar-lint
-        # Catches Datastar attribute/expression mistakes (e.g. data-on:click
-        # vs data-on-click) that golangci-lint cannot see and that only
-        # surface at runtime. -only-errors tolerates intentional custom
-        # attributes like data-tool. Install the tool first (CI has no
-        # global datastar-lint), then run via the bin/ wrapper.
         run: |
           go install github.com/calionauta/datastar-lint@latest
           export PATH="$HOME/go/bin:$PATH"
@@ -62,34 +44,15 @@ jobs:
         with:
           node-version: "20"
       - name: CSS build
-        # Rebuild app.min.css for the CI platform before test/build so the
-        # //go:embed picks up a fresh, correct stylesheet. We do NOT run
-        # `make css-check` (which diffs against the committed file) here:
-        # the committed CSS is built on the developer's platform (e.g. macOS)
-        # and the native Tailwind oxide binary emits platform-specific bytes,
-        # so a cross-platform byte-diff would always fail. Stale-CSS
-        # detection stays in the local pre-commit hook (same platform).
         run: make css
-      - name: Diagnose go test with tags
-        run: |
-          go version
-          pwd
-          echo "--- go list dagnats ---"
-          go list -tags dagnats ./... 2>&1 | head -5
-          echo "--- go test dagnats (verbose) ---"
-          go test -tags dagnats ./... 2>&1 | head -10
       - name: Test
         # DagNats boots an embedded NATS + workflow engine per package under
         # test; under -race, parallel packages starve the engine and cause
-        # flaky timeouts. Serialize packages (-p 1) for the dagnats tags.
+        # flaky timeouts. Serialize packages (-p 1).
         # Skip cmd/desktop: it is a Wails build that needs GTK/WebKit dev
         # libraries only present on the desktop build runners, not here.
         run: |
-          case "${{ matrix.tag }}" in
-            "dagnats"|"jetstream dagnats") P=-p1 ;;
-            *) P= ;;
-          esac
           PKGS=$(go list ./... | grep -vE "cmd/desktop$|^github.com/calionauta/gogogo-fullstack-template$")
-          go test -tags "${{ matrix.tag }}" $P $PKGS -v -count=1
+          go test -race -p 1 $PKGS -v -count=1
       - name: Build
-        run: go build -tags "${{ matrix.tag }}" -o /dev/null ./cmd/web/
+        run: go build -o /dev/null ./cmd/web/

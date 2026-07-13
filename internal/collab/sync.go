@@ -1,50 +1,42 @@
-//go:build jetstream
-
 package collab
 
 import (
 	"context"
 	"strings"
-	"sync"
 
 	natsio "github.com/nats-io/nats.go"
 )
 
-// SyncWorker subscribes to collaborative doc updates on the JetStream
-// subject app.sync.> and applies them to its local CRDT, then persists the
-// resolved snapshot via the Persister. This is the server side of the
-// edge-sync design: the desktop Leaf Node publishes Loro updates, they
-// replicate to the central NATS, and this worker converges + saves them.
+// SyncWorker subscribes to collaborative doc updates on the NATS subject
+// app.sync.> and applies them to the shared DocStore (the same one the
+// WebSyncWorker uses), then persists the resolved snapshot via the
+// Persister. This is the server side of cross-instance sync: browser ops
+// published by WebSyncWorker to NATS are received here and applied to the
+// shared doc, converging every instance.
 //
 // Topic layout: "app.sync.<docID>" carries a Loro update for that doc.
 type SyncWorker struct {
 	nc        *natsio.Conn
 	persister Persister
-
-	mu   sync.Mutex
-	docs map[string]*Doc
+	docs      *DocStore // shared with WebSyncWorker
 }
 
 // NewSyncWorker builds a worker bound to a NATS connection and a
-// Persister. The Persister is typically the PocketBase whiteboards
-// collection (see pbpersist.go).
-func NewSyncWorker(nc *natsio.Conn, p Persister) *SyncWorker {
+// Persister. docs is the shared DocStore (pass the same one used by
+// WebSyncWorker).
+func NewSyncWorker(nc *natsio.Conn, p Persister, docs *DocStore) *SyncWorker {
+	if docs == nil {
+		docs = NewDocStore()
+	}
 	return &SyncWorker{
 		nc:        nc,
 		persister: p,
-		docs:      make(map[string]*Doc),
+		docs:      docs,
 	}
 }
 
 func (w *SyncWorker) doc(docID string) *Doc {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	d, ok := w.docs[docID]
-	if !ok {
-		d = NewDoc(docID)
-		w.docs[docID] = d
-	}
-	return d
+	return w.docs.GetOrCreate(docID)
 }
 
 // Run subscribes to app.sync.> and blocks processing updates until the

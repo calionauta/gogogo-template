@@ -276,7 +276,7 @@
   }
 
   // ---- presence ----
-  const peers = {}; // user -> {x,y,ts}
+  let peers = {}; // user -> {x,y,ts}
   function updatePeerCount() {
     const el = document.getElementById("peer-count");
     if (el) el.textContent = String(Object.keys(peers).length + 1); // +self

@@ -1,5 +1,3 @@
-//go:build jetstream && dagnats
-
 package main
 
 import (

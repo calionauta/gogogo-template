@@ -1,7 +1,5 @@
-//go:build jetstream
-
-// Package nats provides the realtime broadcaster abstraction. With the
-// `jetstream` build tag this uses NATS JetStream: todo mutations are
+// Package nats provides the realtime broadcaster abstraction. It uses
+// NATS JetStream: todo mutations are
 // published to a durable stream and a single subscriber per process
 // re-emits them to the SSE Hub, so every connected browser tab — on any
 // instance — receives the update. This is the correct choice for

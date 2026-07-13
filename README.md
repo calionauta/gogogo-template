@@ -53,59 +53,50 @@ Everything you need to build a modern web app, in a single binary:
 | **CSS** | [DaisyUI v5](https://daisyui.com) + TailwindCSS | Ready components, customizable, ~34kB minified |
 | **Task queue** | [goqite](https://github.com/maragudk/goqite) + SSE Hub | Background jobs streamed to the browser, no Redis |
 | **Retries** | [avast/retry-go v4](https://github.com/avast/retry-go) | Exponential backoff with jitter, no boilerplate |
-| **Workflows** | [DagNats](https://github.com/danmestas/dagnats) | Multi-step durable workflows as declarative JSON over NATS JetStream (build-tag gated) |
+| **Workflows** | [DagNats](https://github.com/danmestas/dagnats) | Multi-step durable workflows as declarative JSON over NATS JetStream |
 | **LLM SDK** | [GoAI](https://github.com/zendev-sh/goai) | Any provider: OpenAI, Anthropic, Groq, Ollama… |
-| **Real-time** | [NATS JetStream](https://nats.io) (opt-in) | Multi-user real-time, only enabled when you need it |
+| **Real-time** | [NATS JetStream](https://nats.io) | Multi-user real-time, cross-instance broadcast |
 | **Secrets** | [age](https://age-encryption.org) + `~/.secrets/` | Local encryption, no vault, no cloud |
 | **IDs** | [google/uuid](https://github.com/google/uuid) | Stable request/job IDs |
 | **Live reload** | [Air](https://github.com/air-verse/air) | `make dev` regenerates templ and restarts the binary |
 | **CRDT (collaborative docs)** | [loro-go](https://github.com/aholstenson/loro-go) | Conflict-free merging of whiteboard/notes state; converges offline edits with no LWW data loss |
 | **Hand-drawn canvas** | [Rough.js](https://roughjs.com) (CDN) | Minimalist sketchy whiteboard rendering, loaded from jsDelivr — no build dependency |
 | **Linting** | [golangci-lint](https://golangci-lint.run) + [datastar-lint](https://github.com/calionauta/datastar-lint) | `errcheck`, `staticcheck`, `gosec`, `revive`, `gocritic` (see `.golangci.yml`); `datastar-lint` catches Datastar attribute/signal/expression mistakes (run via `make datastar-lint`) |
-| **CI/CD** | GitHub Actions | `ci.yml` (lint + test + build, tag matrix `""`/`jetstream`/`dagnats`) + `deploy.yml` (multi-arch Docker to ghcr.io, runs on `master`) |
+| **CI/CD** | GitHub Actions | `ci.yml` (lint + test + build, unified build) + `deploy.yml` (multi-arch Docker to ghcr.io, runs on `master`) |
 
 > **Why `ncruces/go-sqlite3`?** It's the pure-Go (no cgo) SQLite build that bundles the extensions this template leans on — FTS5, `spellfix1`, `unicode` collations — which the stock driver leaves out. That's why the `//go:build`/driver init in `db/pocketbase.go` pins it instead of `modernc.org/sqlite` directly.
 
 ## Stack in layers, not silos
 
-Most templates force you to pick one async strategy — usually a queue, sometimes a workflow runtime, rarely both. Real apps need **a queue for background jobs**, **a workflow runtime for durable multi-step processes**, and **a real-time layer for cross-client state** — each solving a different problem. We ship all three as build-tagged layers so you only pay for what you use.
+Most templates force you to pick one async strategy — usually a queue, sometimes a workflow runtime, rarely both. Real apps need **a queue for background jobs**, **a workflow runtime for durable multi-step processes**, and **a real-time layer for cross-client state** — each solving a different problem. We ship all three in one unified build.
 
 We solve this with **three complementary async layers**:
 
 ```
-goqite    → background jobs + SSE to the browser (default, always on)
-dagnats   → durable multi-step workflows as JSON (opt-in, build tag)
-JetStream → multi-user real-time (opt-in, build tag)
+goqite    → background jobs + SSE to the browser (always on)
+dagnats   → durable multi-step workflows as JSON (always on, runtime opt-out with DAGNATS_ENABLED=false)
+JetStream → multi-user real-time (always on, runtime opt-out with NATS_ENABLED=false)
 ```
 
 They coexist in the same binary. They don't compete.
 
-The `goqite` queue is the **only async layer with a build tag off** — it's core and always on. DagNats and JetStream are opt-in heavyweight features: enable them when you actually need durable multi-step workflows or multi-instance realtime. The default build (`go build ./cmd/web`) is the recommended starting point for almost every project.
+**One `make build` compiles everything.** No build tags, no stub files, no matrix. Opt out at runtime via env vars: `NATS_ENABLED=false`, `DAGNATS_ENABLED=false`. DagNats and NATS share a single embedded JetStream on `:4222`.
 
-## Feature matrix: from Lean to Full
+## Feature overview
 
-Every opt-in capability is gated by a **build tag + a runtime env flag**, with a noop stub compiled in by default so the core binary stays small and fast. Mix and match — the tags are additive and share a single embedded NATS when combined.
+Every capability is always compiled. What you get:
 
-| Capability | Build tag | Env opt-out | What you get | Default? |
-|-----------|-----------|-------------|--------------|----------|
-| **Todo app + PocketBase realtime** | — | — | DB actions (create/toggle/delete) stream through PocketBase realtime, per-user scoped via the `owner` rule; the SSE Hub is reserved for ephemeral signals (toasts, clients count, AI suggest) | ✅ always on |
-| **Queue + retry** | — | — | `goqite` background jobs + `retry-go` (the "Queue + Retry" demo) | ✅ always on |
-| **AI Suggest** | — | `GOAI_API_KEY` unset | GoAI/Groq call from the todo UI; button hidden when no key | ✅ on, auto-hidden |
-| **Collaborative whiteboard** | — | — | Loro CRDT + Rough.js canvas, SSE broadcast, offline-first outbox replay, PocketBase-persisted snapshots | ✅ always on (web path) |
-| **Multi-instance real-time** | `jetstream` | `NATS_ENABLED=false` | Optional durable `JetStream` fan-out so PocketBase realtime todos sync across >1 instance behind a LB (single-instance uses the in-process PB realtime) | ❌ opt-in |
-| **Durable workflows** | `dagnats` | `DAGNATS_ENABLED=false` | DagNats JSON workflows over JetStream on `:8090` (e.g. `WelcomeOnboarding`) | ❌ opt-in |
-| **Desktop-edge whiteboard sync** | `jetstream` | `NATS_ENABLED=false` | Leaf-Node JetStream replication of Loro updates for desktop/edge clients | ❌ opt-in |
+| Capability | Runtime opt-out | What it does |
+|-----------|----------------|--------------|
+| **Todo app + PocketBase realtime** | — | DB actions (create/toggle/delete) stream through PocketBase realtime, per-user scoped via `owner` rule. SSE Hub for ephemeral signals (toasts, clients count, AI suggest) |
+| **Queue + retry** | — | `goqite` background jobs + `retry-go` (the "Queue + Retry" demo) |
+| **AI Suggest** | `GOAI_API_KEY` unset | GoAI/Groq call from the todo UI; button hidden when no key |
+| **Collaborative whiteboard** | — | Loro CRDT + Rough.js canvas, SSE + NATS broadcast, offline-first outbox replay, PocketBase-persisted snapshots |
+| **Multi-instance real-time** | `NATS_ENABLED=false` | NATS JetStream fan-out for todo + whiteboard sync across >1 instance behind a LB |
+| **Durable workflows** | `DAGNATS_ENABLED=false` | DagNats JSON workflows over JetStream on `:8090` (e.g. `WelcomeOnboarding`) |
+| **Desktop-edge sync** | `NATS_LEAFNODE_URL` unset | Leaf-Node JetStream replication of Loro updates for desktop/edge clients |
 
-**Recommended mixes**
-
-| Profile | Tags | Use when |
-|---------|------|-----------|
-| **Lean** | _(none)_ | Single-instance web app: todos, queue+retry, AI suggest, whiteboard. `make build` |
-| **Realtime** | `-tags jetstream` | You run >1 instance behind a load balancer and need todos to sync across them (PocketBase realtime + JetStream fan-out). Whiteboard stays SSE (web) |
-| **Workflows** | `-tags dagnats` | You need durable multi-step processes that survive restarts |
-| **Full** | `-tags "jetstream dagnats"` | Production: both realtime + workflows, sharing one embedded NATS on `:4222` (recommended combo) |
-
-> **Build-tag rule for new features.** To add your own optional capability, follow the existing shape: `internal/feature/<name>.go` (real impl) + `internal/feature/<name>_noop.go` (default-build stub) + a `cfg.<Name>.Enabled` flag. See `docs/decisions.md`.
+> **Adding a new feature?** Create `features/<name>/` with your handlers + templates. Wire it in `router/router.go` → `Init()` with a single function call. See `ARCHITECTURE.md` for the full pattern.
 
 ## The example: Todo App with realtime
 
@@ -117,7 +108,7 @@ We ship a working Todo App:
 - Stacked toast notifications (auto-dismiss, manual close, progress bar)
 - Async jobs: `handleCreate` enqueues a `todo_created` job; a worker picks it up and streams a success toast to the right browser tab via the SSE Hub (`clientID` routing)
 - Retries with exponential backoff and jitter (`internal/queue/retry.go`, retry-go v4) — SSE-aware: a retry emits a `lastRetry` signal so the UI can show "retrying…"
-- `WelcomeOnboarding` DagNats workflow (with `-tags dagnats`) that creates 3 example todos via durable steps — kill the server mid-run, restart, watch it resume at the last incomplete step. The workflow is declarative JSON (`internal/dagnats/workflow.go`), so renaming Go handlers never orphans an in-flight run.
+- `WelcomeOnboarding` DagNats workflow (always compiled) that creates 3 example todos via durable steps — kill the server mid-run, restart, watch it resume at the last incomplete step. The workflow is declarative JSON (`internal/dagnats/workflow.go`), so renaming Go handlers never orphans an in-flight run.
 - **Admin unlock** via `age` + `~/.secrets/`. The Todo example wires a master-password path: when `ADMIN_UNLOCK_TOKEN` is set (in the age-encrypted secrets file), the UI shows a "Clear all" form; the handler compares constant-time and clears all todos on match. Demonstrates the age flow end-to-end.
 - **AI suggest** via GoAI. When `GOAI_API_KEY` is set, the input gets a "Suggest" button that enqueues an async suggest job (see queue below) and streams the 3 completions back via SSE. It talks to whatever OpenAI-compatible provider `GOAI_BASE_URL`/`GOAI_MODEL` point at — see [Configuring the LLM](#configuring-the-llm-goai). Retries with exponential backoff use the same `internal/queue/retry.go` as the SSE toast path. For a **keyless** demo of the exact same queue + retry path, `SIMULATE_LLM` is on by default (opt out with `SIMULATE_LLM=false`): a "Suggest (simulated)" button enqueues a job that hits an in-process fake LLM scripting 500 → 200 + delay, so you can watch the retry feedback toasts (enqueued → attempt failed → slow → result).
 - Tests run with `-race`
@@ -167,7 +158,7 @@ A running deployment of this exact template is live. You can touch every feature
 | **Live PocketBase admin dashboard** | `https://<your-demo-domain>/_/` | Open the embedded PocketBase UI to browse the `todos` + `users` collections, run the REST/JS SDK playground, and inspect logs. The demo's `users` collection is **locked** — visitors can log in as the demo user but cannot create or delete accounts through the API or this dashboard (only the superuser can). |
 | **Durable workflow engine (DagNats)** | `https://<your-demo-domain>:8090` | The DagNats HTTP API where the `WelcomeOnboarding` workflow runs (declarative JSON over NATS JetStream). Inspect runs/steps or trigger them via the API; the Todo demo drives it automatically on first login. |
 
-> The demo runs `-tags dagnats` (durable workflows on `:8090`) combined with `-tags jetstream` (optional multi-instance realtime fan-out). The two share a **single embedded NATS** on `:4222` — DagNats boots it and the JetStream realtime layer attaches to it, so there is only one NATS process in the binary. To stand up your own, see [Deploy](#deploy).
+> The demo runs the unified build (everything compiled in). DagNats + NATS share a **single embedded JetStream** on `:4222` — DagNats boots it and the whiteboard SyncWorker attaches to it, so there is only one NATS process in the binary. To stand up your own, see [Deploy](#deploy).
 
 ## Configuring the LLM (GoAI)
 
@@ -202,19 +193,14 @@ Open `http://localhost:8080` and see the Todo App running.
 ### Other commands
 
 ```bash
-make build            # Build binary (default: goqite + SSE Hub)
-make build-jetstream  # Build with NATS JetStream (multi-user real-time). JetStream is enabled automatically under this tag — no extra env needed; set NATS_ENABLED=false to opt out.
-make build-dagnats    # Build with DagNats durable workflows (JSON over NATS). DagNats is enabled automatically under this tag — no extra env needed; set DAGNATS_ENABLED=false to opt out. The engine listens on DAGNATS_HTTP_ADDR (default 127.0.0.1:8090). When built WITH -tags jetstream, the optional JetStream realtime fan-out reuses the NATS that DagNats already owns on :4222 (single NATS).
-make build-all        # Build with both JetStream + DagNats
-make test             # Run tests with race detector (default tags)
-make test-jetstream   # Run tests with JetStream tag
-make test-dagnats     # Run tests with DagNats tag
-make check            # Lint + size limits + dead code + CSS check
-make css              # Build app.min.css (Tailwind v4 + DaisyUI v5)
-make dev              # Live reload with Air
-make templ            # Regenerate templ components
-make setup            # Install pre-commit hooks
-make docker-image     # Build and push multi-arch image to ghcr.io
+make build      # Build binary (unified: everything included)
+make test       # Run tests with race detector (-p 1 for DagNats engine stability)
+make check      # Lint + size limits + dead code + CSS check + tests
+make css        # Build app.min.css (Tailwind v4 + DaisyUI v5)
+make dev        # Live reload with Air
+make templ      # Regenerate templ components
+make setup      # Install pre-commit hooks
+make docker-image  # Build and push multi-arch image to ghcr.io
 ```
 
 ### Build pipeline
@@ -236,8 +222,8 @@ step that fails the gate if the working CSS file is out of date.
 
 ## Local CI (gh-signoff)
 
-Pushing to `master` triggers GitHub Actions (`ci.yml` runs the full tag
-matrix, then `deploy.yml` ships to production). You can run that **exact
+Pushing to `master` triggers GitHub Actions (`ci.yml` runs the full gate,
+then `deploy.yml` ships to production). You can run that **exact
 gate on your own machine** before pushing, so you don't wait on remote
 runners (and don't push a broken commit).
 
@@ -248,24 +234,22 @@ extension that stamps a green commit status after your local tests pass.
 # one-time: install the extension
 gh extension install basecamp/gh-signoff
 
-# before pushing: run the full CI matrix locally, then stamp the commit
+# before pushing: run the full CI gate locally, then stamp the commit
 # green (force so it stamps even before the commit is pushed)
 make signoff
 ```
 
 `make signoff` runs `make ci-local` (templ generate → golangci-lint →
-datastar-lint → CSS check → `go test -race` across **all four** tag combos
-`""` / `jetstream` / `dagnats` / `jetstream dagnats`, dagnats serialized
-with `-p 1` → `go build` for all combos) and then stamps the current
-commit green with `gh signoff`. `make ci-local` uses `golangci-lint` as the
-authoritative formatter/lint gate (the same linter CI runs) rather than
-the standalone `gofumpt` binary, which can be a newer release than the one
-golangci-lint bundles and would otherwise produce false-positive listings.
+datastar-lint → CSS check → `go test -race -p 1` → `go build`) and then
+stamps the current commit green with `gh signoff`. `make ci-local` uses
+`golangci-lint` as the authoritative formatter/lint gate (the same linter
+CI runs) rather than the standalone `gofumpt` binary, which can be a newer
+release than the one golangci-lint bundles and would otherwise produce
+false-positive listings.
 
 > **Advisory status, by design.** This repo deploys on **push to `master`**
 > (not PR merge), so the signoff status is a *signal*, not a hard gate.
-> We do not run `gh signoff install` (which would gate PR merges) — it would be meaningless for a push-to-deploy flow, so we leave it off by design. If/when you move to a PR-based workflow, enable
-> `gh signoff install` to make signoff a merge requirement.
+> We do not run `gh signoff install` (which would gate PR merges) — it would be meaningless for a push-to-deploy flow, so we leave it off by design.
 
 ## Desktop & Mobile (Wails v3 + Loro CRDT + NATS Leaf Node)
 
@@ -289,12 +273,11 @@ wails3 package GOOS=darwin
 wails3 android:package
 ```
 
-All builds compile with the `jetstream` tag by default (Leaf Node edge-sync).
+All builds compile with everything included (unified build).
 If you prefer a plain binary without the wails CLI, `make desktop` runs
-`go build -tags jetstream ./cmd/desktop`.
+`go build ./cmd/desktop`.
 
-**Edge sync.** Build the desktop with `-tags jetstream`. If
-`NATS_LEAFNODE_URL` is set, the desktop boots as a **NATS Leaf Node** that
+**Edge sync.** If `NATS_LEAFNODE_URL` is set, the desktop boots as a **NATS Leaf Node** that
 syncs its JetStream streams with your central server — offline edits replay
 on reconnect. Without it, it runs a standalone embedded NATS for local
 realtime. On top of that transport, **Loro CRDT** collaboration
@@ -309,8 +292,7 @@ commands above: `wails3 build` for a binary, `wails3 package GOOS=darwin`
 for a macOS `.app` (wrap in a `.dmg` with `hdiutil` if you want a
 redistributable installer). Keeping the desktop out of CI keeps the pipeline
 lean; the full e2e gate (incl. `TestCollab_LeafNodeE2E` and
-`TestPresence_SSEBridgeE2E`) still runs in `ci.yml` under
-`-tags "jetstream dagnats"`.
+`TestPresence_SSEBridgeE2E`) still runs in `ci.yml` under the unified build.
 
 > **Mobile (Android) is opt-in, not in CI.** Wails v3 targets Android from
 the same `main.go` (Go → `libwails.so`, WebView frontend) — no separate
@@ -392,10 +374,8 @@ and overwritten on every run — there is no history of secrets on disk.
 
 ```
 cmd/web/
-  main.go               # Entry point — only initializes and wires pieces
-  nats.go               # NATS JetStream bootstrap (build-tag gated)
-  dagnats.go            # DagNats runtime bootstrap (build-tag gated)
-  dagnats_noop.go       # No-op stub when -tags dagnats absent
+  main.go               # Entry point — only initializes and wires pieces    nats.go               # NATS JetStream bootstrap
+    dagnats.go            # DagNats runtime bootstrap
 config/                 # Per-environment config (dev/prod)
 db/                     # PocketBase setup + seed
 internal/
@@ -406,13 +386,13 @@ internal/
     workers.go          #   worker pool with context cancellation
     retry.go            #   exponential backoff + jitter (retry-go v4)
     handlers.go         #   HandlerRegistry: job-type to handler dispatch
-  nats/                 # JetStream (build-tag gated)
-  dagnats/              # DagNats durable workflow client + onboarding JSON (build-tag gated)
+  nats/                 # NATS JetStream + embedded server
+  dagnats/              # DagNats durable workflow client + onboarding JSON
   llm/                  # GoAI LLM SDK helpers
   datastar/             # Datastar rendering helpers
 features/
   todo/                 # Working example: Todo MVC
-    handlers/           #   HTTP + SSE handlers, onboarding (dagnats-gated)
+    handlers/           #   HTTP + SSE handlers, onboarding
     components/         #   Templ components (layout, todo_list, todo_item, toast)
 web/resources/          # Static assets (embedded JS)
 router/                 # Routes registered on PocketBase
