@@ -52,6 +52,18 @@ Every source file carries a `SCOPE` comment at the top showing its removal risk.
 
 **Agent rule:** When the user asks to trim the project, never delete a `SCOPE:core` file — always ask first. Delete `SCOPE:feature` and `SCOPE:pluggable` files freely, following their "Remove by" comments.
 
+## Testing discipline (learned the hard way)
+
+Lessons from v0.18.0 (offline-add + CI flake). Full post-mortem: `docs/decisions.md`.
+
+- **Build tags ≠ test tags.** `Makefile`'s `$(TAGS)` (e.g. `no_default_driver`) is for the shipped binary. Tests that bootstrap PocketBase with `app.Bootstrap()` need a `DBConnect` when that tag is set; our tests rely on the default modernc driver, so `go test` recipes must NOT inherit `$(TAGS)`. Result of forgetting this: `Bootstrap` panics with `DBConnect config option must be set when the no_default_driver tag is used!` — easy to misread as a flake.
+- **Avoid package-level mutable globals.** `var NS/NC/JS *Foo` set by `StartX()` and torn down by `Stop()` leak across `-p 1` packages when `Stop` doesn't nil them. Either nil on entry/exit or, better, return a struct. See `internal/nats/embedded.go` for the belt-and-suspenders nil-out.
+- **Pre-commit MUST rebuild `.templ` AND CSS.** Editing a `.templ` without `make templ && make css` leaves `web/resources/static/app.min.css` stale. `css-check` passes by inertia when nobody rebuilt, masking the staleness until a real diff appears.
+- **Run `make ci-local` twice after touching `.templ`** (idempotency: no regen diff on the second run means your `.templ` sources are stable). Otherwise flaky reorderings slip in.
+- **Confirm live deployment by byte-diffing an embedded asset.** `diff <(curl https://<host>/static/<asset>) <(repo <asset>)` is the cheapest proof the running binary matches the latest commit. Use for any "is the fix actually live?" question.
+- **`git stash drop` is destructive** — it removes the ref without applying. Use `git stash pop` (apply + remove) or, before any stash drop, snapshot working changes to a `wip-*` branch.
+- **Heredoc commit/tag messages**: prefer `git commit -F - <<'EOF' ... EOF` (quoted EOF = literal body) or `git tag -F /tmp/msg`. Avoid `git commit -m "$(cat <<'EOF' ... EOF)"` — bash quoting through the outer `"` + `$()` can fail parse on apostrophes/backticks in the body.
+
 ## Architecture (concise)
 
 ```
