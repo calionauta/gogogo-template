@@ -1,4 +1,4 @@
-// SCOPE:pluggable - REMOVE if not using NATS JetStream.
+// SCOPE:feature - REMOVE if not using NATS JetStream.
 package router
 
 import (

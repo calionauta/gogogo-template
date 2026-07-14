@@ -5,6 +5,7 @@ VERSION     := $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'
 COMMIT      := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILDTIME   := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS     := -ldflags="-w -X main.Version=$(VERSION) -X main.CommitHash=$(COMMIT) -X main.BuildTime=$(BUILDTIME)"
+TAGS        := -tags "no_default_driver"
 
 .PHONY: all build desktop wails-build run clean restart templ fmt css css-install datastar-lint test lint vet check-sizes deadcode check ci-local signoff deps dev docker-image setup help
 
@@ -16,11 +17,11 @@ templ:
 
 build: templ
 	@echo "→ Building $(APP_NAME) v$(VERSION)..."
-	@go build $(LDFLAGS) -o $(APP_NAME) ./$(APP_DIR)
+	@go build $(LDFLAGS) $(TAGS) -o $(APP_NAME) ./$(APP_DIR)
 
 desktop: templ
 	@echo "→ Building desktop shell (Wails v3 + Leaf Node) v$(VERSION)..."
-	@go build $(LDFLAGS) -o gogogo-desktop ./cmd/desktop
+	@go build $(LDFLAGS) $(TAGS) -o gogogo-desktop ./cmd/desktop
 
 wails-build: templ
 	@echo "→ wails build (requires wails CLI: go install github.com/wailsapp/wails/v3/cmd/wails@latest)"...
@@ -40,7 +41,7 @@ test:
 	# that tests it; running those packages in parallel under -race starves
 	# the engine and causes flaky timeouts. -p 1 serializes packages so the
 	# engine always gets enough CPU to complete runs within the test timeout.
-	@go test -race -p 1 ./... -count=1
+	@go test $(TAGS) -race -p 1 ./... -count=1
 
 # css-install installs the npm dev dependencies (Tailwind CLI + DaisyUI
 # v5). Idempotent. Run once after cloning; CI calls this in the
@@ -111,9 +112,9 @@ ci-local: templ datastar-lint css-check
 	@echo "→ lint (golangci-lint, same as CI)"
 	@if which golangci-lint >/dev/null 2>&1; then golangci-lint run ./...; else echo "  ❌ golangci-lint not installed (brew install golangci-lint)"; exit 1; fi
 	@echo "→ tests (unified, -p 1 for DagNats engine stability)"
-	@go test -race -p 1 ./... -count=1
+	@go test $(TAGS) -race -p 1 ./... -count=1
 	@echo "→ build"
-	@go build -o /dev/null ./cmd/web/
+	@go build $(LDFLAGS) $(TAGS) -o /dev/null ./cmd/web/
 	@echo "✅ ci-local passed"
 
 # signoff runs the full local CI then stamps the current commit green via
@@ -149,7 +150,7 @@ docker-image: templ
 
 coverage:
 	@echo "→ Running tests with coverage..."
-	@go test -race -p 1 ./... -count=1 -coverprofile=coverage.out -covermode=atomic
+	@go test $(TAGS) -race -p 1 ./... -count=1 -coverprofile=coverage.out -covermode=atomic
 	@go tool cover -func=coverage.out | sort -k3 -r | head -30
 	@echo "---"
 	@go tool cover -html=coverage.out -o coverage.html

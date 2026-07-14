@@ -1,6 +1,7 @@
-// SCOPE:core - DO NOT REMOVE - Collection creation and seed data.
-// SCOPE:feature - The 'todos' and 'whiteboards' collections are examples;
-// REMOVE collections your domain does not need, keeping only your own.
+// SCOPE:core - Collection creation and schema setup.
+// The demo user seed (DemoUserEmail, DemoUserPassword, ensureDemoUser)
+// is SCOPE:feature — delete if you don't need demo credentials.
+// Collection rule locking is CORE (keeps the public demo safe).
 package db
 
 import (
@@ -29,21 +30,21 @@ var (
 func SeedDefaults(app *pocketbase.PocketBase) error {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		if err := ensureTodosCollection(se.App); err != nil {
-			slog.Default().Error("seed: ensureTodosCollection failed", "error", err)
+			slog.Error("seed: ensureTodosCollection failed", "error", err)
 		}
 		if err := ensureDemoUser(se.App); err != nil {
-			slog.Default().Error("seed: ensureDemoUser failed", "error", err)
+			slog.Error("seed: ensureDemoUser failed", "error", err)
 		}
 		// Lock the users collection so the public demo can't create or
 		// delete accounts through the API / admin UI (the demo superuser
 		// still can). See ensureUsersCollectionRules.
 		if err := ensureUsersCollectionRules(se.App); err != nil {
-			slog.Default().Error("seed: ensureUsersCollectionRules failed", "error", err)
+			slog.Error("seed: ensureUsersCollectionRules failed", "error", err)
 		}
 		// Collaborative whiteboards (Loro CRDT snapshots) — the SyncWorker
 		// (internal/collab) persists resolved docs here.
 		if err := ensureWhiteboardsCollection(se.App); err != nil {
-			slog.Default().Error("seed: ensureWhiteboardsCollection failed", "error", err)
+			slog.Error("seed: ensureWhiteboardsCollection failed", "error", err)
 		}
 		return se.Next()
 	})
@@ -79,7 +80,7 @@ func ensureTodosCollection(app core.App) error {
 			MaxSelect:    1,
 			CollectionId: usersCol.Id,
 		})
-		slog.Default().Info("seed: ensured todos.owner relation -> users")
+		slog.Info("seed: ensured todos.owner relation -> users")
 	}
 
 	// Realtime + REST access: a user may only view THEIR OWN todos.

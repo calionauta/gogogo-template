@@ -16,6 +16,7 @@ import (
 	"github.com/calionauta/gogogo-fullstack-template/features/auth"
 	"github.com/calionauta/gogogo-fullstack-template/features/todo"
 	"github.com/calionauta/gogogo-fullstack-template/features/todo/components"
+	ic "github.com/calionauta/gogogo-fullstack-template/internal/components"
 	dshelpers "github.com/calionauta/gogogo-fullstack-template/internal/datastar"
 	"github.com/calionauta/gogogo-fullstack-template/internal/queue"
 )
@@ -450,7 +451,7 @@ func (h *TodoHandler) broadcastClientCount() {
 func emitToast(sse *sdk.ServerSentEventGenerator, message, toastType string) error {
 	return dshelpers.RenderAndPatch(
 		sse,
-		components.Toast(message, toastType, components.NewToastID()),
+		ic.Toast(message, toastType, ic.NewToastID()),
 		sdk.WithSelectorID("toast-container"),
 		sdk.WithModeAppend(),
 	)

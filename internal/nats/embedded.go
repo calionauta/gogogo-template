@@ -1,4 +1,4 @@
-// SCOPE:pluggable - REMOVE if not using NATS.
+// SCOPE:core - REMOVE if not using NATS.
 // Starts embedded NATS server or connects as Leaf Node.
 package nats
 

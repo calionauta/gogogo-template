@@ -126,7 +126,7 @@ func (h *TodoHandler) handleSuggestJob(ctx context.Context, hub *queue.SSEHub, j
 	}
 	if err != nil {
 		result[signalSuggestErr] = "AI suggest failed: " + err.Error()
-		slog.Default().Error("todo: suggest job failed", "job", job.Type, "error", err)
+		slog.Error("todo: suggest job failed", "job", job.Type, "error", err)
 	} else {
 		result[signalSuggestions] = suggestions
 	}

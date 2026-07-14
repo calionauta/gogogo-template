@@ -1,4 +1,4 @@
-// SCOPE:pluggable - REMOVE if not using LLM.
+// SCOPE:core - REMOVE if not using LLM.
 // To remove: delete internal/llm/ + features/todo/handlers/llm_suggest.go.
 // Package llm wires the GoAI SDK (github.com/zendev-sh/goai) into the
 // gogogo-fullstack-template template. The Client is configured via env so the
@@ -215,7 +215,7 @@ func (c *Client) ChatSuggest(ctx context.Context, partial string) ([]string, err
 	// The model is told to return a JSON array. Parse defensively.
 	out, parseErr := parseStringArray(text)
 	if parseErr != nil {
-		slog.Default().Warn("llm: suggest returned non-JSON; using raw", "raw", text, "err", parseErr)
+		slog.Warn("llm: suggest returned non-JSON; using raw", "raw", text, "err", parseErr)
 		// Fall back to splitting on newlines so the UI still gets
 		// something to show.
 		return splitLines(text), nil

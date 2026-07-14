@@ -1,4 +1,4 @@
-// SCOPE:pluggable - REMOVE if not using NATS. Enables cross-instance
+// SCOPE:core - REMOVE if not using NATS. Enables cross-instance
 // todo CRUD sync via JetStream (desktop edges publish to local NATS,
 // Leaf Node replicates, server consumer writes to server PocketBase).
 //
@@ -95,7 +95,7 @@ func NewCrudPublisher(js natsio.JetStreamContext) *CrudPublisher {
 		Storage:  natsio.FileStorage,
 	}); err != nil {
 		if err.Error() != "stream already exists" {
-			slog.Default().Warn("crudproxy: add stream failed", "error", err)
+			slog.Warn("crudproxy: add stream failed", "error", err)
 			return nil
 		}
 	}
@@ -111,12 +111,12 @@ func (p *CrudPublisher) Publish(op CrudOpType, userID string, data *CrudOpData) 
 	}
 	payload, err := json.Marshal(CrudPayload{Op: op, UserID: userID, Data: data})
 	if err != nil {
-		slog.Default().Warn("crudproxy: marshal payload", "op", op, "error", err)
+		slog.Warn("crudproxy: marshal payload", "op", op, "error", err)
 		return
 	}
 	subject := crudSubjectPrefix + string(op)
 	if _, pubErr := p.js.Publish(subject, payload); pubErr != nil {
-		slog.Default().Warn("crudproxy: publish failed", "op", op, "subject", subject, "error", pubErr)
+		slog.Warn("crudproxy: publish failed", "op", op, "subject", subject, "error", pubErr)
 	}
 }
 

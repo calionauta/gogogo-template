@@ -1,4 +1,4 @@
-// SCOPE:pluggable - REMOVE if not using DagNats workflow.
+// SCOPE:feature - REMOVE if not using DagNats workflow.
 package router
 
 import (

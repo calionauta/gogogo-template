@@ -1,4 +1,4 @@
-// SCOPE:pluggable - REMOVE if not using CRDT collaboration.
+// SCOPE:core - REMOVE if not using CRDT collaboration.
 // To remove: delete internal/collab/ + features/whiteboard/ + router/whiteboard.go + router/collab_jetstream.go.
 // Package collab wraps the Loro CRDT for collaborative features
 // (whiteboard, shared docs). This is the local CRDT model; transport

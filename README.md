@@ -127,9 +127,8 @@ Every file in the codebase carries a `SCOPE` annotation at the top to tell agent
 
 | Annotation | Meaning | Examples | You would… |
 |------------|---------|----------|------------|
-| `SCOPE:core` 🔴 | Binary does not work without it. | `config/`, `db/`, `internal/queue/`, `features/auth/` (middleware) | Customize, never remove. |
-| `SCOPE:pluggable` 🟡 | Binary works but loses capability if removed. Clear removal instructions. | `internal/nats/`, `internal/llm/`, `internal/dagnats/`, `internal/collab/` | Swap for an equivalent, or delete + remove wiring call. |
-| `SCOPE:feature` 🟢 | A demo/add-on. Delete the package + remove the wiring call. | `features/todo/`, `features/whiteboard/`, `router/onboarding_dagnats.go` | Keep as reference while building your own, then remove. |
+| `SCOPE:core` 🔴 | Binary works, but component is always compiled. Some have runtime opt-out via env vars. | `config/`, `db/`, `internal/queue/`, `internal/nats/`, `internal/dagnats/`, `internal/llm/`, `features/auth/` (middleware) | Customize, never remove. |
+| `SCOPE:feature` 🟢 | A demo/add-on. Delete the package + remove the wiring call. | `features/todo/`, `features/whiteboard/`, `router/onboarding_dagnats.go`, `router/realtime_jet.go` | Keep as reference while building your own, then remove. |
 
 **Rule of thumb for agents:** If you see a `SCOPE` annotation on a file, respect it. Never delete a `SCOPE:core` file without asking. Never keep a `SCOPE:feature` file in production if the domain doesn't need it.
 
@@ -161,6 +160,18 @@ This template ships a strict `golangci-lint` configuration (27 linters) designed
 **For LLM agents reading this:** before editing any Go file, run `make check` to establish a baseline. After making changes, run `make lint` to verify the linters pass. The `golangci-lint` configuration lives in `.golangci.yml` at the project root — read it if you need to understand what each linter expects. If a lint forces you to restructure code, that is usually a sign the original approach had a deeper issue.
 
 **For human developers:** `make check` runs the full gate. `make lint` runs just `go vet` + `golangci-lint`. We deliberately keep `gofumpt` and `goimports` as formatters (not linters) so `golangci-lint run` never auto-formats your files — formatting is a separate explicit step.
+
+**How to run each lint layer:**
+
+| Command | What it checks |
+|---------|---------------|
+| `make lint` | `go vet` + golangci-lint (27 linters) |
+| `make datastar-lint` | Datastar-specific anti-patterns in `.templ` files |
+| `make fmt` | `gofumpt` + `goimports` formatting only |
+| `make check` | Full gate: fmt → datastar-lint → css-check → lint → size checks → dead code → race tests |
+| `make ci-local` | CI-equivalent: templ → datastar-lint → linters → race tests → build |
+
+The pre-commit hook (`make setup`) runs `make check` on every commit, so violations never reach the remote.
 
 ## The example: Todo App with realtime
 

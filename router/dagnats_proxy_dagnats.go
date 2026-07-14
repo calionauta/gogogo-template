@@ -1,4 +1,4 @@
-// SCOPE:pluggable - REMOVE if not using DagNats dashboard.
+// SCOPE:feature - REMOVE if not using DagNats dashboard.
 package router
 
 import (

@@ -1,4 +1,4 @@
-// SCOPE:pluggable - REMOVE if not using NATS. See cmd/web/nats.go for wiring.
+// SCOPE:core - REMOVE if not using NATS. See cmd/web/nats.go for wiring.
 // Package nats provides the realtime broadcaster abstraction. It uses
 // NATS JetStream: todo mutations are
 // published to a durable stream and a single subscriber per process

@@ -1,4 +1,4 @@
-// SCOPE:pluggable - REMOVE if not using NATS.
+// SCOPE:core - REMOVE if not using NATS.
 // InMemoryBroadcaster is the fallback when NATS is unavailable.
 // Single-instance. Part of internal/nats package.
 // If you keep TODO without NATS (in-memory only), this file is needed.

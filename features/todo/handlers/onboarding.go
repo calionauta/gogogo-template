@@ -73,13 +73,13 @@ func (h *OnboardingHandler) ResumeOnboarding(_ string) {
 	runID := h.activeRunID
 	h.mu.Unlock()
 	if runID == "" {
-		slog.Default().Debug("onboarding: resume called but no active run")
+		slog.Debug("onboarding: resume called but no active run")
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), onbSignalTimeout)
 	defer cancel()
 	if err := h.client.Signal(ctx, runID, "first-todo", []byte(`{"resumed":true}`)); err != nil {
-		slog.Default().Warn("onboarding: signal first-todo failed", "run", runID, "error", err)
+		slog.Warn("onboarding: signal first-todo failed", "run", runID, "error", err)
 		if h.broadcaster != nil {
 			_ = h.broadcaster.PublishTodoUpdate(ctx,
 				todoUpdateJob("workflow-error", "remote", "", "resume failed: "+err.Error(), false))

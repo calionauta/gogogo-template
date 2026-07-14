@@ -1,3 +1,6 @@
+// SCOPE:core - Notification toast component (Datastar SSE).
+// Package components provides shared UI primitives for notifications,
+// used by any feature that needs toast feedback (todo, onboarding, etc.).
 package components
 
 import (
@@ -6,8 +9,7 @@ import (
 )
 
 // toastSignalName returns a per-toast signal key so each toast's open state
-// is tracked independently. Naming convention matches the pattern from
-// features/narrative-therapy/components/shared/toast.templ.
+// is tracked independently.
 func toastSignalName(toastID string) string {
 	return "toast_vis_" + toastID
 }
@@ -35,7 +37,10 @@ func SafeJSON(v any) string {
 //   - shows a progress bar that shrinks over the lifetime of the toast
 //
 // The handler appends rendered toasts to #toast-container via Datastar's
-// Patch with WithModeAppend().
+// Patch with WithModeAppend(). The backend SSE path (emitToast in
+// features/todo/handlers/) renders this component and pushes it over
+// the SSE Hub, so any feature can produce toast notifications by calling
+// the same pattern: render Toast, append to #toast-container via SSE.
 templ Toast(message string, toastType string, toastID string) {
 	<div
 		id={ toastID }

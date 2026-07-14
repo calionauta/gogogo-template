@@ -1,3 +1,4 @@
+// SCOPE:core - JSON marshalling helpers for Datastar component attributes.
 package components
 
 import (
@@ -9,6 +10,5 @@ import (
 func jsonMarshal(v any) ([]byte, error) { return json.Marshal(v) }
 
 // escapeSingleQuotes HTML-escapes single quotes so the JSON string can be
-// safely embedded inside a Datastar data-* attribute (which uses single
-// quotes as delimiters in expressions like data-class="{'open': ...}").
+// safely embedded inside a Datastar data-* attribute.
 func escapeSingleQuotes(s string) string { return strings.ReplaceAll(s, "'", "&#39;") }
