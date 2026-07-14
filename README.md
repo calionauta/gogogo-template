@@ -4,37 +4,29 @@
   <img src="web/resources/static/logo.png" alt="gogogo-fullstack-template" width="512">
 </p>
 
+> **Built to be useful.** Every decision favors practical outcomes over abstract ideals. The stack intentionally optimizes for simplicity, consistency, and shipping software with minimal friction.
+
 > **I still don't understand why GitHub keeps crediting Claude as a contributor to my repos.** My daily drivers are pi.dev with Minimax M3 and DeepSeek V4 Flash. Claude, if you're freelancing on my repositories while I'm asleep, at least start fixing the bugs too. If anyone knows how GitHub actually computes contributors, I'd genuinely love to know.
-
-> **Go full-stack template. Single binary, ~56 MB, runs on scratch.**  
-> Database & auth (PocketBase, embedded SQLite). Reactive UI (Datastar, SSE-driven).  
-> Background jobs & retries (goqite). Offline-first collaboration (Loro CRDT).  
-> Real-time, multi-user (NATS JetStream). Durable workflows (DagNats).  
-> Desktop edge sync (NATS Leaf Node, Wails v3).  
-> No Postgres. No Redis. No CDN for the core stack. LLM and CDN assets are opt-in.
-
-A starting point for web projects in Go. Single binary, zero external services for the core stack.
-
-We built this template to resolve those choices up front, without locking you into a closed ecosystem.
-
-> **One binary, one process, one image.** ~56 MB, no shell, no libc, no CDN for the core.
-> Runs on `scratch` (or `gcr.io/distroless/static-debian12:nonroot` if you need a debug base). All CSS is compiled at build time via Tailwind v4 + DaisyUI v5 and embedded via `//go:embed` — no JS runtime. Iconify icons and Rough.js (whiteboard canvas) are loaded from CDN — optional and swappable.
-
-> **Made with intent to be useful, not to be right.** We optimize for shipping something that runs today over being philosophically correct. Decisions here are pragmatic, not dogmatic.
 
 ## Contents
 
 - [Who this template is for](#who-this-template-is-for)
 - [What's in the package](#whats-in-the-package)
 - [Stack in layers, not silos](#stack-in-layers-not-silos)
+- [Feature overview](#feature-overview)
+- [Architecture taxonomy: Core / Pluggable / Feature](#architecture-taxonomy-core--pluggable--feature)
+- [Code quality for LLM agents](#code-quality-for-llm-agents)
 - [The example: Todo App with realtime](#the-example-todo-app-with-realtime)
-- [PocketBase admin UI (built in)](#pocketbase-admin-ui-built-in)
-- [Try it live](#try-it-live)
+- [Adding your own feature](#adding-your-own-feature)
+- [Admin & Dashboard](#admin--dashboard)
 - [Configuring the LLM (GoAI)](#configuring-the-llm-goai)
 - [Getting started](#getting-started)
+- [Local CI (gh-signoff)](#local-ci-gh-signoff)
 - [Desktop & Mobile](#desktop--mobile-wails-v3--loro-crdt--nats-leaf-node)
 - [Deploy to your own box](#deploy-to-your-own-box)
-- [Structure](#structure)
+- [Structure (annotated by SCOPE)](#structure-annotated-by-scope)
+- [Acknowledgements & inside jokes](#acknowledgements--inside-jokes)
+- [License, feedback](#license-feedback)
 
 ---
 
@@ -44,12 +36,10 @@ Every web project we start begins with the same conversation: pick a database, a
 
 - **You who get tired of configuring the same stack over and over**
 - **You who want everything in one binary, with no external dependencies, no Docker required.** One self-contained file. Environment-independent.
-- **You who want an LLM client wired in without pulling in a whole orchestration framework** — `internal/llm` wraps GoAI (any OpenAI-compatible provider) behind an injectable interface, callable from handlers. It calls a *remote* provider API; it is **not** a local-model runtime.
-- **You who prefer a single source of truth on the backend, one language for the whole stack, and reactive UI without heavy frontend frameworks** — server-rendered HTML over SSE, no 2MB SPAs, no JS build step.
+- **You who prefer a single source of truth on the backend, one language for the whole stack, and reactive UI without heavy frontend frameworks** — server-rendered HTML via SSE, lightweight and fast, no bloated SPAs, no JS build step.
 - **You who want a language that is predictable for both humans and LLMs.** Go's syntax is minimal and consistent. Same formatting everywhere (`gofumpt`). No surprises. Static typing catches whole classes of bugs at compile time. Native concurrency (goroutines + channels) that is easy to reason about — no async/await chains, no callback pyramids. This makes the codebase equally readable by you, your team, and AI coding agents.
 - **You who care about supply chain security.** Go has no mass npm-style dependency trees. Every module is verified by content hash (`go.sum`). Built-in vulnerability auditing (`govulncheck`) scans your dependency graph for known CVEs. No transitive dependency hell.
-
-It's not a framework. There's no lock-in. Each piece can be replaced individually.
+- **You who want an LLM client wired in without pulling in a whole orchestration framework** — `internal/llm` wraps GoAI (any OpenAI-compatible provider) behind an injectable interface, callable from handlers. It calls a *remote* provider API; it is **not** a local-model runtime.
 
 ## What's in the package
 
@@ -60,18 +50,18 @@ Everything you need to build a modern web app, in a single binary:
 | **Language** | Go 1.26 | Fast compilation, easy deploy, lean runtime |
 | **Database + Auth + API** | [PocketBase](https://pocketbase.io) (embedded, on `ncruces/go-sqlite3`) | Zero-config auth, REST, [admin UI at `/_/`](https://<your-domain>/_/), file storage — all in SQLite |
 | **Templating** | [Templ](https://templ.guide) | Type-safe Go components, generated at build time |
-| **Reactive UI** | [Datastar](https://data-star.dev) (SSE) | Server-rendered over SSE, single ~12 KiB client. CSS built once via Tailwind v4 CLI; no JS runtime. |
+| **Reactive UI** | [Datastar](https://data-star.dev) (SSE) | Server-rendered over SSE, single ~12 KiB client. CSS built once via Tailwind v4 CLI; no JS framework build step. |
 | **CSS** | [DaisyUI v5](https://daisyui.com) + TailwindCSS | Ready components, customizable, ~34kB minified |
 | **Task queue** | [goqite](https://github.com/maragudk/goqite) + SSE Hub | Background jobs streamed to the browser, no Redis |
 | **Retries** | [avast/retry-go v4](https://github.com/avast/retry-go) | Exponential backoff with jitter, no boilerplate |
-| **Workflows** | [DagNats](https://github.com/danmestas/dagnats) | Multi-step durable workflows as declarative JSON over NATS JetStream |
+| **Durable Workflows** | [DagNats](https://github.com/danmestas/dagnats) | Multi-step durable workflows as declarative JSON over NATS JetStream |
 | **LLM SDK** | [GoAI](https://github.com/zendev-sh/goai) | Any provider: OpenAI, Anthropic, Groq, Ollama… |
 | **Real-time** | [NATS JetStream](https://nats.io) | Multi-user real-time, cross-instance broadcast |
 | **Secrets** | [age](https://age-encryption.org) + `~/.secrets/` | Local encryption, no vault, no cloud |
 | **IDs** | [google/uuid](https://github.com/google/uuid) | Stable request/job IDs |
 | **Live reload** | [Air](https://github.com/air-verse/air) | `make dev` regenerates templ and restarts the binary |
 | **CRDT (collaborative docs)** | [loro-go](https://github.com/aholstenson/loro-go) | Conflict-free merging of whiteboard/notes state; converges offline edits with no LWW data loss |
-| **Hand-drawn canvas** | [Rough.js](https://roughjs.com) (CDN) | Minimalist sketchy whiteboard rendering, loaded from jsDelivr — no build dependency |
+| **Hand-drawn canvas** | [Rough.js](https://roughjs.com) (embedded) | Minimalist sketchy whiteboard rendering, embedded in the binary for self-contained removal with the whiteboard feature |
 | **Linting** | [golangci-lint](https://golangci-lint.run) + [datastar-lint](https://github.com/calionauta/datastar-lint) | 27 linters: `govet`, `staticcheck`, `gosec`, `revive`, `gocritic`, `errcheck`, `ineffassign`, `unused`, `errorlint`, `nilerr`, `bodyclose`, `contextcheck`, `containedctx`, `sloglint`, `thelper`, `testifylint`, `gocyclo`, `gocognit`, `funlen`, `noctx`, `goconst`, `dupl`, `lll`, `mnd`, `tagliatelle`, `modernize`, `nolintlint` (see `.golangci.yml`); `datastar-lint` catches Datastar attribute/signal/expression mistakes (run via `make datastar-lint`) |
 | **CI/CD** | GitHub Actions | `ci.yml` (lint + test + build, unified build) + `deploy.yml` (multi-arch Docker to ghcr.io, runs on `master`) |
 
@@ -92,7 +82,7 @@ SSE Hub      → ephemeral signals via Datastar protocol (always on, part of que
 JetStream    → multi-instance broadcast + cross-instance state (runtime opt-out: NATS_ENABLED=false)
 ```
 
-**Two realtime mechanisms for different jobs.** PocketBase's native `/api/realtime` pushes record mutations (create/toggle/delete) to subscribers, scoped per-user by the collection's access rules — no custom hub needed. The **SSE Hub** (`internal/queue/ssehub.go`) is reserved for ephemeral signals (client count, LLM suggest feedback, workflow progress, self-patches) and delivers them via Datastar's SSE protocol (`internal/datastar.RenderAndPatch` / `MergeSignals`). The todo feature uses both: PB realtime for CRUD propagation, SSE Hub for toasts and live hints. The whiteboard uses the SSE Hub directly for shape + presence broadcast.
+**Two realtime mechanisms for different jobs.** PocketBase's native `/api/realtime` pushes record mutations (create/toggle/delete) to subscribers, scoped per-user by the collection's access rules. The **SSE Hub** (`internal/queue/ssehub.go`) is reserved for ephemeral signals (client count, LLM suggest feedback, workflow progress, self-patches) and delivers them via Datastar's SSE protocol (`internal/datastar.RenderAndPatch` / `MergeSignals`). The todo feature uses both: PB realtime for CRUD propagation, SSE Hub for toasts and live hints. The whiteboard uses the SSE Hub directly for shape + presence broadcast.
 
 **Cross-instance sync adds two more paths.** When JetStream is enabled (default: on), the **NATS APP_CRUD stream** converges record operations across server instances: CrudPublisher publishes each mutation, CrudConsumer on the receiving instance writes to its local PocketBase, which then broadcasts via PB realtime to its local clients. The **NATS TODOS stream** carries ephemeral signals across instances and re-emits them through the local SSE Hub. Both are safe to enable even on a single instance — the streams simply carry no cross-instance traffic.
 
@@ -197,13 +187,32 @@ We ship a working Todo App:
 > 4. **age-encrypted secret** if the feature needs a credential.
 > Every existing feature (toast on create, AI suggest, admin unlock, DagNats onboarding) follows this exact shape.
 
-Enough to understand the pattern and start your own feature module.
+Enough to understand the pattern.
 
-## PocketBase admin UI (built in)
+## Adding your own feature
 
-PocketBase ships a full admin UI for free — it runs at **`/_/`** on the same domain. Once deployed, your admin UI lives at `https://<your-domain>/_/`.
+Every feature in this template follows the same pattern. Use it as a blueprint when building yours:
 
-What you get out of the box:
+1. Create `features/<name>/` with your HTTP handlers + Templ components.
+2. Wire it in `router/router.go` → `Init()` with a single function call.
+3. Use **goqite** for async work, **SSE Hub** for user-facing feedback (toasts, progress), and **Datastar** for reactive UI.
+4. Add `SCOPE:feature` or `SCOPE:core` annotations so agents know what they can remove.
+5. Add a `RegisterRoutes(se, deps)` function and call it from `router.Init`.
+
+See the Todo feature for the full reference implementation.
+
+## Admin & Dashboard
+
+Two built-in admin surfaces, available as soon as the binary boots:
+
+| Surface | URL | What it gives you |
+|---------|-----|-------------------|
+| **PocketBase admin** | `/_/` | Data browser, REST playground, superuser management, backups, logs |
+| **DagNats console** | `:8090` | Workflow runs, step inspection, JSON API for durable workflows |
+
+> The admin UI is the **upstream PocketBase UI**, embedded in the same binary on the same port. No extra service to deploy. Point a Cloudflare Tunnel at `/_/` and lock it down with PocketBase's own superuser auth.
+
+### PocketBase admin UI (`/_/`)
 
 - **Visual data browser** for every collection (todos, users, etc.) with sort/filter/CSV export
 - **REST + JS SDK playground** for the API endpoints PocketBase generated from your schema
@@ -224,6 +233,10 @@ So login issues **two** cookies:
 - `pb_auth` — the same token under PocketBase's native name, so PB-native surfaces (notably the `/api/realtime` SSE channel for record-change subscriptions) authenticate as the same user. Without it, realtime record events are silently dropped by PB's per-subscriber access check.
 
 The split is **intentional, not tech debt** — keep the two cookies separate. **Best practice:** run the admin UI on a separate origin/port (e.g. `:8090/_/`) so even `pb_auth` never collides between admin and app.
+
+### DagNats console (`:8090`)
+
+The DagNats workflow engine exposes its own HTTP API + console at `DAGNATS_HTTP_ADDR` (default `127.0.0.1:8090`). Inspect runs, steps, or trigger workflows via the API. The `WelcomeOnboarding` workflow runs here — declarative JSON over NATS JetStream, kickstarted automatically on first login.
 
 ## Try it live
 
@@ -493,7 +506,7 @@ All are configurable in one place (env var in `config/config.go`, runtime consta
 
 > **Why some constants are NOT in config.go?** Runtime constants that are implementation details of a single package (like `DefaultBaseURL` in `internal/llm/goai.go`) stay in that package to keep cohesion. `config/config.go` documents every env var and the most commonly tuned runtime constants.
 
-## Acknowledgements
+## Acknowledgements & inside jokes
 
 This template was inspired by [northstar](https://github.com/zangster300/northstar) by Nicholas Zanghi — a Go + NATS + Datastar + Templ + DaisyUI application starter.
 
