@@ -4,12 +4,19 @@
   <img src="web/resources/static/logo.png" alt="gogogo-fullstack-template" width="512">
 </p>
 
-A starting point for web projects in Go. Single binary, zero external services, LLM-friendly.
+> **Go full-stack template. Single binary, ~56 MB, runs on scratch.**  
+> Database & auth (PocketBase, embedded SQLite). Reactive UI (Datastar, SSE-driven).  
+> Background jobs & retries (goqite). Offline-first collaboration (Loro CRDT).  
+> Real-time, multi-user (NATS JetStream). Durable workflows (DagNats).  
+> Desktop edge sync (NATS Leaf Node, Wails v3).  
+> No Postgres. No Redis. No CDN for the core stack. LLM and CDN assets are opt-in.
+
+A starting point for web projects in Go. Single binary, zero external services for the core stack.
 
 We built this template to resolve those choices up front, without locking you into a closed ecosystem.
 
-> **One binary, one process, one image.** ~30 MB, no shell, no libc, no CDN.
-> Runs on `scratch` (or `gcr.io/distroless/static-debian12:nonroot` if you need a debug base). All CSS is compiled at build time via Tailwind v4 + DaisyUI v5 and embedded via `//go:embed` — no JS runtime.
+> **One binary, one process, one image.** ~56 MB, no shell, no libc, no CDN for the core.
+> Runs on `scratch` (or `gcr.io/distroless/static-debian12:nonroot` if you need a debug base). All CSS is compiled at build time via Tailwind v4 + DaisyUI v5 and embedded via `//go:embed` — no JS runtime. Iconify icons and Rough.js (whiteboard canvas) are loaded from CDN — optional and swappable.
 
 > **Made with intent to be useful, not to be right.** We optimize for shipping something that runs today over being philosophically correct. Decisions here are pragmatic, not dogmatic.
 
@@ -34,9 +41,11 @@ Every web project we start begins with the same conversation: pick a database, a
 ## Who this template is for
 
 - **You who get tired of configuring the same stack over and over**
-- **You who want a single binary for deploy, with no Redis, Postgres, or SaaS**
+- **You who want everything in one binary, with no external dependencies, no Docker required.** One self-contained file. Environment-independent.
 - **You who want an LLM client wired in without pulling in a whole orchestration framework** — `internal/llm` wraps GoAI (any OpenAI-compatible provider) behind an injectable interface, callable from handlers. It calls a *remote* provider API; it is **not** a local-model runtime.
-- **You who prefer server-rendered HTML over 2MB SPAs**
+- **You who prefer a single source of truth on the backend, one language for the whole stack, and reactive UI without heavy frontend frameworks** — server-rendered HTML over SSE, no 2MB SPAs, no JS build step.
+- **You who want a language that is predictable for both humans and LLMs.** Go's syntax is minimal and consistent. Same formatting everywhere (`gofumpt`). No surprises. Static typing catches whole classes of bugs at compile time. Native concurrency (goroutines + channels) that is easy to reason about — no async/await chains, no callback pyramids. This makes the codebase equally readable by you, your team, and AI coding agents.
+- **You who care about supply chain security.** Go has no mass npm-style dependency trees. Every module is verified by content hash (`go.sum`). Built-in vulnerability auditing (`govulncheck`) scans your dependency graph for known CVEs. No transitive dependency hell.
 
 It's not a framework. There's no lock-in. Each piece can be replaced individually.
 
@@ -68,19 +77,32 @@ Everything you need to build a modern web app, in a single binary:
 
 ## Stack in layers, not silos
 
-Most templates force you to pick one async strategy — usually a queue, sometimes a workflow runtime, rarely both. Real apps need **a queue for background jobs**, **a workflow runtime for durable multi-step processes**, and **a real-time layer for cross-client state** — each solving a different problem. We ship all three in one unified build.
+Most templates force you to pick one async strategy — usually a queue, sometimes a workflow runtime, rarely both. Real apps need **a queue for background jobs**, **a workflow runtime for durable multi-step processes**, **a collaboration layer for conflict-free state merging**, and **a real-time layer for cross-client state** — each solving a different problem. We ship all five in one unified build.
 
-We solve this with **three complementary async layers**:
+We solve this with **six complementary layers**:
 
 ```
-goqite    → background jobs + SSE to the browser (always on)
-dagnats   → durable multi-step workflows as JSON (always on, runtime opt-out with DAGNATS_ENABLED=false)
-JetStream → multi-user real-time (always on, runtime opt-out with NATS_ENABLED=false)
+goqite       → background jobs + SSE hub (always on)
+dagnats      → durable multi-step workflows as JSON (runtime opt-out: DAGNATS_ENABLED=false)
+Loro CRDT    → collaborative docs with offline merges (opt-out by removing internal/collab/)
+PB realtime  → record-change push via PB's native /api/realtime (always on, per-user scoped)
+SSE Hub      → ephemeral signals via Datastar protocol (always on, part of queue)
+JetStream    → multi-instance broadcast + cross-instance state (runtime opt-out: NATS_ENABLED=false)
 ```
+
+**Two realtime mechanisms for different jobs.** PocketBase's native `/api/realtime` pushes record mutations (create/toggle/delete) to subscribers, scoped per-user by the collection's access rules — no custom hub needed. The **SSE Hub** (`internal/queue/ssehub.go`) is reserved for ephemeral signals (client count, LLM suggest feedback, workflow progress, self-patches) and delivers them via Datastar's SSE protocol (`internal/datastar.RenderAndPatch` / `MergeSignals`). The todo feature uses both: PB realtime for CRUD propagation, SSE Hub for toasts and live hints. The whiteboard uses the SSE Hub directly for shape + presence broadcast.
+
+**Cross-instance sync adds two more paths.** When JetStream is enabled (default: on), the **NATS APP_CRUD stream** converges record operations across server instances: CrudPublisher publishes each mutation, CrudConsumer on the receiving instance writes to its local PocketBase, which then broadcasts via PB realtime to its local clients. The **NATS TODOS stream** carries ephemeral signals across instances and re-emits them through the local SSE Hub. Both are safe to enable even on a single instance — the streams simply carry no cross-instance traffic.
+
+**Offline sync uses yet another path.** On the web, the **Service Worker** (`web/resources/static/sw.js`) intercepts POST/PUT/DELETE mutations when the browser is offline, queues them in IndexedDB, and replays them via Background Sync when connectivity returns. On the desktop (NATS Leaf Node), the local JetStream persists mutations to disk and replays them when the Leaf Node reconnects to the server — no Service Worker needed.
+
+**The opt-out rules are simple:**
+- **Infrastructure components** (NATS, DagNats) have runtime env vars in `config/config.go`. Set `NATS_ENABLED=false` or `DAGNATS_ENABLED=false` and the engine won't boot; downstream consumers handle nil gracefully.
+- **Product features** (Todo, Whiteboard) have no runtime flag. To remove them, delete the package directory and remove the wiring call from `router/router.go` — that's the SCOPE removal pattern. See [Architecture taxonomy](#architecture-taxonomy-core--pluggable--feature).
 
 They coexist in the same binary. They don't compete.
 
-**One `make build` compiles everything.** No build tags, no stub files, no matrix. Opt out at runtime via env vars: `NATS_ENABLED=false`, `DAGNATS_ENABLED=false`. DagNats and NATS share a single embedded JetStream on `:4222`.
+**One `make build` compiles everything.** No build tags, no stub files, no matrix. DagNats and NATS share a single embedded JetStream on `:4222`.
 
 ## Feature overview
 
@@ -95,8 +117,30 @@ Every capability is always compiled. What you get:
 | **Multi-instance real-time** | `NATS_ENABLED=false` | NATS JetStream fan-out for todo + whiteboard sync across >1 instance behind a LB |
 | **Durable workflows** | `DAGNATS_ENABLED=false` | DagNats JSON workflows over JetStream on `:8090` (e.g. `WelcomeOnboarding`) |
 | **Desktop-edge sync** | `NATS_LEAFNODE_URL` unset | Leaf-Node JetStream replication of Loro updates for desktop/edge clients |
+| **Hybrid offline sync** | `OFFLINE_SYNC_ENABLED=false` | Disables NATS CRUD proxy + Service Worker offline queue (default on). When enabled: desktop edges publish CRUD ops via NATS JetStream, the server's CrudConsumer writes to PocketBase. Web clients use Service Worker + Background Sync for offline queuing and replay. Toggle with a single env var — set to `false` for always-online deployments, and zero code paths are traversed. |
 
 > **Adding a new feature?** Create `features/<name>/` with your handlers + templates. Wire it in `router/router.go` → `Init()` with a single function call. See `ARCHITECTURE.md` for the full pattern.
+
+## Architecture taxonomy: Core / Pluggable / Feature
+
+Every file in the codebase carries a `SCOPE` annotation at the top to tell agents and developers what can be safely removed:
+
+| Annotation | Meaning | Examples | You would… |
+|------------|---------|----------|------------|
+| `SCOPE:core` 🔴 | Binary does not work without it. | `config/`, `db/`, `internal/queue/`, `features/auth/` (middleware) | Customize, never remove. |
+| `SCOPE:pluggable` 🟡 | Binary works but loses capability if removed. Clear removal instructions. | `internal/nats/`, `internal/llm/`, `internal/dagnats/`, `internal/collab/` | Swap for an equivalent, or delete + remove wiring call. |
+| `SCOPE:feature` 🟢 | A demo/add-on. Delete the package + remove the wiring call. | `features/todo/`, `features/whiteboard/`, `router/onboarding_dagnats.go` | Keep as reference while building your own, then remove. |
+
+**Rule of thumb for agents:** If you see a `SCOPE` annotation on a file, respect it. Never delete a `SCOPE:core` file without asking. Never keep a `SCOPE:feature` file in production if the domain doesn't need it.
+
+### How to remove a pluggable or feature component
+
+1. Delete the package directory (e.g. `features/todo/`).
+2. Delete dependent packages listed in the `Depends on:` comment.
+3. Remove the wiring call from `router/router.go` → `Init()`.
+4. If it was pluggable, also remove the `start*` call in `cmd/web/main.go`.
+
+See `ARCHITECTURE.md` for the full dependency graph.
 
 ## The example: Todo App with realtime
 
@@ -370,39 +414,55 @@ re-renders `/opt/gogogo-fullstack-template/secrets/gogogo-fullstack-template.env
 Actions secrets. The file is `chmod 600`, owned by the `deploy` user,
 and overwritten on every run — there is no history of secrets on disk.
 
-## Structure
+## Structure (annotated by SCOPE)
 
 ```
-cmd/web/
-  main.go               # Entry point — only initializes and wires pieces    nats.go               # NATS JetStream bootstrap
-    dagnats.go            # DagNats runtime bootstrap
-config/                 # Per-environment config (dev/prod)
-db/                     # PocketBase setup + seed
+cmd/web/                          🔴 CORE  Entry point
+config/                           🔴 CORE  Per-environment config
+  config.go                       🔴 CORE  Env vars + age secrets
+  config_dev.go / config_prod.go  🔴 CORE  Build-tag defaults
+db/                               🔴 CORE  PocketBase setup + seed
 internal/
-  secrets/              # age-decrypted secrets loader
-  queue/                # goqite + SSE Hub + workers + retry + handler registry
-    goqite.go           #   goqite setup, schema (goqite_schema.sql), graceful shutdown
-    ssehub.go           #   register-before-enqueue, replay buffer, backpressure
-    workers.go          #   worker pool with context cancellation
-    retry.go            #   exponential backoff + jitter (retry-go v4)
-    handlers.go         #   HandlerRegistry: job-type to handler dispatch
-  nats/                 # NATS JetStream + embedded server
-  dagnats/              # DagNats durable workflow client + onboarding JSON
-  llm/                  # GoAI LLM SDK helpers
-  datastar/             # Datastar rendering helpers
+  secrets/                        🔴 CORE  age-decrypted secrets loader
+  queue/                          🔴 CORE  goqite + SSE Hub + workers + retry + handler registry
+    goqite.go                     🔴 CORE  goqite setup, schema, graceful shutdown
+    ssehub.go                     🔴 CORE  register-before-enqueue, replay buffer, backpressure
+    workers.go                    🔴 CORE  worker pool with context cancellation
+    retry.go                      🔴 CORE  exponential backoff + jitter (retry-go v4)
+    handlers.go                   🔴 CORE  HandlerRegistry: job-type to handler dispatch
+  datastar/                       🟡 PLUGGABLE  Datastar SSE rendering helpers
+  nats/                           🟡 PLUGGABLE  NATS JetStream + embedded server
+  dagnats/                        🟡 PLUGGABLE  DagNats durable workflow client
+  llm/                            🟡 PLUGGABLE  GoAI LLM SDK helpers
+  collab/                         🟡 PLUGGABLE  Loro CRDT + DocStore + sync workers + presence
 features/
-  todo/                 # Working example: Todo MVC
-    handlers/           #   HTTP + SSE handlers, onboarding
-    components/         #   Templ components (layout, todo_list, todo_item, toast)
-web/resources/          # Static assets (embedded JS)
-router/                 # Routes registered on PocketBase
-references/             # Reference documentation
-docs/                   # Decision logs and guides
+  auth/                           🔴 CORE  Login/logout/cookie (UI) + 🔴 middleware
+  todo/                           🟢 FEATURE  Todo MVC example (keep as reference)
+    handlers/                       HTTP + SSE handlers, onboarding
+    components/                     Templ components
+  whiteboard/                     🟢 FEATURE  Collaborative canvas (remove if not needed)
+web/resources/                    🔴 CORE  Static assets (embedded JS)
+router/                           🔴 CORE  Route wiring (central dependency graph)
 ```
+
+### Key configuration constants
+
+| Constant | Location | Default | Purpose |
+|----------|----------|---------|---------|
+| `DefaultReplayBufferSize` | `config/config.go` | 64 | Per-client SSE replay ring-buffer size (was `internal/queue/ssehub.go`) |
+| `DefaultClientQueueSize` | `config/config.go` | 64 | Per-client SSE channel buffer (was `internal/queue/ssehub.go`) |
+| `DefaultSSEHeartbeatInterval` | `config/config.go` | 15s | SSE heartbeat interval (was `internal/queue/ssehub.go`) |
+| `OfflineSync.Enabled` | `config/config.go` | `true` | Toggle hybrid offline-sync-online. Set `OFFLINE_SYNC_ENABLED=false` to opt out. |
+| `DefaultBaseURL` (GoAI) | `internal/llm/goai.go` | `https://api.openai.com/v1` | OpenAI-compatible base URL |
+| `DefaultModel` (GoAI) | `internal/llm/goai.go` | `gpt-4o-mini` | Default LLM model |
+
+All are configurable in one place (env var in `config/config.go`, runtime constant in `config/config.go` or the owning package). Change it once, every feature picks up the new value.
+
+> **Why some constants are NOT in config.go?** Runtime constants that are implementation details of a single package (like `DefaultBaseURL` in `internal/llm/goai.go`) stay in that package to keep cohesion. `config/config.go` documents every env var and the most commonly tuned runtime constants.
 
 ## Acknowledgements
 
-This template was partially inspired by [northstar](https://github.com/zangster300/northstar) by Nicholas Zanghi — a Go + NATS + Datastar + Templ + DaisyUI application starter. northstar is released under the MIT License; if you build on this template, please also credit northstar.
+This template was inspired by [northstar](https://github.com/zangster300/northstar) by Nicholas Zanghi — a Go + NATS + Datastar + Templ + DaisyUI application starter.
 
 ## License, feedback
 
