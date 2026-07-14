@@ -28,7 +28,7 @@ import (
 	"github.com/calionauta/gogogo-fullstack-template/internal/server"
 )
 
-//nolint:gocyclo // extracting NATS+Collab would add abstraction over single-use setup
+//nolint:gocyclo,gocognit // extracting NATS+Collab would add abstraction over single-use setup
 func main() {
 	cfg := config.Load()
 

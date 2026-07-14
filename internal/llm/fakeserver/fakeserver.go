@@ -184,6 +184,7 @@ func NewServer(opts ...Option) *FakeServer {
 // New starts a fake OpenAI server on a random local port. The test
 // argument is required so the fake can log assertions against it.
 func New(t *testing.T, opts ...Option) *FakeServer {
+	t.Helper()
 	s := NewServer(opts...)
 	s.t = t
 	return s

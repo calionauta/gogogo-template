@@ -73,13 +73,13 @@ func (h *OnboardingHandler) ResumeOnboarding(_ string) {
 	runID := h.activeRunID
 	h.mu.Unlock()
 	if runID == "" {
-		slog.Debug("onboarding: resume called but no active run")
+		slog.Default().Debug("onboarding: resume called but no active run")
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), onbSignalTimeout)
 	defer cancel()
 	if err := h.client.Signal(ctx, runID, "first-todo", []byte(`{"resumed":true}`)); err != nil {
-		slog.Warn("onboarding: signal first-todo failed", "run", runID, "error", err)
+		slog.Default().Warn("onboarding: signal first-todo failed", "run", runID, "error", err)
 		if h.broadcaster != nil {
 			_ = h.broadcaster.PublishTodoUpdate(ctx,
 				todoUpdateJob("workflow-error", "remote", "", "resume failed: "+err.Error(), false))
@@ -198,7 +198,7 @@ var onboardingStepOrder = []string{
 	"greet", "await-first-todo", "todo-1", "todo-2", "todo-3", "finalize",
 }
 
-//nolint:gocyclo // extracting the completed catch-up loop would add abstraction over single-use sim
+//nolint:gocyclo,gocognit // extracting the completed catch-up loop would add abstraction over single-use sim
 func (h *OnboardingHandler) pollRun(runID string) {
 	ctx := context.Background()
 	timeout := time.After(onbPollTimeout)

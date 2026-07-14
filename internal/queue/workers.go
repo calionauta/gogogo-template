@@ -29,7 +29,7 @@ type WorkerPool struct {
 	count    int
 	stopCh   chan struct{}
 	wg       sync.WaitGroup
-	ctx      context.Context
+	ctx      context.Context //nolint:containedctx // lifecycle context for the pool, not request-scoped
 	cancel   context.CancelFunc
 	stopOnce sync.Once
 }

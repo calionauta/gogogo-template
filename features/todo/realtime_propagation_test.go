@@ -33,7 +33,7 @@ import (
 // delivered by PocketBase realtime regardless, and ResumeOnboarding
 // early-returns when no durable run is active, so the test stays focused
 // on the realtime fan-out that regressed.
-func TestCrossSessionCreatePropagates(t *testing.T) {
+func TestCrossSessionCreatePropagates(t *testing.T) { //nolint:gocognit
 	base, cleanup := bootLiveServer(t)
 	defer cleanup()
 	ctx := context.Background()

@@ -19,6 +19,15 @@ linters:
     - tagliatelle     # struct tag conventions (json/yaml/etc.)
     - modernize       # modern Go idioms (slices.Contains, min/max, etc.)
     - nolintlint      # ill-formed / insufficient //nolint directives
+    - thelper         # test helpers must call t.Helper()
+    - errorlint       # error wrapping must use %w, errors.Is/As
+    - nilerr          # returning nil error when function signals an error
+    - sloglint        # structured logging key-value pairs must be constant
+    - contextcheck    # context must propagate through call chains
+    - containedctx    # structs must not embed context.Context
+    - bodyclose       # HTTP response body must be closed
+    - testifylint     # testify assert vs require checks
+    - gocognit        # cognitive complexity (readability, not paths)
     # Note: stylecheck's ST* analyzers are bundled into `staticcheck` in
     # golangci-lint v2, so enabling staticcheck (above) already covers
     # them. `gofumpt` is a formatter, configured under `formatters:` below.
@@ -52,6 +61,18 @@ linters:
       statements: 60
     gocyclo:
       min-complexity: 12
+    gocognit:
+      min-complexity: 25
+    testifylint:
+      enable-all: false
+      disable:
+        - float-compare
+        - go-require
+        - compares
+      disable-all: false
+    sloglint:
+      no-mixed-args: true
+      context-only: false
     goconst:
       min-len: 4
       min-occurrences: 3
@@ -115,6 +136,16 @@ linters:
       - path: _test\.go
         linters:
           - gocyclo
+      # sloglint in context-only mode requires context in all log calls;
+      # test helpers and top-level functions don't always have one.
+      - path: _test\.go
+        linters:
+          - sloglint
+      # bodyclose is for production HTTP callers, not test response readers
+      # (tests should NOT close the response body of an httptest server).
+      - path: _test\.go
+        linters:
+          - bodyclose
 formatters:
   enable:
     - gofumpt

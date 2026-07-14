@@ -42,7 +42,7 @@ func Init(cfg *config.Config) (*pocketbase.PocketBase, error) {
 			if _, err := os.Stat(dbPath); err != nil {
 				if _, err := os.Stat(dbPath + pragmas); err == nil {
 					if rerr := os.Rename(dbPath+pragmas, dbPath); rerr != nil {
-						slog.Warn("db: legacy malformed db file rename failed; starting fresh", "error", rerr)
+						slog.Default().Warn("db: legacy malformed db file rename failed; starting fresh", "error", rerr)
 					}
 				}
 			}

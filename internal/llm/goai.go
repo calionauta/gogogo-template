@@ -215,7 +215,7 @@ func (c *Client) ChatSuggest(ctx context.Context, partial string) ([]string, err
 	// The model is told to return a JSON array. Parse defensively.
 	out, parseErr := parseStringArray(text)
 	if parseErr != nil {
-		slog.Warn("llm: suggest returned non-JSON; using raw", "raw", text, "err", parseErr)
+		slog.Default().Warn("llm: suggest returned non-JSON; using raw", "raw", text, "err", parseErr)
 		// Fall back to splitting on newlines so the UI still gets
 		// something to show.
 		return splitLines(text), nil

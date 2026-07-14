@@ -147,6 +147,15 @@ docker-image: templ
 		-t ghcr.io/calionauta/$(APP_NAME):$(VERSION) \
 		--push .
 
+coverage:
+	@echo "→ Running tests with coverage..."
+	@go test -race -p 1 ./... -count=1 -coverprofile=coverage.out -covermode=atomic
+	@go tool cover -func=coverage.out | sort -k3 -r | head -30
+	@echo "---"
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "→ Full report: coverage.html"
+	@rm -f coverage.out
+
 help:
 	@echo "Usage: make <target>"
 	@echo ""
@@ -156,6 +165,7 @@ help:
 	@echo "  fmt            Check formatting (gofumpt + goimports)"
 	@echo "  datastar-lint  Lint .templ files for Datastar anti-patterns"
 	@echo "  test           Run tests with race detector"
+	@echo "  coverage       Run tests with coverage report (HTML)"
 	@echo "  lint           Run go vet + golangci-lint (full)"
 	@echo "  check-sizes    Check file/function size limits"
 	@echo "  deadcode       Scan for dead code"

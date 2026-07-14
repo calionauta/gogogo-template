@@ -70,7 +70,7 @@ Everything you need to build a modern web app, in a single binary:
 | **Live reload** | [Air](https://github.com/air-verse/air) | `make dev` regenerates templ and restarts the binary |
 | **CRDT (collaborative docs)** | [loro-go](https://github.com/aholstenson/loro-go) | Conflict-free merging of whiteboard/notes state; converges offline edits with no LWW data loss |
 | **Hand-drawn canvas** | [Rough.js](https://roughjs.com) (CDN) | Minimalist sketchy whiteboard rendering, loaded from jsDelivr — no build dependency |
-| **Linting** | [golangci-lint](https://golangci-lint.run) + [datastar-lint](https://github.com/calionauta/datastar-lint) | `errcheck`, `staticcheck`, `gosec`, `revive`, `gocritic` (see `.golangci.yml`); `datastar-lint` catches Datastar attribute/signal/expression mistakes (run via `make datastar-lint`) |
+| **Linting** | [golangci-lint](https://golangci-lint.run) + [datastar-lint](https://github.com/calionauta/datastar-lint) | 27 linters: `govet`, `staticcheck`, `gosec`, `revive`, `gocritic`, `errcheck`, `ineffassign`, `unused`, `errorlint`, `nilerr`, `bodyclose`, `contextcheck`, `containedctx`, `sloglint`, `thelper`, `testifylint`, `gocyclo`, `gocognit`, `funlen`, `noctx`, `goconst`, `dupl`, `lll`, `mnd`, `tagliatelle`, `modernize`, `nolintlint` (see `.golangci.yml`); `datastar-lint` catches Datastar attribute/signal/expression mistakes (run via `make datastar-lint`) |
 | **CI/CD** | GitHub Actions | `ci.yml` (lint + test + build, unified build) + `deploy.yml` (multi-arch Docker to ghcr.io, runs on `master`) |
 
 > **Why `ncruces/go-sqlite3`?** It's the pure-Go (no cgo) SQLite build that bundles the extensions this template leans on — FTS5, `spellfix1`, `unicode` collations — which the stock driver leaves out. That's why the `//go:build`/driver init in `db/pocketbase.go` pins it instead of `modernc.org/sqlite` directly.
@@ -141,6 +141,26 @@ Every file in the codebase carries a `SCOPE` annotation at the top to tell agent
 4. If it was pluggable, also remove the `start*` call in `cmd/web/main.go`.
 
 See `ARCHITECTURE.md` for the full dependency graph.
+
+## Code quality for LLM agents
+
+This template ships a strict `golangci-lint` configuration (27 linters) designed to catch the kinds of mistakes LLMs make most often: unchecked errors, insecure patterns, broken context propagation, resource leaks, and inconsistent error wrapping. The goal is not to block development but to redirect agents toward correct Go idioms automatically.
+
+**What the linters enforce:**
+
+| Category | Linters | What they catch |
+|----------|---------|-----------------|
+| Correctness | `govet`, `staticcheck`, `errcheck`, `ineffassign`, `unused` | Shadowed variables, dead code, unchecked returns |
+| Error handling | `errorlint`, `nilerr`, `gosec` | Wrong `%w` formatting, returning nil inside an error path, hardcoded credentials |
+| Resource safety | `bodyclose`, `noctx` | HTTP bodies and contexts not closed or propagated |
+| Test quality | `thelper`, `testifylint`, `sloglint`, `containedctx` | Missing `t.Helper()`, `assert` vs `require` misuse, context embedded in structs |
+| Complexity | `gocyclo`, `gocognit`, `funlen`, `nestif` (implicit via funlen+gocyclo) | Functions too long or too nested to hold in working memory |
+| Style | `revive`, `gocritic`, `tagliatelle`, `goconst`, `dupl`, `lll`, `modernize` | Non-idiomatic patterns, magic numbers, duplicated code, long lines |
+| Formatting | `gofumpt` + `goimports` (formatters, not linters) | Compulsory consistent layout and import ordering |
+
+**For LLM agents reading this:** before editing any Go file, run `make check` to establish a baseline. After making changes, run `make lint` to verify the linters pass. The `golangci-lint` configuration lives in `.golangci.yml` at the project root — read it if you need to understand what each linter expects. If a lint forces you to restructure code, that is usually a sign the original approach had a deeper issue.
+
+**For human developers:** `make check` runs the full gate. `make lint` runs just `go vet` + `golangci-lint`. We deliberately keep `gofumpt` and `goimports` as formatters (not linters) so `golangci-lint run` never auto-formats your files — formatting is a separate explicit step.
 
 ## The example: Todo App with realtime
 

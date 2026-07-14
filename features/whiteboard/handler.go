@@ -134,7 +134,7 @@ func (h *Handler) handleNew(c *core.RequestEvent) error {
 			rec.Set("owner", c.Auth.Id)
 		}
 		if saveErr := h.app.Save(rec); saveErr != nil {
-			slog.Warn("whiteboard: save new board record", "doc", docID, "error", saveErr)
+			slog.Default().Warn("whiteboard: save new board record", "doc", docID, "error", saveErr)
 		}
 	}
 
@@ -180,7 +180,7 @@ func (h *Handler) handleBoard(c *core.RequestEvent) error {
 	// Rehydrate the in-memory CRDT from the persisted snapshot so live
 	// clients converge onto saved state before receiving new updates.
 	if snap, ok := h.worker.LoadSnapshot(docID); ok {
-		slog.Info("whiteboard: rehydrated doc", "doc", docID, "bytes", len(snap))
+		slog.Default().Info("whiteboard: rehydrated doc", "doc", docID, "bytes", len(snap))
 	}
 	if err := renderBoard(c, email, docID); err != nil {
 		return err
@@ -196,7 +196,7 @@ func (h *Handler) handleBoard(c *core.RequestEvent) error {
 //nolint:gocyclo // SSE lifecycle is inherently sequential.
 func (h *Handler) handleStream(c *core.RequestEvent) error {
 	if err := auth.LoadAppAuth(c); err != nil {
-		slog.Warn("whiteboard: stream auth load", "error", err)
+		slog.Default().Warn("whiteboard: stream auth load", "error", err)
 	}
 	docID := c.Request.PathValue("docID")
 	clientID := c.Request.URL.Query().Get("clientID")

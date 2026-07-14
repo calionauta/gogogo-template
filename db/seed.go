@@ -29,21 +29,21 @@ var (
 func SeedDefaults(app *pocketbase.PocketBase) error {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		if err := ensureTodosCollection(se.App); err != nil {
-			slog.Error("seed: ensureTodosCollection failed", "error", err)
+			slog.Default().Error("seed: ensureTodosCollection failed", "error", err)
 		}
 		if err := ensureDemoUser(se.App); err != nil {
-			slog.Error("seed: ensureDemoUser failed", "error", err)
+			slog.Default().Error("seed: ensureDemoUser failed", "error", err)
 		}
 		// Lock the users collection so the public demo can't create or
 		// delete accounts through the API / admin UI (the demo superuser
 		// still can). See ensureUsersCollectionRules.
 		if err := ensureUsersCollectionRules(se.App); err != nil {
-			slog.Error("seed: ensureUsersCollectionRules failed", "error", err)
+			slog.Default().Error("seed: ensureUsersCollectionRules failed", "error", err)
 		}
 		// Collaborative whiteboards (Loro CRDT snapshots) — the SyncWorker
 		// (internal/collab) persists resolved docs here.
 		if err := ensureWhiteboardsCollection(se.App); err != nil {
-			slog.Error("seed: ensureWhiteboardsCollection failed", "error", err)
+			slog.Default().Error("seed: ensureWhiteboardsCollection failed", "error", err)
 		}
 		return se.Next()
 	})
@@ -79,7 +79,7 @@ func ensureTodosCollection(app core.App) error {
 			MaxSelect:    1,
 			CollectionId: usersCol.Id,
 		})
-		slog.Info("seed: ensured todos.owner relation -> users")
+		slog.Default().Info("seed: ensured todos.owner relation -> users")
 	}
 
 	// Realtime + REST access: a user may only view THEIR OWN todos.
@@ -151,7 +151,7 @@ func ensureDemoUser(app core.App) error {
 	col, err := app.FindCollectionByNameOrId("users")
 	if err != nil {
 		// First run, users collection might not exist yet.
-		return nil
+		return nil //nolint:nilerr // collection not created yet; skip seed, not an error
 	}
 	if existing, err := app.FindAuthRecordByEmail(col.Name, DemoUserEmail); err == nil && existing != nil {
 		// Refresh the password so a cloned template always uses
@@ -189,7 +189,7 @@ func ensureUsersCollectionRules(app core.App) error {
 		// Users collection not created yet (very first boot before
 		// PocketBase's own bootstrap); skip — SeedDefaults runs on every
 		// serve, so it will lock it on the next boot once it exists.
-		return nil
+		return nil //nolint:nilerr // collection not yet created; will retry on next boot
 	}
 
 	const locked = "@request.auth.superuser = true"

@@ -55,18 +55,18 @@ func Load(projectName string) {
 
 	identity, err := age.ParseX25519Identity(key)
 	if err != nil {
-		slog.Warn("secrets: invalid age key (skip)", "project", projectName, "error", err)
+		slog.Default().Warn("secrets: invalid age key (skip)", "project", projectName, "error", err)
 		return
 	}
 
 	out, err := age.Decrypt(bytes.NewReader(data), identity)
 	if err != nil {
-		slog.Warn("secrets: decrypt failed (skip)", "project", projectName, "error", err)
+		slog.Default().Warn("secrets: decrypt failed (skip)", "project", projectName, "error", err)
 		return
 	}
 	decrypted, err := io.ReadAll(out)
 	if err != nil {
-		slog.Warn("secrets: read failed (skip)", "project", projectName, "error", err)
+		slog.Default().Warn("secrets: read failed (skip)", "project", projectName, "error", err)
 		return
 	}
 

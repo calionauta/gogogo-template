@@ -31,6 +31,7 @@ const (
 )
 
 func testFixture(t *testing.T) (string, *queue.Queue, *pocketbase.PocketBase, *handlers.TodoHandler, func()) {
+	t.Helper()
 	return buildFixture(t, nil)
 }
 
@@ -38,6 +39,7 @@ func testFixture(t *testing.T) (string, *queue.Queue, *pocketbase.PocketBase, *h
 // simulated LLM client, so the /api/todos/suggest-simulated route is
 // live and the full queue + retry + SSE path can be exercised keyless.
 func testFixtureSimulated(t *testing.T) (string, *queue.Queue, *pocketbase.PocketBase, *handlers.TodoHandler, func()) {
+	t.Helper()
 	return buildFixture(t, llm.NewSimulated())
 }
 

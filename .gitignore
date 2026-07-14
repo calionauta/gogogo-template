@@ -45,3 +45,7 @@ node_modules/
 
 # Root-level logo is a social-card asset (1024px), not for the README — see web/resources/static/logo.png
 /logo.png
+app
+gogogo-fullstack-template
+coverage.html
+coverage.out
