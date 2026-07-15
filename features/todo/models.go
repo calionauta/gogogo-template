@@ -107,6 +107,17 @@ type Signals struct {
 	// "in-memory". The default build uses the InMemoryBroadcaster.
 	RealtimeKind string `json:"realtimeKind"`
 
+	// StoreLabel describes the active EntityStore strategy (e.g.
+	// "PocketBase records"). Surfaced in the page sub-header so a
+	// tester can verify which persistence mode is running without
+	// grep-ing logs.
+	StoreLabel string `json:"storeLabel"`
+
+	// OfflineLabel describes the offline-sync behavior of the active
+	// strategy (e.g. whether SW queues mutations, whether cross-
+	// instance sync is on). Surfaced in the page sub-header.
+	OfflineLabel string `json:"offlineLabel"`
+
 	// SidebarTab selects the active async-demo tab in the right sidebar:
 	// "queue" (Queue + Retry) or "workflow" (Durable Workflow). Seeded
 	// "queue" so the first tab is active on paint; the Durable Workflow

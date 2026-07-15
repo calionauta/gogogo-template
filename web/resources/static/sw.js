@@ -148,9 +148,40 @@ async function networkFirstWithQueue(request) {
       // Queue failed — the mutation is lost. In practice this only
       // happens if IndexedDB is unavailable (private browsing, disk full).
     }
+    // Return a Datastar-format fragment that:
+    //   1. sets datastar-mode=append + datastar-selector=#toast-container
+    //      so the existing toast component shows an offline toast
+    //   2. dispatches the same `gogogo:queued` window event the
+    //      offline-banner uses, so any UI element bound to that
+    //      listener (e.g. createForm `$loading` reset) gets cleaned up
+    //
+    // The 202 + JSON body alone was insufficient: Datastar's @post
+    // helper applied NO patch on 202 and the loading spinner stuck
+    // forever. Returning a fragment makes Datastar @post run the
+    // same patch path as a regular response, which dispatches the
+    // event listener we already wire elsewhere.
+    //
+    // The toast HTML uses the same `@components.Toast(...)` template
+    // surface that the in-process toasts use. Using literal HTML here
+    // keeps the SW self-contained (no compilation step).
     return new Response(
-      JSON.stringify({ queued: true, message: "Request queued for sync when online." }),
-      { status: 202, headers: { "Content-Type": "application/json" } }
+      '<div id="offline-queued-toast" class="alert alert-warning mb-2">' +
+        '<span>Offline — request queued. Will sync when you reconnect.</span>' +
+      '</div>' +
+      '<script>window.dispatchEvent(new CustomEvent("gogogo:queued"));</script>',
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+          // Datastar-specific headers consumed by the @post action:
+          // selector=body so the patch is applied globally, mode=append
+          // so we don't replace the page, mergeSignals (Datastar will
+          // see no signals in the script tag and leave current signals
+          // alone — the gogogo:queued window event handles state reset).
+          "datastar-selector": "body",
+          "datastar-mode": "append",
+        },
+      }
     );
   }
 }

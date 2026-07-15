@@ -33,7 +33,10 @@ func TestLayoutRendersSSEOpener(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := Layout("Todos", signals, "demo@example.com").Render(context.Background(), &buf); err != nil {
+	if err := Layout(
+		"Todos", signals, "demo@example.com",
+		"test", "test0000",
+	).Render(context.Background(), &buf); err != nil {
 		t.Fatalf("render layout: %v", err)
 	}
 	html := buf.String()

@@ -64,6 +64,18 @@ type Config struct {
 	// Derived from APP_NAME env or the binary name; never empty.
 	AppName string
 
+	// BuildLabel is the human-readable build identifier (e.g.
+	// "v0.21.0" or "dev"). Surfaced on the navbar version badge so
+	// a tester can verify which binary is running by visual
+	// inspection. Set via BUILD_LABEL env var (overwritten by the
+	// Makefile via -ldflags="-X main.Version" at build time).
+	BuildLabel string
+
+	// BuildCommit is the short git commit hash. Surfaced alongside
+	// BuildLabel on the version badge. Set via BUILD_COMMIT env var
+	// (overwritten by -ldflags="-X main.CommitHash").
+	BuildCommit string
+
 	Host     string
 	Port     int
 	LogLevel string
@@ -160,6 +172,8 @@ func Load() *Config {
 
 	cfg := &Config{
 		AppName:       appName,
+		BuildLabel:    getEnv("BUILD_LABEL", "dev"),
+		BuildCommit:   getEnv("BUILD_COMMIT", ""),
 		Host:          getEnv("HOST", "0.0.0.0"),
 		Port:          port,
 		LogLevel:      getEnv("LOG_LEVEL", "INFO"),

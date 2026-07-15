@@ -160,7 +160,7 @@ func Init(
 		// events never reach todo clients (and vice-versa).
 		// Creates the shared DocStore used by both WebSyncWorker and SyncWorker.
 		whiteboardHub := queue.NewSSEHub()
-		docs := registerWhiteboard(se, q, whiteboardHub)
+		docs := registerWhiteboard(se, q, whiteboardHub, cfg)
 		// Remove whiteboard: delete this line + delete features/whiteboard/
 		// + delete internal/collab/
 

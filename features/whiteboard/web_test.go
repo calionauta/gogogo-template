@@ -75,7 +75,7 @@ func webFixture(t *testing.T) (string, *collab.MemoryPersister, func()) {
 
 	persister := collab.NewMemoryPersister()
 	docs := collab.NewDocStore()
-	h := whiteboard.New(app, q.Hub(), persister, docs, nil)
+	h := whiteboard.New(app, q.Hub(), persister, docs, nil, cfg)
 
 	r := router.NewRouter[*core.RequestEvent](
 		func(w http.ResponseWriter, req *http.Request) (*core.RequestEvent, router.EventCleanupFunc) {

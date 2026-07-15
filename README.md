@@ -36,6 +36,7 @@ Every web project we start begins with the same conversation: pick a database, a
 
 - **You who get tired of configuring the same stack over and over**
 - **You who want everything in one binary, with no external dependencies, no Docker required.** One self-contained file. Environment-independent.
+- **You who need offline-first resilience.** A Service Worker + Background Sync queue (web) and a NATS Leaf Node (desktop) let clients keep working without a connection and replay mutations on reconnect, with idempotency so replays never duplicate. See [Hybrid offline sync](#feature-overview).
 - **You who prefer a single source of truth on the backend, one language for the whole stack, and reactive UI without heavy frontend frameworks** — server-rendered HTML via SSE, lightweight and fast, no bloated SPAs, no JS build step.
 - **You who want a language that is predictable for both humans and LLMs.** Go's syntax is minimal and consistent. Same formatting everywhere (`gofumpt`). No surprises. Static typing catches whole classes of bugs at compile time. Native concurrency (goroutines + channels) that is easy to reason about — no async/await chains, no callback pyramids. This makes the codebase equally readable by you, your team, and AI coding agents.
 - **You who care about supply chain security.** Go has no mass npm-style dependency trees. Every module is verified by content hash (`go.sum`). Built-in vulnerability auditing (`govulncheck`) scans your dependency graph for known CVEs. No transitive dependency hell.
@@ -65,7 +66,7 @@ Everything you need to build a modern web app, in a single binary:
 | **Linting** | [golangci-lint](https://golangci-lint.run) + [datastar-lint](https://github.com/calionauta/datastar-lint) | 27 linters: `govet`, `staticcheck`, `gosec`, `revive`, `gocritic`, `errcheck`, `ineffassign`, `unused`, `errorlint`, `nilerr`, `bodyclose`, `contextcheck`, `containedctx`, `sloglint`, `thelper`, `testifylint`, `gocyclo`, `gocognit`, `funlen`, `noctx`, `goconst`, `dupl`, `lll`, `mnd`, `tagliatelle`, `modernize`, `nolintlint` (see `.golangci.yml`); `datastar-lint` catches Datastar attribute/signal/expression mistakes (run via `make datastar-lint`) |
 | **CI/CD** | GitHub Actions | `ci.yml` (lint + test + build, unified build) + `deploy.yml` (multi-arch Docker to ghcr.io, runs on `master`) |
 
-> **Why `ncruces/go-sqlite3`?** It's the pure-Go (no cgo) SQLite build that bundles the extensions this template leans on — FTS5, `spellfix1`, `unicode` collations — which the stock driver leaves out. That's why the `//go:build`/driver init in `db/pocketbase.go` pins it instead of `modernc.org/sqlite` directly.
+> **Why `ncruces/go-sqlite3`?** It's the pure-Go (no cgo) SQLite engine this template standardizes on. The build uses `-tags no_default_driver` to drop `modernc.org/sqlite`, so ncruces is what actually powers every query — and being cgo-free means clean cross-compilation for the multi-arch Docker image (linux/amd64 + arm64) and the Wails desktop/mobile builds. That's why `db/pocketbase.go` registers its driver init.
 
 ## Stack in layers, not silos
 
@@ -98,6 +99,8 @@ They coexist in the same binary. They don't compete.
 
 **One `make build` compiles everything.** No build tags, no stub files, no matrix. DagNats and NATS share a single embedded JetStream on `:4222`.
 
+**Offline-first is baked in, not bolted on.** Web clients intercept mutations in a Service Worker and replay them via Background Sync; the desktop build becomes a NATS Leaf Node that keeps its JetStream replica in sync while offline. Replays are deduplicated server-side (the todo create form attaches an `idem_key` that the idempotency hook collapses). See [Hybrid offline sync](#feature-overview).
+
 ## Feature overview
 
 Every capability is always compiled. What you get:
@@ -109,7 +112,7 @@ Every capability is always compiled. What you get:
 | **AI Suggest** | `GOAI_API_KEY` unset | GoAI/Groq call from the todo UI; button hidden when no key |
 | **Collaborative whiteboard** | — | Loro CRDT + Rough.js canvas, SSE + NATS broadcast, offline-first outbox replay, PocketBase-persisted snapshots |
 | **Multi-instance real-time** | `NATS_ENABLED=false` | NATS JetStream fan-out for todo + whiteboard sync across >1 instance behind a LB |
-| **Durable workflows** | `DAGNATS_ENABLED=false` | DagNats JSON workflows over JetStream on `:8090` (e.g. `WelcomeOnboarding`) |
+| **Durable workflows** | `DAGNATS_ENABLED=false` | DagNats JSON workflows — HTTP API on `:8090`, durable state on JetStream `:4222` (e.g. `WelcomeOnboarding`) |
 | **Desktop-edge sync** | `NATS_LEAFNODE_URL` unset | Leaf-Node JetStream replication of Loro updates for desktop/edge clients |
 | **Hybrid offline sync** | `OFFLINE_SYNC_ENABLED=false` | Disables NATS CRUD proxy + Service Worker offline queue (default on). When enabled: desktop edges publish CRUD ops via NATS JetStream, the server's CrudConsumer writes to PocketBase. Web clients use Service Worker + Background Sync for offline queuing and replay. Toggle with a single env var — set to `false` for always-online deployments, and zero code paths are traversed. |
 
@@ -121,7 +124,8 @@ Every file in the codebase carries a `SCOPE` annotation at the top to tell agent
 
 | Annotation | Meaning | Examples | You would… |
 |------------|---------|----------|------------|
-| `SCOPE:core` 🔴 | Binary works, but component is always compiled. Some have runtime opt-out via env vars. | `config/`, `db/`, `internal/queue/`, `internal/nats/`, `internal/dagnats/`, `internal/llm/`, `features/auth/` (middleware) | Customize, never remove. |
+| `SCOPE:core` 🔴 | Binary does not work without it. Some have runtime opt-out via env vars. | `config/`, `db/`, `internal/queue/`, `internal/secrets/`, `features/auth/` (middleware), `router/`, `web/resources/` | Customize, never remove. |
+| `SCOPE:pluggable` 🟡 | Binary works but loses a capability. Swap or delete with its wiring call. | `internal/datastar/`, `internal/nats/`, `internal/dagnats/`, `internal/llm/`, `internal/collab/` | Swap for another implementation, or delete the package + wiring call (e.g. `router.Init`, `cmd/web/main.go`). |
 | `SCOPE:feature` 🟢 | A demo/add-on. Delete the package + remove the wiring call. | `features/todo/`, `features/whiteboard/`, `router/onboarding_dagnats.go`, `router/realtime_jet.go` | Keep as reference while building your own, then remove. |
 
 **Rule of thumb for agents:** If you see a `SCOPE` annotation on a file, respect it. Never delete a `SCOPE:core` file without asking. Never keep a `SCOPE:feature` file in production if the domain doesn't need it.
@@ -151,9 +155,9 @@ This template ships a strict `golangci-lint` configuration (27 linters) designed
 | Style | `revive`, `gocritic`, `tagliatelle`, `goconst`, `dupl`, `lll`, `modernize` | Non-idiomatic patterns, magic numbers, duplicated code, long lines |
 | Formatting | `gofumpt` + `goimports` (formatters, not linters) | Compulsory consistent layout and import ordering |
 
-**For LLM agents reading this:** before editing any Go file, run `make check` to establish a baseline. After making changes, run `make lint` to verify the linters pass. The `golangci-lint` configuration lives in `.golangci.yml` at the project root — read it if you need to understand what each linter expects. If a lint forces you to restructure code, that is usually a sign the original approach had a deeper issue.
+**For LLM agents reading this:** before editing any Go file, run `make ci-local` to establish a baseline. After making changes, run `make lint` to verify the linters pass. The `golangci-lint` configuration lives in `.golangci.yml` at the project root — read it if you need to understand what each linter expects. If a lint forces you to restructure code, that is usually a sign the original approach had a deeper issue.
 
-**For human developers:** `make check` runs the full gate. `make lint` runs just `go vet` + `golangci-lint`. We deliberately keep `gofumpt` and `goimports` as formatters (not linters) so `golangci-lint run` never auto-formats your files — formatting is a separate explicit step.
+**For human developers:** `make ci-local` runs the full gate (templ + datastar-lint + css-check + golangci-lint + race tests + build). `make lint` runs just `go vet` + `golangci-lint`. We deliberately keep `gofumpt` and `goimports` as formatters (not linters) so `golangci-lint run` never auto-formats your files — formatting is a separate explicit step.
 
 **How to run each lint layer:**
 
@@ -162,10 +166,9 @@ This template ships a strict `golangci-lint` configuration (27 linters) designed
 | `make lint` | `go vet` + golangci-lint (27 linters) |
 | `make datastar-lint` | Datastar-specific anti-patterns in `.templ` files |
 | `make fmt` | `gofumpt` + `goimports` formatting only |
-| `make check` | Full gate: fmt → datastar-lint → css-check → lint → size checks → dead code → race tests |
-| `make ci-local` | CI-equivalent: templ → datastar-lint → linters → race tests → build |
+| `make ci-local` | Full local gate, identical to CI: templ → datastar-lint → css-check → golangci-lint → race tests → build |
 
-The pre-commit hook (`make setup`) runs `make check` on every commit, so violations never reach the remote.
+The pre-commit hook (`make setup`) runs `gofumpt`, `goimports`, `datastar-lint`, a CSS staleness check, `go mod tidy`, and `golangci-lint` on every commit — so formatting and lint violations never reach the remote. Run `make ci-local` for the full gate (adds tests + build) before pushing.
 
 ## The example: Todo App with realtime
 
@@ -246,9 +249,9 @@ A running deployment of this exact template is live. You can touch every feature
 
 | What | URL | What you can do |
 |------|-----|-----------------|
-| **Todo demo app** | `https://<your-demo-domain>/` | Log in with the seeded demo account (`demo@demo.app` / `demo`), then watch the **event-driven DagNats onboarding** kick off automatically: step 1 greet → step 2 awaits your first todo (blocks on a `WaitForSignal`) → create a todo → the signal resumes the flow → steps 3–5 create 3 example todos + complete. Per-user (only your browser session is scoped to you, not global), event-driven (the create-todo event signals the waiting step), durable (a crash mid-wait resumes on restart because the signal KV retains the value). With `GOAI_API_KEY` set, the AI "Suggest" button appears; with `SIMULATE_LLM` on (default), a keyless "Suggest (simulated)" button exercises the same queue + retry path against an in-process fake LLM (error → retry → slow). Open two browser tabs to see the **self vs. remote** animations: items you create slide in from the top with a primary tint; items other tabs create slide in from the left with an info pulse + "from someone else" indicator. Delete and reorder use the browser View Transitions API for a free cross-fade. |
-| **Live PocketBase admin dashboard** | `https://<your-demo-domain>/_/` | Open the embedded PocketBase UI to browse the `todos` + `users` collections, run the REST/JS SDK playground, and inspect logs. The demo's `users` collection is **locked** — visitors can log in as the demo user but cannot create or delete accounts through the API or this dashboard (only the superuser can). |
-| **Durable workflow engine (DagNats)** | `https://<your-demo-domain>:8090` | The DagNats HTTP API where the `WelcomeOnboarding` workflow runs (declarative JSON over NATS JetStream). Inspect runs/steps or trigger them via the API; the Todo demo drives it automatically on first login. |
+| **Todo demo app** | `https://gogogo.calionauta.com/` | Log in with the seeded demo account (`demo@demo.app` / `demo`). |
+| **Live PocketBase admin dashboard** | `https://gogogo.calionauta.com/_/` | Open the embedded PocketBase UI to browse the `todos` + `users` collections, run the REST/JS SDK playground, and inspect logs. The demo's `users` collection is **locked** — visitors can log in as the demo user but cannot create or delete accounts through the API or this dashboard (only the superuser can). |
+| **Durable workflow engine (DagNats)** | `https://gogogo.calionauta.com:8090` | The DagNats HTTP API where the `WelcomeOnboarding` workflow runs (declarative JSON over NATS JetStream). Inspect runs/steps or trigger them via the API; the Todo demo drives it automatically on first login. |
 
 > The demo runs the unified build (everything compiled in). DagNats + NATS share a **single embedded JetStream** on `:4222` — DagNats boots it and the whiteboard SyncWorker attaches to it, so there is only one NATS process in the binary. To stand up your own, see [Deploy](#deploy).
 
@@ -287,11 +290,13 @@ Open `http://localhost:8080` and see the Todo App running.
 ```bash
 make build      # Build binary (unified: everything included)
 make test       # Run tests with race detector (-p 1 for DagNats engine stability)
-make check      # Lint + size limits + dead code + CSS check + tests
+make ci-local   # Full local gate: templ + datastar-lint + css-check + golangci-lint + race tests + build
 make css        # Build app.min.css (Tailwind v4 + DaisyUI v5)
 make dev        # Live reload with Air
 make templ      # Regenerate templ components
-make setup      # Install pre-commit hooks
+make lint       # go vet + golangci-lint (27 linters)
+make fmt        # gofumpt + goimports formatting
+make setup      # Install pre-commit + pre-push hooks
 make docker-image  # Build and push multi-arch image to ghcr.io
 ```
 
@@ -309,7 +314,7 @@ src/css/input.css  →  tailwindcss v4 CLI  →  web/resources/static/app.min.cs
 ```
 
 The pre-commit hook regenerates `app.min.css` automatically whenever
-`.templ` or `.go` files change, and `make check` includes a `css-check`
+`.templ` or `.go` files change, and `make ci-local` includes a `css-check`
 step that fails the gate if the working CSS file is out of date.
 
 ## Local CI (gh-signoff)
@@ -337,7 +342,7 @@ stamps the current commit green with `gh signoff`. `make ci-local` uses
 `golangci-lint` as the authoritative formatter/lint gate (the same linter
 CI runs) rather than the standalone `gofumpt` binary, which can be a newer
 release than the one golangci-lint bundles and would otherwise produce
-false-positive listings.
+false-positive listings. **The dependency runs one way: `signoff` calls `ci-local`; `ci-local` never calls `signoff`** — that keeps the local gate clean to run on its own, and reserves the git-stamp for the explicit pre-push moment.
 
 > **Advisory status, by design.** This repo deploys on **push to `master`**
 > (not PR merge), so the signoff status is a *signal*, not a hard gate.
@@ -439,8 +444,7 @@ Pick a directory on your server (e.g. `/opt`) and follow this layout for
 2. Add the box to your Tailscale tailnet.
 3. Configure a Cloudflare Tunnel that routes your domain (e.g. `fullstack.example.com`)
    to the Tailscale hostname on port 8080.
-4. Clone the repo at `/opt/gogogo-fullstack-template/repo/` and run `./repo/scripts/setup-server.sh`
-   (we ship this in a follow-up; the manual steps are: `mkdir -p bin compose env secrets data/pb_data scripts`).
+4. Clone the repo at `/opt/gogogo-fullstack-template/repo/`. A `setup-server.sh` helper is planned as a follow-up; for now run the manual steps: `mkdir -p bin compose env secrets data/pb_data scripts`.
 5. Add the GitHub Actions secrets (see `.github/workflows/deploy.yml` for the full list).
 
 ### After setup, every push to `master` deploys
@@ -465,7 +469,8 @@ and overwritten on every run — there is no history of secrets on disk.
 ## Structure (annotated by SCOPE)
 
 ```
-cmd/web/                          🔴 CORE  Entry point
+cmd/web/                          🔴 CORE  Entry point (PB + goqite + SSE Hub + DagNats + NATS)
+cmd/desktop/                      🔴 CORE  Wails v3 desktop/edge shell (NATS Leaf Node when NATS_LEAFNODE_URL set)
 config/                           🔴 CORE  Per-environment config
   config.go                       🔴 CORE  Env vars + age secrets
   config_dev.go / config_prod.go  🔴 CORE  Build-tag defaults
@@ -484,7 +489,9 @@ internal/
   llm/                            🟡 PLUGGABLE  GoAI LLM SDK helpers
   collab/                         🟡 PLUGGABLE  Loro CRDT + DocStore + sync workers + presence
 features/
+  app/                            🔴 CORE  AppContext (cross-cutting deps bundle)
   auth/                           🔴 CORE  Login/logout/cookie (UI) + 🔴 middleware
+  store/                          🟡 PLUGGABLE  EntityStore interface (PB + CRDT strategies)
   todo/                           🟢 FEATURE  Todo MVC example (keep as reference)
     handlers/                       HTTP + SSE handlers, onboarding
     components/                     Templ components

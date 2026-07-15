@@ -192,6 +192,40 @@ func (h *TodoHandler) RegisterRoutes(se *core.ServeEvent) {
 // realtimeTransport returns the label for the active broadcast transport.
 // JetStream when NATS is enabled (and the binary was built with the
 // jetstream tag, which is the only way NATS is wired), otherwise the
+// storeLabel returns a short label describing the active EntityStore
+// strategy. Designed for the page sub-header that surfaces the
+// running persistence mode so a tester can verify which strategy
+// is wired (PBStore vs CRDTStore) by eye.
+func storeLabel(cfg *config.Config) string {
+	switch cfg.EntityStore {
+	case "", "pb":
+		return "PocketBase records"
+	case "crdt":
+		return "Loro CRDT per-user + PB snapshot"
+	default:
+		return cfg.EntityStore
+	}
+}
+
+// offlineLabel describes the offline-sync behavior of the active
+// strategy. Surfaced next to the store label in the page sub-header
+// so the user knows what to expect when the network drops.
+func offlineLabel(cfg *config.Config) string {
+	if cfg.OfflineSync.Enabled {
+		switch cfg.EntityStore {
+		case "crdt":
+			return "CRDT cross-instance sync via JetStream; SW queues browser mutations"
+		default:
+			if cfg.NATS.Enabled {
+				return "Offline mutations queued via Service Worker; replay on reconnect; cross-instance via JetStream (NATS)"
+			}
+			return "Offline mutations queued via Service Worker; replay on reconnect; cross-instance sync disabled"
+		}
+	}
+	return "Offline mutations NOT queued — actions fail when network is down"
+}
+
+// realtimeLabel returns the label for the active broadcast transport.
 // in-process InMemoryBroadcaster. Used by the diagnostics panel so the
 // badge reflects what is actually running rather than a hardcoded string.
 func realtimeLabel(cfg *config.Config) string {
@@ -229,12 +263,15 @@ func (h *TodoHandler) handleIndex(c *core.RequestEvent) error {
 		Suggestions:      []string{},
 		SuggestErr:       "",
 		RealtimeKind:     realtimeLabel(h.cfg),
+		StoreLabel:       storeLabel(h.cfg),
+		OfflineLabel:     offlineLabel(h.cfg),
 		SidebarTab:       "queue",
 	}
 	c.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	return components.Layout(
 		"Todos — gogogo-fullstack-template",
 		signals, userEmail,
+		h.cfg.BuildLabel, h.cfg.BuildCommit,
 	).Render(c.Request.Context(), c.Response)
 }
 

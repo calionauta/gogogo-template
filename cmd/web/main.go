@@ -22,6 +22,26 @@ import (
 	"github.com/calionauta/gogogo-fullstack-template/router"
 )
 
+// Build metadata — overwritten at build time via LDFLAGS
+// (-ldflags="-X main.Version=... -X main.CommitHash=... -X main.BuildTime=...").
+// Surfaced on the navbar version badge so a tester can verify which binary
+// is running by visual inspection. Defaults to "dev" / "unknown" / "" so a
+// `go run` build never claims to be a tagged release.
+var (
+	Version    = "dev"
+	CommitHash = "unknown"
+	BuildTime  = ""
+)
+
+// ShortCommit returns the first 7 chars of CommitHash for compact display.
+func ShortCommit() string {
+	const shortHashLen = 7
+	if len(CommitHash) >= shortHashLen {
+		return CommitHash[:7]
+	}
+	return CommitHash
+}
+
 func main() {
 	// `health` is a scratch-compatible healthcheck subcommand: it does an
 	// internal GET to /health and exits 0 on 200, 1 otherwise. The image
@@ -40,6 +60,8 @@ func main() {
 
 func runHealthcheck() error {
 	cfg := config.Load()
+	cfg.BuildLabel = Version
+	cfg.BuildCommit = ShortCommit()
 	url := fmt.Sprintf("http://127.0.0.1:%d/health", cfg.Port)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil) // #nosec G107
 	if err != nil {
@@ -58,6 +80,8 @@ func runHealthcheck() error {
 
 func run() error {
 	cfg := config.Load()
+	cfg.BuildLabel = Version
+	cfg.BuildCommit = ShortCommit()
 
 	pb, todoH, q, shutdown, err := server.Run(cfg, nil)
 	if err != nil {

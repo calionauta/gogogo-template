@@ -45,6 +45,7 @@ const (
 type Handler struct {
 	app    core.App
 	hub    *queue.SSEHub
+	cfg    *config.Config
 	worker *collab.WebSyncWorker
 
 	// peers tracks, per doc, the set of clientIDs currently connected to
@@ -59,10 +60,23 @@ type Handler struct {
 // collection (or an in-memory fake in tests). docs is the shared DocStore
 // (pass collab.NewDocStore()); nc is the NATS connection for cross-instance
 // sync (pass nil for SSE-only mode).
-func New(app core.App, hub *queue.SSEHub, persister collab.Persister, docs *collab.DocStore, nc *natsio.Conn) *Handler {
+// New builds a whiteboard handler. persister is the PocketBase
+// whiteboards collection (or an in-memory fake in tests). docs is
+// the shared DocStore; nc is the NATS connection for cross-instance
+// sync (pass nil for SSE-only mode); cfg carries build metadata for
+// the navbar version badge (e.g. BuildLabel + BuildCommit).
+func New(
+	app core.App,
+	hub *queue.SSEHub,
+	persister collab.Persister,
+	docs *collab.DocStore,
+	nc *natsio.Conn,
+	cfg *config.Config,
+) *Handler {
 	return &Handler{
 		app:    app,
 		hub:    hub,
+		cfg:    cfg,
 		worker: collab.NewWebSyncWorker(hub, persister, docs, nc),
 		peers:  make(map[string]map[string]struct{}),
 	}
@@ -107,7 +121,7 @@ func (h *Handler) handleIndex(c *core.RequestEvent) error {
 			DocVer: r.GetInt("version"),
 		})
 	}
-	if err := renderBoardList(c, email, boards); err != nil {
+	if err := renderBoardList(c, email, boards, h.cfg.BuildLabel, h.cfg.BuildCommit); err != nil {
 		return err
 	}
 	return nil
@@ -182,7 +196,7 @@ func (h *Handler) handleBoard(c *core.RequestEvent) error {
 	if snap, ok := h.worker.LoadSnapshot(docID); ok {
 		slog.Info("whiteboard: rehydrated doc", "doc", docID, "bytes", len(snap))
 	}
-	if err := renderBoard(c, email, docID); err != nil {
+	if err := renderBoard(c, email, docID, h.cfg.BuildLabel, h.cfg.BuildCommit); err != nil {
 		return err
 	}
 	return nil
@@ -455,13 +469,13 @@ func (h *Handler) handleSnapshot(c *core.RequestEvent) error {
 
 // renderBoardList writes the index page with PocketBase realtime wiring
 // so the whiteboard list updates live when another user creates a board.
-func renderBoardList(c *core.RequestEvent, email string, boards []BoardMeta) error {
+func renderBoardList(c *core.RequestEvent, email string, boards []BoardMeta, buildLabel, buildCommit string) error {
 	c.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	return BoardListWithRealtime(email, boards).Render(c.Request.Context(), c.Response)
+	return BoardListWithRealtime(email, boards, buildLabel, buildCommit).Render(c.Request.Context(), c.Response)
 }
 
 // renderBoard writes the interactive board page.
-func renderBoard(c *core.RequestEvent, email, docID string) error {
+func renderBoard(c *core.RequestEvent, email, docID, buildLabel, buildCommit string) error {
 	c.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	return Board(email, docID).Render(c.Request.Context(), c.Response)
+	return Board(email, docID, buildLabel, buildCommit).Render(c.Request.Context(), c.Response)
 }

@@ -24,7 +24,7 @@ type BoardMeta struct {
 // PocketBase realtime wiring so the list updates live when another user
 // creates a new board. Follows the same pattern as the todo feature's
 // PbRealtimeRecords: a hidden @get button + EventSource subscription.
-templ BoardListWithRealtime(email string, boards []BoardMeta) {
+templ BoardListWithRealtime(email string, boards []BoardMeta, buildLabel string, buildCommit string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -44,7 +44,7 @@ templ BoardListWithRealtime(email string, boards []BoardMeta) {
 			</script>
 		</head>
 		<body>
-			@auth.Navbar(email, "whiteboard")
+			@auth.Navbar(email, "whiteboard", buildLabel, buildCommit)
 			@components.OfflineBanner()
 			<main class="container mx-auto p-4">
 				<div class="flex items-center justify-between mb-4">
@@ -112,7 +112,7 @@ templ WhiteboardListFragment(boards []BoardMeta) {
 // Board renders the interactive canvas for one whiteboard doc. The
 // client connects to the SSE stream and listens for shape + presence
 // events; drawing POSTs Loro updates back to the server.
-templ Board(email string, docID string) {
+templ Board(email string, docID string, buildLabel string, buildCommit string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -127,7 +127,7 @@ templ Board(email string, docID string) {
 			<script src="/static/rough.min.js"></script>
 		</head>
 		<body>
-			@auth.Navbar(email, "whiteboard")
+			@auth.Navbar(email, "whiteboard", buildLabel, buildCommit)
 			@components.OfflineBanner()
 			<main class="flex flex-col h-[calc(100vh-4rem)]" data-doc-id={ docID }>
 				<div class="toolbar flex flex-wrap gap-2 p-2 bg-base-200 border-b border-base-content/10 overflow-x-auto"

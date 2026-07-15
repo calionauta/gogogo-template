@@ -16,7 +16,7 @@ import (
 // Pages call Layout(title, signals, userEmail) and embed their content as
 // children. userEmail is the empty string for guests; the navbar shows a
 // "Sign in" CTA instead.
-templ Layout(title string, signals todo.Signals, userEmail string) {
+templ Layout(title string, signals todo.Signals, userEmail string, buildLabel string, buildCommit string) {
 	<!DOCTYPE html>
 	<html lang="en" data-theme="light">
 		<head>
@@ -132,7 +132,7 @@ templ Layout(title string, signals todo.Signals, userEmail string) {
 			</style>
 		</head>
 		<body class="bg-base-200 min-h-screen">
-			@auth.Navbar(userEmail, "todos")
+			@auth.Navbar(userEmail, "todos", buildLabel, buildCommit)
 			@components.OfflineBanner()
 			@TodoList(signals)
 			<div id="toast-container"></div>

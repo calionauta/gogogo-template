@@ -7,7 +7,7 @@
 
 ## Principles
 
-- **Unified build.** One `go build ./cmd/web` compiles everything. No build tags. Opt out at runtime with env vars (`NATS_ENABLED=false`, `DAGNATS_ENABLED=false`).
+- **Unified build.** One `go build ./cmd/web` compiles everything — no feature build tags. The only tag in play is `-tags no_default_driver`, which swaps the SQLite driver (`ncruces/go-sqlite3`) in for `modernc.org/sqlite`. Features are never gated behind build tags; opt out at runtime with env vars (`NATS_ENABLED=false`, `DAGNATS_ENABLED=false`).
 - **Features in `features/`**, infrastructure in `internal/`. Features depend on infra, never the reverse.
 - **Wiring in `router/router.go` → `Init()`**. Every feature is registered by one function call.
 - **Startup order in `cmd/web/main.go`** (see diagram below).
@@ -129,7 +129,7 @@ The **whiteboard already uses Loro CRDT**. For the **todo feature**, SW + Backgr
                           ▼            ▼
               ┌──────────────────┐  ┌───────────────────┐
               │    SSE Hub       │  │  DagNats workflows│
-              │ (in-process fan) │  │  (Plugin, :8090)  │
+              │ (in-process fan) │  │  (Pluggable 🟡, :8090)  │
               └────────┬─────────┘  └────────┬──────────┘
                        │                     │
                        ▼                     ▼
@@ -139,7 +139,7 @@ The **whiteboard already uses Loro CRDT**. For the **todo feature**, SW + Backgr
               └──────────────────────────────────┘
 
               ┌──────────────────────────────────┐
-              │   NATS JetStream                 │  ← Infra: cross-instance event bus
+              │   NATS JetStream                 │  ← Pluggable 🟡: cross-instance event bus
               │                                   │
               │  ▲ WebSyncWorker publishes ops    │
               │  ▲ DagNats persists workflow      │
@@ -149,12 +149,12 @@ The **whiteboard already uses Loro CRDT**. For the **todo feature**, SW + Backgr
 
 - **goqite** (Core 🔴): every feature's async work. Worker pool streams progress via SSE Hub.
 - **SSE Hub** (Core 🔴, in `internal/queue/ssehub.go`): in-process fan-out to browser tabs via Go channels. Per-client channels, replay buffer, backpressure. **Does not cross the NATS boundary** — it is purely in-process.
-- **NATS JetStream** (Infra 🟡): cross-instance event bus. Used by:
+- **NATS JetStream** (Pluggable 🟡): cross-instance event bus. Used by:
   - Whiteboard sync — shapes published directly via `WebSyncWorker.nc.Publish()` to subject `app.sync.<docID>` (bypasses SSE Hub entirely)
   - DagNats — workflow engine uses JetStream for durable state
   - Desktop Leaf Node — optional edge sync
   - *(Todos currently use the in-memory SSE Hub broadcaster, not NATS — the `JetStreamBroadcaster` exists in code but the startup order means it's never triggered. This is a pre-existing limitation: `server.Run(cfg, nil)` runs before `startNATS()`, so the router never receives a valid JetStream context. To fix it, either: (a) pass `startNATS()`'s JetStream context through `server.Run(cfg, js)`, or (b) follow the whiteboard's pattern of holding a direct `nc` connection reference.)*
-- **DagNats** (Plugin 🟢): durable multi-step workflows as declarative JSON. Uses NATS JetStream for state.
+- **DagNats** (Pluggable 🟡): durable multi-step workflows as declarative JSON. Uses NATS JetStream for state.
 
 ---
 
@@ -163,24 +163,26 @@ The **whiteboard already uses Loro CRDT**. For the **todo feature**, SW + Backgr
 ```
 main.go
   ├─ config.Load()              ← 🔴 Core: reads env vars + age secrets
-  ├─ server.Run(cfg, js)       ← 🔴 Core: PocketBase + queue + router.Init
-  │   └─ router.Init(app, q, cfg, js, todoH)
+  ├─ server.Run(cfg, nil)       ← 🔴 Core: PocketBase + queue + router.Init
+  │   └─ router.Init(app, q, cfg, js, todoH)   # js is nil here (see note below)
   │       ├─ static files         🔴 Core
-  │       ├─ auth.RegisterAuth    🟢/🔴 Plugin UI + Core middleware
-  │       ├─ todo routes          🟢 Plugin
+  │       ├─ auth.RegisterAuth    🟢 FEATURE UI + 🔴 CORE middleware
+  │       ├─ todo routes          🟢 FEATURE
   │       │   └─ CrudPublisher (if cfg.OfflineSync.Enabled && js != nil)
-  │       ├─ registerOnboarding   🟢 Plugin
-  │       ├─ registerWhiteboard   🟢 Plugin (creates DocStore, separate SSEHub)
-  │       ├─ registerCollabSync   🟢 Plugin (NATS listener)
-  │       └─ registerCrudConsumer 🟢 Plugin (if cfg.OfflineSync.Enabled)
-  ├─ startDagNats(cfg, pb, ...) ← 🟢 Plugin: boots engine (NATS on :4222)
-  ├─ startNATS(cfg)             ← 🟡 Infra: connects or starts embedded NATS
+  │       ├─ registerOnboarding   🟢 FEATURE
+  │       ├─ registerWhiteboard   🟢 FEATURE (creates DocStore, separate SSEHub)
+  │       ├─ registerCollabSync   🟢 FEATURE (NATS listener)
+  │       └─ registerCrudConsumer 🟡 PLUGGABLE (if cfg.OfflineSync.Enabled)
+  ├─ startDagNats(cfg, pb, ...) ← 🟡 PLUGGABLE: boots engine (NATS on :4222)
+  ├─ startNATS(cfg)             ← 🟡 PLUGGABLE: connects or starts embedded NATS
   └─ pb.Start()                 ← 🔴 Core: serves HTTP
 ```
 
 > **OfflineSync toggle.** The entire offline sync stack is gated by `cfg.OfflineSync.Enabled`. When `false`: CrudPublisher is nil (handler's publishCrudOp is a no-op), registerCrudConsumer is skipped, and no NATS CRUD stream is created. Set `OFFLINE_SYNC_ENABLED=false` in production for an always-online deployment with zero overhead.
 
 > **Note on startup order:** `server.Run(cfg, nil)` is called BEFORE `startDagNats` and `startNATS`. This means `js` (the JetStream context) is always `nil` when `router.Init` runs. As a result, `newTodoBroadcaster(nil, hub)` always falls back to `InMemoryBroadcaster`. The whiteboard bypasses this limitation by publishing to NATS directly via `WebSyncWorker.nc.Publish()`. If you need NATS-backed todo broadcasting, pass the JetStream context through `server.Run(cfg, js)` instead of `nil`.
+
+> **CRDT store transport (optional, post-`Init`).** If the configured store is a `*crdtstore.CRDTStore`, `main.go` wires its JetStream transport and SSE Hub publisher *after* `startNATS()` (post-`router.Init`) via `server.WireCRDTStoreTransport` / `server.WireCRDTStorePublisher`. This is the one piece of realtime wiring that intentionally runs after `Init` because it needs the live JetStream context that `startNATS` produces.
 
 ---
 
@@ -202,7 +204,7 @@ New infra should go in `internal/<name>/`. Same pattern: create the package, wir
 cmd/web/main.go            Entry point
 config/config.go           Env-based config
 db/pocketbase.go           PocketBase + seed
-features/                  Demo features (all 🟢 Plugin)
+features/                  Demo features (🟢 FEATURE, except auth middleware 🔴 + store 🟡)
   auth/                      Login/logout/cookie (UI 🟢, middleware 🔴)
   todo/                      Todo MVC (the reference implementation)
     handlers/                  HTTP routes + SSE stream + onboarding

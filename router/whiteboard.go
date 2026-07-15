@@ -8,6 +8,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"github.com/calionauta/gogogo-fullstack-template/config"
 	"github.com/calionauta/gogogo-fullstack-template/features/whiteboard"
 	"github.com/calionauta/gogogo-fullstack-template/internal/collab"
 	"github.com/calionauta/gogogo-fullstack-template/internal/nats"
@@ -29,7 +30,7 @@ import (
 // static assets in router.go. These move with the feature on removal.
 //
 // Returns the DocStore for registerCollabSync to use.
-func registerWhiteboard(se *core.ServeEvent, _ *queue.Queue, hub *queue.SSEHub) *collab.DocStore {
+func registerWhiteboard(se *core.ServeEvent, _ *queue.Queue, hub *queue.SSEHub, cfg *config.Config) *collab.DocStore {
 	docs := collab.NewDocStore()
 	persister := collab.NewPocketBasePersister(se.App)
 	nc := nats.Conn() // may be nil if NATS not started; WebSyncWorker handles nil
@@ -56,7 +57,7 @@ func registerWhiteboard(se *core.ServeEvent, _ *queue.Queue, hub *queue.SSEHub) 
 		log.Printf("whiteboard: error walking static assets: %v", err)
 	}
 
-	h := whiteboard.New(se.App, hub, persister, docs, nc)
+	h := whiteboard.New(se.App, hub, persister, docs, nc, cfg)
 	h.RegisterRoutes(se)
 	return docs
 }

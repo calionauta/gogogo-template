@@ -3516,6 +3516,9 @@
       max-width: 96rem;
     }
   }
+  .mx-1 {
+    margin-inline: var(--spacing);
+  }
   .mx-auto {
     margin-inline: auto;
   }

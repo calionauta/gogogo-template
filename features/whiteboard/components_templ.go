@@ -41,7 +41,7 @@ type BoardMeta struct {
 // PocketBase realtime wiring so the list updates live when another user
 // creates a new board. Follows the same pattern as the todo feature's
 // PbRealtimeRecords: a hidden @get button + EventSource subscription.
-func BoardListWithRealtime(email string, boards []BoardMeta) templ.Component {
+func BoardListWithRealtime(email string, boards []BoardMeta, buildLabel string, buildCommit string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -74,7 +74,7 @@ func BoardListWithRealtime(email string, boards []BoardMeta) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = auth.Navbar(email, "whiteboard").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = auth.Navbar(email, "whiteboard", buildLabel, buildCommit).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -201,7 +201,7 @@ func WhiteboardListFragment(boards []BoardMeta) templ.Component {
 // Board renders the interactive canvas for one whiteboard doc. The
 // client connects to the SSE stream and listens for shape + presence
 // events; drawing POSTs Loro updates back to the server.
-func Board(email string, docID string) templ.Component {
+func Board(email string, docID string, buildLabel string, buildCommit string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -247,7 +247,7 @@ func Board(email string, docID string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = auth.Navbar(email, "whiteboard").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = auth.Navbar(email, "whiteboard", buildLabel, buildCommit).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
