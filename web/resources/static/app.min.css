@@ -2079,6 +2079,29 @@
       }
     }
   }
+  .validator {
+    @layer daisyui.l1.l2.l3 {
+      &:user-valid, &:has(:user-valid) {
+        &, &:focus, &:checked, &[aria-checked="true"], &:focus-within {
+          --input-color: var(--color-success);
+        }
+      }
+      &:user-invalid, &:has(:user-invalid), &[aria-invalid]:not([aria-invalid="false"]), &:has([aria-invalid]:not([aria-invalid="false"])) {
+        &, &:focus, &:checked, &[aria-checked="true"], &:focus-within {
+          --input-color: var(--color-error);
+        }
+        & ~ .validator-hint {
+          visibility: visible;
+          color: var(--color-error);
+        }
+      }
+    }
+    &:user-invalid, &:has(:user-invalid), &[aria-invalid]:not([aria-invalid="false"]), &:has([aria-invalid]:not([aria-invalid="false"])) {
+      & ~ .validator-hint {
+        display: revert-layer;
+      }
+    }
+  }
   .collapse {
     visibility: collapse;
   }
