@@ -66,15 +66,24 @@ func ctxOf(c *core.RequestEvent) context.Context {
 	return c.Request.Context()
 }
 
-// st returns the configured store, falling back to a lazily-built
-// PBStore on the handler's *pocketbase.PocketBase when SetStore was
-// never called. The lazy fallback keeps existing tests (which wire
-// the handler via New() but don't call SetStore) working without
-// modification; production wiring in router.Init calls SetStore
-// explicitly so the fallback is dead code at runtime.
+// st returns the configured store. router.Init calls SetStore
+// before the handler serves traffic; st() then returns that store
+// directly. If SetStore was never called (test paths that wire
+// via handlers.New() but skip SetStore), the first concurrent
+// caller initializes a PBStore on demand; subsequent callers
+// return that same instance.
+//
+// sync.Once is the race-condition fix: the previous "if h.store ==
+// nil { h.store = ... }" pattern wrote to h.store from concurrent
+// request handlers + SSE stream openers, which `-race` caught in CI.
 func (h *TodoHandler) st() store.EntityStore[todo.Todo] {
+	h.stOnce.Do(func() {
+		if h.store == nil {
+			h.stFallback = pbstore.New(h.app, "todos")
+		}
+	})
 	if h.store == nil {
-		h.store = pbstore.New(h.app, "todos")
+		return h.stFallback
 	}
 	return h.store
 }

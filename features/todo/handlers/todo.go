@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -74,6 +75,15 @@ type TodoHandler struct {
 	// *OnboardingHandler is wired in RegisterOnboardingRoutes (dagnats
 	// build only); nil when dagnats is disabled.
 	onboarding OnboardingResumer
+
+	// stOnce protects the lazy fallback in st() so concurrent
+	// goroutines (every request handler + the SSE stream opener
+	// for each client) all converge on a single PBStore instance.
+	// Without it the cross-goroutine writes to h.store trip
+	// `-race` in CI. SetStore writes h.store through a separate
+	// path; st() only fills h.stFallback.
+	stOnce     sync.Once
+	stFallback store.EntityStore[todo.Todo]
 }
 
 // OnboardingResumer is the capability the create path needs from the
@@ -213,18 +223,20 @@ func storeLabel(cfg *config.Config) string {
 // strategy. Surfaced next to the store label in the page sub-header
 // so the user knows what to expect when the network drops.
 func offlineLabel(cfg *config.Config) string {
-	if cfg.OfflineSync.Enabled {
-		switch cfg.EntityStore {
-		case "crdt":
-			return "CRDT cross-instance sync via JetStream; SW queues browser mutations"
-		default:
-			if cfg.NATS.Enabled {
-				return "Offline mutations queued via Service Worker; replay on reconnect; cross-instance via JetStream (NATS)"
-			}
-			return "Offline mutations queued via Service Worker; replay on reconnect; cross-instance sync disabled"
-		}
+	if !cfg.OfflineSync.Enabled {
+		return "OFFLINE_SYNC_ENABLED=false — actions fail when network is down; offline mutations NOT queued"
 	}
-	return "Offline mutations NOT queued — actions fail when network is down"
+	switch cfg.EntityStore {
+	case "crdt":
+		return "CRDT cross-instance sync via JetStream (NATS); SW queues browser mutations; mode = crdt"
+	default:
+		if cfg.NATS.Enabled {
+			label := "PBStore + NATS_ENABLED=true — SW queues browser mutations"
+			label += " + JetStream (NATS) streams CRUD ops across replicas"
+			return label + "; mode = pb + nats"
+		}
+		return "PBStore + NATS_ENABLED=false — SW queues browser mutations; no JetStream; no cross-instance sync; mode = pb"
+	}
 }
 
 // realtimeLabel returns the label for the active broadcast transport.
