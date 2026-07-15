@@ -174,6 +174,10 @@ func (h *TodoHandler) handleCreate(c *core.RequestEvent) error {
 		h.onboarding.ResumeOnboarding(ownerOf(c))
 	}
 
+	if isOfflineReplay(c) {
+		return c.String(http.StatusOK, "replayed")
+	}
+
 	todos, err := h.listTodos(c, "all")
 	if err != nil {
 		slog.Error("todo: list after create failed", "error", err)
@@ -227,6 +231,10 @@ func (h *TodoHandler) handleToggle(c *core.RequestEvent) error {
 	if err != nil {
 		slog.Error("todo: toggle save failed", "id", id, "error", err)
 		return c.String(statusInternal, "toggle failed")
+	}
+
+	if isOfflineReplay(c) {
+		return c.String(http.StatusOK, "replayed")
 	}
 
 	todos, err := h.listTodos(c, "all")
@@ -289,6 +297,10 @@ func (h *TodoHandler) handleDelete(c *core.RequestEvent) error {
 		return c.String(statusInternal, "delete failed")
 	}
 
+	if isOfflineReplay(c) {
+		return c.String(http.StatusOK, "replayed")
+	}
+
 	todos, err := h.listTodos(c, "all")
 	if err != nil {
 		slog.Error("todo: list after delete failed", "error", err)
@@ -328,6 +340,10 @@ func (h *TodoHandler) handleClearCompleted(c *core.RequestEvent) error {
 		return c.String(statusInternal, "clear failed")
 	}
 
+	if isOfflineReplay(c) {
+		return c.String(http.StatusOK, "replayed")
+	}
+
 	todos, err := h.listTodos(c, "all")
 	if err != nil {
 		slog.Error("todo: list after clear failed", "error", err)
@@ -346,6 +362,15 @@ func (h *TodoHandler) handleClearCompleted(c *core.RequestEvent) error {
 		return emitToast(sse, "Nothing to clear", "info")
 	}
 	return emitToast(sse, fmt.Sprintf("Cleared %d completed", count), "success")
+}
+
+// isOfflineReplay reports whether the request was replayed by the Service
+// Worker (tagged with X-Offline-Replay). Replayed mutations still run their
+// side effects (DB write, NATS publish, onboarding resume) and still trigger
+// PocketBase realtime, so the client learns of the change without the SSE
+// patch the SW discards — returning early skips that wasted render.
+func isOfflineReplay(c *core.RequestEvent) bool {
+	return c.Request.Header.Get("X-Offline-Replay") == "1"
 }
 
 // ownerOf returns the authenticated user's id, or "" if the request is

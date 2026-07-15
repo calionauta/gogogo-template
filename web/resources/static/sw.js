@@ -134,7 +134,8 @@ async function networkFirstWithQueue(request) {
     // Try the real request first.
     return await fetch(request);
   } catch (_) {
-    // Network unavailable — queue the request and return 202 Accepted.
+    // Network unavailable — queue the request and return a 200 Datastar
+    // fragment (see below) so the client's @post action applies a patch.
     try {
       var cloned = request.clone();
       await queueRequest(cloned);
@@ -149,36 +150,42 @@ async function networkFirstWithQueue(request) {
       // happens if IndexedDB is unavailable (private browsing, disk full).
     }
     // Return a Datastar-format fragment that:
-    //   1. sets datastar-mode=append + datastar-selector=#toast-container
-    //      so the existing toast component shows an offline toast
+    //   1. appends an offline toast into the styled #toast-container stack
+    //      (falls back to <body> on pages without that container)
     //   2. dispatches the same `gogogo:queued` window event the
     //      offline-banner uses, so any UI element bound to that
-    //      listener (e.g. createForm `$loading` reset) gets cleaned up
+    //      listener (e.g. createForm `$loading`/`$newTitle` reset) is
+    //      cleaned up. The offline-banner's SW postMessage bridge also
+    //      dispatches this event, so the reset is guaranteed even if
+    //      this fragment's script is somehow missed.
     //
-    // The 202 + JSON body alone was insufficient: Datastar's @post
-    // helper applied NO patch on 202 and the loading spinner stuck
-    // forever. Returning a fragment makes Datastar @post run the
-    // same patch path as a regular response, which dispatches the
-    // event listener we already wire elsewhere.
+    // A bare 202/JSON response was insufficient: Datastar's @post helper
+    // applied NO patch on a non-fragment response and the loading spinner
+    // stuck forever. Returning a fragment makes @post run the same patch
+    // path as a regular response, which executes the inline script.
     //
-    // The toast HTML uses the same `@components.Toast(...)` template
-    // surface that the in-process toasts use. Using literal HTML here
-    // keeps the SW self-contained (no compilation step).
+    // The toast HTML reuses the same DaisyUI surface as in-process toasts.
+    // Using literal HTML keeps the SW self-contained (no compile step).
     return new Response(
-      '<div id="offline-queued-toast" class="alert alert-warning mb-2">' +
+      '<div data-offline-toast class="alert alert-warning mb-2">' +
         '<span>Offline — request queued. Will sync when you reconnect.</span>' +
       '</div>' +
-      '<script>window.dispatchEvent(new CustomEvent("gogogo:queued"));</script>',
+      '<script>' +
+        // Keep only one offline toast in the stack. The form reset
+        // ($loading/$newTitle) is driven solely by the offline-banner
+        // postMessage bridge, which is the single source of the
+        // gogogo:queued event (see internal/components/offline_banner.templ).
+        'var __old = document.querySelector("[data-offline-toast]");' +
+        'if (__old) __old.remove();' +
+      '</script>',
       {
         status: 200,
         headers: {
           "Content-Type": "text/html",
-          // Datastar-specific headers consumed by the @post action:
-          // selector=body so the patch is applied globally, mode=append
-          // so we don't replace the page, mergeSignals (Datastar will
-          // see no signals in the script tag and leave current signals
-          // alone — the gogogo:queued window event handles state reset).
-          "datastar-selector": "body",
+          // Append into the styled #toast-container stack so the offline
+          // toast renders in the same fixed bottom-right stack as the
+          // in-process toasts (Datastar falls back to <body> if absent).
+          "datastar-selector": "#toast-container",
           "datastar-mode": "append",
         },
       }
@@ -252,6 +259,16 @@ self.addEventListener("sync", function (e) {
   }
 });
 
+// Fallback for browsers without the Background Sync API (Firefox, Safari):
+// when connectivity returns, drain the queue ourselves. Browsers that DO
+// support Background Sync fire the `sync` event instead, so we skip the
+// manual drain there to avoid a double replay. (Server-side idem_key still
+// de-duplicates regardless, so a rare double replay is harmless.)
+self.addEventListener("online", function () {
+  if (self.registration && self.registration.sync) return;
+  replayQueue();
+});
+
 async function replayQueue() {
   var items;
   try {
@@ -272,6 +289,10 @@ async function replayQueue() {
       (item.headers || []).forEach(function (pair) {
         headers.append(pair[0], pair[1]);
       });
+      // Tag replayed requests so the server can return a lightweight
+      // response (no Datastar SSE body) — the client still learns of the
+      // change via PocketBase realtime, so the streamed SSE would be wasted.
+      headers.append("X-Offline-Replay", "1");
       var opts = {
         method: item.method,
         headers: headers

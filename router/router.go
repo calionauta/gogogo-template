@@ -92,6 +92,21 @@ func Init(
 			log.Printf("static: error walking embedded assets: %v", err)
 		}
 
+		// Service Worker served from the ROOT (/sw.js) so its scope is "/"
+		// (per spec, scope defaults to the script's directory). A SW served
+		// from /static/ would only get /static/ scope and would NEVER
+		// intercept /api/* mutations — the offline "Add button stuck +
+		// todo lost" bug. Root scope lets it intercept /api/todos etc.
+		// Service-Worker-Allowed is set as a belt-and-suspenders so the
+		// { scope: '/' } option in the client is always honoured even if
+		// the script is later moved under /static/.
+		se.Router.GET("/sw.js", func(c *core.RequestEvent) error {
+			c.Response.Header().Set("Service-Worker-Allowed", "/")
+			hs := http.FileServer(http.FS(staticFS))
+			hs.ServeHTTP(c.Response, c.Request)
+			return nil
+		})
+
 		// Auth: login/logout/cookie middleware. Wires the demo login
 		// page and ensures every request has e.Auth populated from the
 		// pb_auth cookie before reaching feature handlers.

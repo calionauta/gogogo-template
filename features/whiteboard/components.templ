@@ -24,7 +24,7 @@ type BoardMeta struct {
 // PocketBase realtime wiring so the list updates live when another user
 // creates a new board. Follows the same pattern as the todo feature's
 // PbRealtimeRecords: a hidden @get button + EventSource subscription.
-templ BoardListWithRealtime(email string, boards []BoardMeta, buildLabel string, buildCommit string) {
+templ BoardListWithRealtime(email string, boards []BoardMeta, buildLabel string, buildCommit string, offlineSync bool) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -37,11 +37,7 @@ templ BoardListWithRealtime(email string, boards []BoardMeta, buildLabel string,
 			<script defer type="module" src="/static/theme.js"></script>
 			<script src="/static/iconify-icon.min.js"></script>
 			<script defer type="module" src="/static/datastar.js"></script>
-			<script>
-				if ('serviceWorker' in navigator) {
-					navigator.serviceWorker.register('/static/sw.js').catch(function () {});
-				}
-			</script>
+			@components.OfflineSyncScript(offlineSync)
 		</head>
 		<body>
 			@auth.Navbar(email, "whiteboard", buildLabel, buildCommit)

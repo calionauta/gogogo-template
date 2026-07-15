@@ -16,7 +16,7 @@ import (
 // Pages call Layout(title, signals, userEmail) and embed their content as
 // children. userEmail is the empty string for guests; the navbar shows a
 // "Sign in" CTA instead.
-templ Layout(title string, signals todo.Signals, userEmail string, buildLabel string, buildCommit string) {
+templ Layout(title string, signals todo.Signals, userEmail string, buildLabel string, buildCommit string, offlineSync bool) {
 	<!DOCTYPE html>
 	<html lang="en" data-theme="light">
 		<head>
@@ -29,18 +29,7 @@ templ Layout(title string, signals todo.Signals, userEmail string, buildLabel st
 			<script defer type="module" src="/static/theme.js"></script>
 			<script src="/static/iconify-icon.min.js"></script>
 			<script defer type="module" src="/static/datastar.js"></script>
-			<script>
-				// Register Service Worker for offline PocketBase API support.
-				// GET requests use stale-while-revalidate cache; mutations are
-				// queued in IndexedDB and replayed via Background Sync on reconnect.
-				// SSE streams and whiteboard endpoints are NOT intercepted.
-				if ('serviceWorker' in navigator) {
-					navigator.serviceWorker.register('/static/sw.js').catch(function () {
-						// SW registration failed — offline support degraded but app
-						// still works (no caching, no offline queue).
-					});
-				}
-			</script>
+			@components.OfflineSyncScript(offlineSync)
 			<style>
 				/* Stacking container: fixed bottom-right, toasts stack upward. */
 				#toast-container {

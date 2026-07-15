@@ -286,6 +286,7 @@ func (h *TodoHandler) handleIndex(c *core.RequestEvent) error {
 		"Todos — gogogo-fullstack-template",
 		signals, userEmail,
 		h.cfg.BuildLabel, h.cfg.BuildCommit,
+		h.cfg.OfflineSync.Enabled,
 	).Render(c.Request.Context(), c.Response)
 }
 

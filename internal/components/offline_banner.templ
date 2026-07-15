@@ -76,8 +76,10 @@ templ OfflineBanner() {
 						setState("offline");
 						// Notify Datastar consumers: a mutation just queued
 						// offline, so any form that set $loading=true before
-						// posting needs to clear it (SW returned 202 JSON, so
-						// the @post action doesn't patch a reset fragment).
+						// posting needs to clear it. The SW's queued fragment
+						// also dispatches this event from its inline <script>,
+						// but this postMessage bridge is the guaranteed reset
+						// path (it fires whenever the SW intercepted the request).
 						window.dispatchEvent(new CustomEvent("gogogo:queued"));
 					}
 				});

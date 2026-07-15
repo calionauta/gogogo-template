@@ -37,7 +37,7 @@ func marshalSignals(s todo.Signals) string {
 // other browser tabs share the same view via the broadcaster.
 templ TodoList(signals todo.Signals) {
 	<div class="max-w-5xl mx-auto mt-8 px-4 animate-in fade-in zoom-in-95 animate-duration-500">
-		<div data-signals={ marshalSignals(signals) } data-on:gogogo:queued__window="$loading = false">
+		<div data-signals={ marshalSignals(signals) } data-on:gogogo:queued__window="$loading = false; $newTitle = ''">
 
 			<!-- ═══════════════ HEADER ═══════════════ -->
 			<div class="flex items-center justify-between mb-6">
