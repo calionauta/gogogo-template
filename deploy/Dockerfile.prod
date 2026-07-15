@@ -19,6 +19,13 @@
 # ────────────────────────────
 FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache git ca-certificates nodejs npm gcc musl-dev
+# ARGs for build-time metadata injection. Defaults match local
+# builds; the docker-image Makefile target passes real values via
+# --build-arg.
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILDTIME=
+
 WORKDIR /src
 
 # Install Go module deps first (cached independently of source).
@@ -38,12 +45,10 @@ RUN npm install --no-audit --no-fund
 COPY . .
 RUN go tool templ generate && \
     npm run build --silent && \
-    # Inject build metadata — see top-level Dockerfile for rationale.
-    ARG VERSION=dev
-    ARG COMMIT=unknown
-    ARG BUILDTIME=
+    # Inject build metadata. ARGs declared at top of file. See
+    # top-level Dockerfile for rationale.
     CGO_ENABLED=1 GOOS=linux go build \
-        -trimpath -ldflags="-s -w -extldflags=-static -X main.Version=${VERSION} -X main.CommitHash=${COMMIT} -X main.BuildTime=${BUILDTIME}" \
+        -trimpath -ldflags="-s -w -extldflags=-static -X main.Version=$\{VERSION\} -X main.CommitHash=$\{COMMIT\} -X main.BuildTime=$\{BUILDTIME\}" \
         -o /out/app ./cmd/web/
 
 # Stash the ca-certificates bundle so the runtime stage can copy it

@@ -27,6 +27,13 @@
 # ────────────────────────────
 FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache git ca-certificates nodejs npm gcc musl-dev
+# ARGs for build-time metadata injection. Defaults match local
+# builds; the docker-image Makefile target passes real values via
+# --build-arg (see Makefile).
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILDTIME=
+
 WORKDIR /src
 
 # Install Go module deps first (cached independently of source).
