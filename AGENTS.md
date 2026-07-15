@@ -356,3 +356,29 @@ The desktop binary shares 100% of the backend. With `NATS_LEAFNODE_URL` set, it 
 ## Testing
 
 Temp-dir PocketBase + Bootstrap + real SQLite; `httptest.NewServer` over a real router; assert against DB. LLM fakes via `internal/llm/fakeserver` (transport) or injected stubs (business logic). `go test -race -p 1 ./...` (serialized packages for DagNats engine stability).
+
+---
+
+## No AI attribution in commits or release notes
+
+Claude or any AI assistant does NOT co-author anything in this
+repository. The user writes every commit, release note, PR
+description, blog post, and CHANGELOG entry.
+
+**Rules for any drafting task:**
+
+- **Never** add `Co-Authored-By: Claude ...` or any AI model trailer
+  to a commit message, PR description, release notes, blog post, or
+  CHANGELOG entry. The model did not co-author; the trailer falsely
+  credits it.
+- **Never** add an explicit human `Co-Authored-By` trailer to release
+  notes either — release notes are part of the artifact, not
+  meta-commentary.
+- When drafting a `/tmp/msg.txt` (commit message) or
+  `/tmp/notes.txt` (release body), the file ends at the last
+  meaningful sentence. Do not append attribution lines.
+
+**Why this matters:** the trailer would spread AI crediting into
+commit history and release pages where every reader of the public
+repo sees it. The model has no standing to claim co-authorship of a
+release the user did not design, edit, and approve end-to-end.
