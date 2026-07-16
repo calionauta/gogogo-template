@@ -15,6 +15,12 @@ import (
 // ncruces/go-sqlite3 driver as production and creates a `users` auth
 // collection, mirroring production where ensureTodosCollection links the
 // owner relation to `users`.
+//
+// NOTE: the DSN MUST use the "file:" URI prefix. ncruces only parses
+// ?_pragma= query params when the DSN is a file: URI; without the prefix
+// it treats the whole string (path + "?_pragma=...") as a filename and
+// SILENTLY DROPS every pragma (journal_mode stays DELETE, foreign_keys
+// OFF). This matches production's DBConnect in db/pocketbase.go.
 func newSeedTestApp(t *testing.T, tmpDir string) *pocketbase.PocketBase {
 	t.Helper()
 	app := pocketbase.NewWithConfig(pocketbase.Config{
@@ -23,7 +29,7 @@ func newSeedTestApp(t *testing.T, tmpDir string) *pocketbase.PocketBase {
 			pragmas := "?_pragma=busy_timeout(10000)" +
 				"&_pragma=journal_mode(WAL)" +
 				"&_pragma=foreign_keys(ON)"
-			return dbx.Open("sqlite3", dbPath+pragmas)
+			return dbx.Open("sqlite3", "file:"+dbPath+pragmas)
 		},
 	})
 	if err := app.Bootstrap(); err != nil {

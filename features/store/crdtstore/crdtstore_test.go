@@ -47,6 +47,7 @@ var userSeq atomic.Int64
 // _pb_users_auth_, so tests must use a valid user id (not an arbitrary
 // string) as the owner.
 func newTestUser(t *testing.T, app *pocketbase.PocketBase) string {
+	t.Helper()
 	return newTestUserWithID(t, app, "")
 }
 
@@ -72,6 +73,7 @@ func newTestUserWithID(t *testing.T, app *pocketbase.PocketBase, id string) stri
 // PocketBase instances (used by cross-instance transport tests where
 // both stores must agree on the owner id).
 func newTestUserInBoth(t *testing.T, appA, appB *pocketbase.PocketBase) string {
+	t.Helper()
 	id := newTestUser(t, appA)
 	newTestUserWithID(t, appB, id)
 	return id
@@ -82,6 +84,12 @@ func newTestUserInBoth(t *testing.T, appA, appB *pocketbase.PocketBase) string {
 // driver as production). Duplicated here rather than exported from db
 // to keep the test fixture local; if a third package needs it,
 // promote to internal/testutil.
+//
+// NOTE: the DSN MUST use the "file:" URI prefix. ncruces only parses
+// ?_pragma= query params when the DSN is a file: URI; without the prefix
+// it treats the whole string (path + "?_pragma=...") as a filename and
+// SILENTLY DROPS every pragma (journal_mode stays DELETE, foreign_keys
+// OFF). This matches production's DBConnect in db/pocketbase.go.
 func newTestApp(t *testing.T, tmpDir string) *pocketbase.PocketBase {
 	t.Helper()
 	app := pocketbase.NewWithConfig(pocketbase.Config{
@@ -90,7 +98,7 @@ func newTestApp(t *testing.T, tmpDir string) *pocketbase.PocketBase {
 			pragmas := "?_pragma=busy_timeout(10000)" +
 				"&_pragma=journal_mode(WAL)" +
 				"&_pragma=foreign_keys(ON)"
-			return dbx.Open("sqlite3", dbPath+pragmas)
+			return dbx.Open("sqlite3", "file:"+dbPath+pragmas)
 		},
 	})
 	if err := app.Bootstrap(); err != nil {
@@ -253,74 +261,25 @@ func TestCRDTStore_ClearCompleted(t *testing.T) {
 }
 
 func TestCRDTStore_RecordRoundTrip(t *testing.T) {
-	// KNOWN LIMITATION (see commits 99caae3, 32d7e5a).
-	//
-	// When the `todos` collection is created via CRDTStore.EnsureSchema
-	// (the unit-test bootstrap), this test's path through
-	// s1.Create + s1.Close + s2 := New(app) + s2.List reads 0 records
-	// — even though an inline probe shows the rows exist in PB.
-	//
-	// Spike investigation ruled out every hypothesis we could isolate
-	// cheaply (all spikes since deleted — kept out of tree by protocol):
-	//   spike 1: app.Save variants (Save / SaveNoValidate / +WithContext)
-	//            — all 8 persist identically on fresh PB.
-	//   spike 3: inline Save + FindRecordsByFilter — returns 3 rows.
-	//   spike 4: doc(owner) rebuild from PB records — returns 3 items.
-	//   spike 6: real crdtstore code path — Save returns nil, query empty.
-	//   spike 7: RelationField Owner Required=true vs false — BOTH work.
-	//   spike 8: Save under s.mu + bumpVersion + re-entrant FindFirst
-	//            — works for 1 save.
-	//   spike 9: N+1 sequential upserts (persistRecords-style iteration,
-	//            each Create re-upserting accumulated items) — works.
-	//   spike 10: A) EnsureSchema shape WITHOUT OnRecordCreateRequest
-	//             hook — Save + readback returns 1 row.
-	//             B) EnsureSchema shape WITH OnRecordCreateRequest hook —
-	//             also 1 row. RegisterIdempotencyHook is NOT the
-	//             differentiator.
-	//   spike 11: A) EnsureSchema shape + hook — 1 row.
-	//             B) db/seed.go full shape (no owner Required, ListRule,
-	//             ViewRule, hook) — also 1 row. Shape delta is NOT the
-	//             differentiator.
-	//
-	// Spikes 10+11 are the conclusive ones: even an isolated
-	// EnsureSchema-shaped collection with no crdtstore wrap at all
-	// (just app.Save + readback) returns the record. So the bug lives
-	// strictly in the crdtstore.Create code path itself, NOT in the
-	// collection shape, NOT in the hook pipeline, NOT in the schema
-	// fields. The next spike must use the real *CRDTStore type —
-	// bare components (mutex, FindFirstRecordByFilter, app.Save) cannot
-	// reproduce.
-	//
-	// So the bug is NOT in:
-	//   - the Save API or its validations
-	//   - the (idem_key, owner) unique index
-	//   - RelationField Owner Required or shape
-	//   - the in-memory Loro doc or its rebuild path
-	//   - the s.mu / bumpVersion / doc(owner) ordering wrap
-	//   - the N+1 sequential upserts in persistRecords
-	//   - the hook pipeline (OnRecordCreateRequest)
-	//   - the seed-shape vs EnsureSchema-shape delta (ListRule, etc.)
-	//
-	// Root cause is somewhere we could not cheaply isolate using bare
-	// components; only the real *CRDTStore.Create path reproduces.
-	// Likely candidates (not yet validated): publishOpFromDoc's
-	// interaction with the DAO, or a pb-internals state-caching issue
-	// when app.Save is called against a collection whose table was
-	// created in the same process. The fix path needs deeper work;
-	// the offline-sync optionality makes it low priority because
-	// production uses db/SeedDefaults to create the collection (no known
-	// failure on the round-trip there).
-	// pipeline ordering, the OnRecordCreateRequest interaction with
-	// EnsureSchema-created collections, or some PB-internals detail that
-	// only surfaces when the real crdtstore.Create path runs end-to-end.
-	// The fix path needs PB-internals work; the offline-sync optionality
-	// makes it low priority because production uses db/SeedDefaults to
-	// create the collection (no known failure on the round-trip there).
-	//
-	// If/when a deeper spike is run, re-enable by removing this t.Skip
-	// and re-running. The tests pass against every other EntityStore
-	// path (CRUD same-app, transport, publisher).
-	t.Skip("known limitation: Save returns nil but subsequent FindRecordsByFilter returns 0 when the collection is built via CRDTStore.EnsureSchema. Production collections come from db/SeedDefaults and work. See inline comment for the spike evidence (spikes 1, 3, 4, 6, 7, 8, 9, 10, 11).")
+	// Root cause (found via investigation spikes in /spikes, gitignored):
+	// the write path keys the Loro items map by the TODO id (= idem_key,
+	// the client-generated id). Two read/prune paths instead used the
+	// PocketBase ROW id (r.Id), a different namespace, producing a key
+	// mismatch:
+	//   1) persistRecords' delete-stale loop checked `want[rec.Id]`;
+	//      want is keyed by todo id, so the check was always false and
+	//      EVERY just-upserted record was immediately deleted -> DB held
+	//      0 rows -> the round-trip (reload -> doc() rebuild -> List)
+	//      returned nothing. Other CRUD tests passed only because they
+	//      read the in-memory Loro doc, never the DB.
+	//   2) doc()'s reload keyed the Loro map by r.Id instead of
+	//      idem_key -> after a restart/reload, Get/Lookup-by-todo-id
+	//      failed and List returned todos whose IDs were PB row ids.
+	// Fixes (crdtstore.go):
+	//   - delete loop: `want[rec.GetString("idem_key")]`
+	//   - doc() reload: `items.InsertMapContainer(r.GetString("idem_key"), ...)`
+	// Re-enable this test now that the mismatch is fixed (previously
+	// skipped while the cause was still unknown).
 	// CRDTStore projects todos as normal `todos` records. A fresh
 	// CRDTStore on the SAME PocketBase app (simulating an in-process
 	// store restart) must rebuild its in-memory doc from those records.

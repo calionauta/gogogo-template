@@ -232,7 +232,10 @@ func (s *CRDTStore) doc(ownerID string) (*loro.LoroDoc, error) {
 	}
 	d := loro.NewLoroDoc()
 	items := d.GetMap(loro.AsContainerId(itemsContainerName))
-	records, err := s.app.FindRecordsByFilter(todosCollectionName, "owner = {:o}", "-created", 200, 0, map[string]any{"o": ownerID})
+	records, err := s.app.FindRecordsByFilter(
+		todosCollectionName, "owner = {:o}", "-created", 200, 0,
+		map[string]any{"o": ownerID},
+	)
 	// PB v0.39.6's FindRecordsByFilter returns sql.ErrNoRows when the
 	// filter matches no records (instead of an empty slice + nil).
 	// Treat that as "no existing todos" so the first access for a
@@ -241,7 +244,13 @@ func (s *CRDTStore) doc(ownerID string) (*loro.LoroDoc, error) {
 		return nil, fmt.Errorf("crdtstore: load todos for %s: %w", ownerID, err)
 	}
 	for _, r := range records {
-		child, iErr := items.InsertMapContainer(r.Id, loro.NewLoroMap())
+		// Key the Loro item map by the todo/idem_key id, NOT the
+		// PocketBase row id (r.Id). Every mutating path (Create,
+		// Update, Delete, ClearCompleted, persistRecords) keys the
+		// items map by the todo id, so the reload must match, or
+		// Get/Lookup-by-todo-id and the delete-stale check would
+		// see PocketBase record ids instead of todo ids.
+		child, iErr := items.InsertMapContainer(r.GetString("idem_key"), loro.NewLoroMap())
 		if iErr != nil {
 			return nil, fmt.Errorf("crdtstore: rehydrate todo %s: %w", r.Id, iErr)
 		}
@@ -264,7 +273,7 @@ func (s *CRDTStore) doc(ownerID string) (*loro.LoroDoc, error) {
 func (s *CRDTStore) persistRecords(ownerID string, d *loro.LoroDoc) error {
 	s.bumpVersion(ownerID)
 	items := d.GetMap(loro.AsContainerId(itemsContainerName))
-	want := make(map[string]todo.Todo, 16)
+	want := make(map[string]todo.Todo)
 	for id, vc := range items.All() {
 		if vc == nil || !vc.IsContainer() {
 			continue
@@ -286,7 +295,11 @@ func (s *CRDTStore) persistRecords(ownerID string, d *loro.LoroDoc) error {
 		return fmt.Errorf("crdtstore: list existing todos: %w", err)
 	}
 	for _, rec := range have {
-		if _, ok := want[rec.Id]; ok {
+		// want is keyed by the todo/CRDT id, which is persisted as the
+		// record's idem_key. rec.Id is the PocketBase row id (a different
+		// namespace) and must NOT be used as the lookup key, or every
+		// freshly-upserted record would be seen as "stale" and deleted.
+		if _, ok := want[rec.GetString("idem_key")]; ok {
 			continue
 		}
 		if dErr := s.app.Delete(rec); dErr != nil {

@@ -115,6 +115,12 @@ linters:
       - path: internal/workflow/pb_data/
         linters:
           - all
+      # db/idempotency_seed.go keeps enableTodosIdempotency as intentional
+      # reference code (db/seed.go wires RegisterIdempotencyHook instead);
+      # the helper is referenced only in comments, so don't fail on unused.
+      - path: db/idempotency_seed\.go
+        linters:
+          - unused
       # internal/nats/presence.go uses revive's unused-parameter check but
       # revive has a known false positive with string concatenation — roomID
       # IS used in "room."+roomID+".user."+info.ID but revive doesn't track

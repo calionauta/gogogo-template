@@ -1,5 +1,20 @@
 
-## [Unreleased]
+## [0.22.1] - 2026-07-16
+
+### Fixed
+
+- **`CRDTStore` todo round-trip** — `doc()` now rebuilds the in-memory Loro map
+  keyed by `idem_key` (the client todo id) instead of the PocketBase row id,
+  matching how `Create`/`Update`/`Delete`/`ClearCompleted` key items. Before the
+  fix, after `Close` + `New`, `List`/`Get` lost todos and mis-keyed rows, so
+  `TestCRDTStore_RecordRoundTrip` failed; it now passes (3 items, `completed`
+  round-trips, `Get` works post-reload).
+- **Test DB DSN missing `file:` prefix** — `newTestApp` (`crdtstore_test.go`) and
+  the identical sibling `db/seed_test.go` now open SQLite with
+  `file:<path>?_pragma=...`. Without the `file:` prefix, `ncruces/go-sqlite3`
+  silently dropped all pragmas (`journal_mode=DELETE`, `foreign_keys=OFF`), so
+  tests ran under DELETE journal + FK-off instead of the production WAL + FK-on
+  config.
 
 ### Added (Phase 2 + 3 closure)
 
