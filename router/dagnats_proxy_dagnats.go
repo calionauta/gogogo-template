@@ -21,8 +21,8 @@ import (
 // Why a proxy instead of linking straight to :8090: the app is reached
 // through a Cloudflare Tunnel that only forwards 443 -> the app port.
 // Port 8090 is NOT tunneled, so a direct link to
-// https://gogogo.calionauta.com:8090/ hangs forever (the user-observed
-// "loading infinito"). Proxying through the already-tunneled app means
+// https://<deploy-host>:8090/ hangs forever (the user-observed
+// "infinite loading"). Proxying through the already-tunneled app means
 // the DagNats dashboard is reachable with zero extra infra/tunnel config.
 //
 // The DagNats console is a SPA that emits absolute paths (/console/,
