@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pocketbase/pocketbase/core"
 	sdk "github.com/starfederation/datastar-go/datastar"
 
@@ -145,17 +146,23 @@ func (h *TodoHandler) handleCreate(c *core.RequestEvent) error {
 		return c.String(statusBadRequest, "title required")
 	}
 
+	idemKey := c.Request.FormValue("idem_key")
+	if idemKey == "" {
+		// The SPA always sends a client-generated idem_key, but guarantee
+		// one so CRDTStore (which keys each todo by it) never 500s a
+		// create when a caller omits it. PBStore ignores the value
+		// (PocketBase auto-generates the record id) and still uses
+		// idemKey for offline-replay dedup.
+		idemKey = uuid.New().String()
+	}
+
 	item := todo.Todo{
+		ID:        idemKey,
 		Title:     title,
 		Completed: false,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	// idem_key comes from the createForm (hidden input named
-	// "idem_key") and is consumed by the PBStore + OnRecordCreateRequest
-	// hook for offline-replay dedup. Empty for programmatic callers
-	// (e.g. the onboarding worker via CreateTodoForOnboarding).
-	idemKey := c.Request.FormValue("idem_key")
 	if err := h.saveTodo(c, &item, ownerOf(c), idemKey); err != nil {
 		slog.Error("todo: save failed", "error", err)
 		return c.String(statusInternal, "save failed")
