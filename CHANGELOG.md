@@ -1,4 +1,31 @@
 
+## [0.23.0] - 2026-07-17
+
+### Added
+
+- **Public landing page** — new `features/landing` serves a marketing hero at
+  `GET /` (README-sourced about copy + CTA to `/todo`). Registered before any
+  auth-protected routes so guest users land on the public page.
+- **Config view** — new `features/config` serves a read-only `GET /config`
+  operator-facing view of the running config with secret-shaped fields masked
+  (`mask.go` + `safe_view.go`). Gated internally by `RequireAuthOrRedirect`
+  (any logged-in user, superuser NOT required — CAL-3 decision).
+
+### Changed
+
+- **Todo app moved `/` → `/todo`** — root route now serves the landing page;
+  the demo app lives at `/todo` (`TodoHandler.RegisterRoutes` + test router).
+- **Auth redirects retargeted to `/todo`** — `RequireAuthOrRedirect`,
+  `RedirectIfAuthed`, and the login `next` default now send signed-in users to
+  `/todo` instead of `/` (which is now the public landing page).
+- **`apiIndex` env** now exposes `uiPages` (`/`, `/todo`, `/whiteboard`,
+  `/config`) and `superuserDashboard` (`/_/`).
+
+### Fixed
+
+- **Navbar active key** — corrected from `"todos"` to `"todo"` so the active
+  link highlights correctly on the moved route.
+
 ## [0.22.2] - 2026-07-16
 
 ### Fixed
