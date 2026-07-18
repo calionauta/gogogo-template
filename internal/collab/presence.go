@@ -17,6 +17,12 @@ import (
 // subscribe the same subject the edges publish to.
 func PresenceSubject(docID string) string { return "app.presence." + docID }
 
+// ssePresenceBuf is the buffered capacity for the presence SSE event
+// channel. The NATS callback forwards messages here while the request
+// goroutine drains and flushes them, so the buffer only needs to absorb
+// brief bursts during a flush.
+const ssePresenceBuf = 16
+
 // PresenceSSEHandler returns an http.HandlerFunc that streams a doc's
 // presence events to browser clients over Server-Sent Events. It
 // subscribes the app.presence.<docID> NATS subject (the same one desktop
@@ -52,7 +58,7 @@ func PresenceSSEHandler(nc *natsio.Conn) http.HandlerFunc {
 		// version flushed w from the callback goroutine, racing with
 		// net/http's own response finalisation and tripping the race
 		// detector under `go test -race`.
-		events := make(chan []byte, 16)
+		events := make(chan []byte, ssePresenceBuf)
 		sub, err := nc.Subscribe(PresenceSubject(docID), func(m *natsio.Msg) {
 			select {
 			case events <- m.Data:
