@@ -56,13 +56,8 @@ templ Index(userEmail string, buildLabel string, buildCommit string) {
 					margin-right: auto;
 					display: block;
 				}
-				.landing-tagline {
-					font-size: 1rem;
-					line-height: 1.6;
-					color: oklch(0.32 0.02 250);
-				}
 				.landing-about {
-					color: oklch(0.32 0.02 250);
+					color: var(--color-base-content);
 					line-height: 1.7;
 					font-size: 0.95rem;
 				}
@@ -76,31 +71,12 @@ templ Index(userEmail string, buildLabel string, buildCommit string) {
 						<img class="landing-logo" src="/static/logo.png" alt="gogogo-fullstack-template"/>
 					</header>
 
-					<section class="landing-tagline mb-6">
-						<p class="font-semibold mb-2">Built to be useful.</p>
-						<p>
-							Every decision favors practical outcomes over abstract ideals.
-							The stack intentionally optimizes for simplicity, consistency,
-							and shipping software with minimal friction.
-						</p>
-					</section>
-
 					<section class="landing-about mb-8">
-						<p class="mb-3">
-							<strong>gogogo-fullstack-template</strong> is a full-stack Go web
-							app template: back-end, front-end, database, auth, queue,
-							workflow runtime, real-time layer, secrets vault, and deploy —
-							all built into a single self-contained binary. PocketBase for
-							data and auth, Templ for type-safe HTML, Datastar for reactive
-							UI over SSE, and NATS JetStream for cross-instance real-time.
-							No external services, no Docker required, no JavaScript build
-							step. Browser offline support via Service Worker + Background
-							Sync on the web, and a NATS Leaf Node on desktop and mobile.
-						</p>
 						<p>
-							The code, configuration, and deploy scripts in this repo are
-							literally the project — nothing is hidden behind a closed
-							SDK or an opaque framework. Clone it, rename it, deploy it.
+							Go full-stack template. Single binary, no dependencies.
+							Database &amp; Auth. Reactive UI. Background jobs.
+							Offline-first. Real-time multi-user. Durable workflows.
+							Desktop &amp; Android capable.
 						</p>
 					</section>
 
