@@ -41,6 +41,13 @@ theme-aware `var(--color-base-content)` for correct contrast in both themes.
 not a registered route and fell through to the landing page, so the offline
 todo queue exercise could never find the create-form input and timed out.
 Corrected the exercised route to `/todo` (the real route); CI now goes green.
+- **Presence SSE handler data race** — `PresenceSSEHandler` flushed the
+`http.ResponseWriter` from the NATS subscription callback goroutine, racing
+with net/http's own response finalisation under `go test -race` and breaking
+the Deploy gate (flaky `WARNING: DATA RACE` in `internal/collab`). Presence
+events now flow through a buffered channel so every write/flush happens in the
+request goroutine; the callback only forwards bytes. `internal/collab` tests
+are race-clean.
 
 ## [0.23.1] - 2026-07-17
 

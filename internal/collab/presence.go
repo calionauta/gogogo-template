@@ -43,22 +43,36 @@ func PresenceSSEHandler(nc *natsio.Conn) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, ": connected\n\n")
 		flusher.Flush()
+
 		ctx := r.Context()
+		// Deliver NATS messages onto a channel so every write/flush of w
+		// happens in THIS goroutine (the net/http connection goroutine).
+		// http.ResponseWriter is not safe for concurrent use, so the NATS
+		// subscription callback must never touch w directly — a previous
+		// version flushed w from the callback goroutine, racing with
+		// net/http's own response finalisation and tripping the race
+		// detector under `go test -race`.
+		events := make(chan []byte, 16)
 		sub, err := nc.Subscribe(PresenceSubject(docID), func(m *natsio.Msg) {
 			select {
+			case events <- m.Data:
 			case <-ctx.Done():
-				return
-			default:
 			}
-			fmt.Fprintf(w, "data: %s\n\n", m.Data)
-			flusher.Flush()
 		})
 		if err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
 		defer func() { _ = sub.Unsubscribe() }()
-		<-ctx.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case data := <-events:
+				fmt.Fprintf(w, "data: %s\n\n", data)
+				flusher.Flush()
+			}
+		}
 	}
 }
 
