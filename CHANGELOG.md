@@ -1,3 +1,8 @@
+## [0.23.4] - 2026-07-18
+
+### Fixed
+- Offline presence pill: the realtime "X online" indicator (`.online-pill`) now reflects connectivity — it greys out (warning colour, static dot) the moment `navigator.onLine` goes false and returns to live on reconnect, instead of keeping a stale green "online" look while the offline banner was already showing.
+
 ## [0.23.3] - 2026-07-18
 
 ### Added
