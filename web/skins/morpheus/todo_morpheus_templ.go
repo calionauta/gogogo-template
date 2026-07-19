@@ -71,7 +71,7 @@ func TodoPage(title string, signals todo.Signals, userEmail string, buildLabel s
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</head><body style=\"background: var(--neo-color-bg, #f5f5f4); margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif;\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</head><body style=\"background: var(--page-bg, #f5f5f4); margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif;\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
