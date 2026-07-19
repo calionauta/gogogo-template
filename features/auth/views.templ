@@ -1,4 +1,8 @@
 package auth
+import (
+	"github.com/calionauta/gogogo-fullstack-template/web/skins"
+	"github.com/calionauta/gogogo-fullstack-template/config"
+)
 
 // Navbar is the top bar rendered on every authenticated page.
 // Shows the app name on the left, a user dropdown on the right with
@@ -42,6 +46,7 @@ templ Navbar(userEmail string, active string, buildLabel string, buildCommit str
 				<iconify-icon icon="material-symbols:dark-mode" class="text-lg theme-toggle-icon icon-dark-mode"></iconify-icon>
 				<iconify-icon icon="material-symbols:light-mode" class="text-lg theme-toggle-icon icon-light-mode"></iconify-icon>
 			</button>
+			@skins.SkinSelector(config.Load().Skin)
 			if userEmail == "" {
 				<a
 					href="/login"
