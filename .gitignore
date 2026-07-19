@@ -31,6 +31,8 @@ dist/
 .*/
 !.github/
 !.githooks/
+# Cali agent workflow artifacts (execution critiques, UX audits, etc)
+.cali-*/
 
 # Test/binary data artifacts
 internal/workflow/pb_data/

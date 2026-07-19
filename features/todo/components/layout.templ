@@ -121,7 +121,7 @@ templ Layout(title string, signals todo.Signals, userEmail string, buildLabel st
 		</head>
 		<body class="bg-base-200 min-h-screen">
 			@auth.Navbar(userEmail, "todo", buildLabel, buildCommit)
-t	@skins.SkinSelector(skinName)
+@skins.SkinSelector(skinName)
 			@components.OfflineBanner(offlineSync)
 			@TodoList(signals)
 			<div id="toast-container"></div>

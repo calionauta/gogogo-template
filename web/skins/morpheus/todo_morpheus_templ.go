@@ -79,7 +79,7 @@ func TodoPage(title string, signals todo.Signals, userEmail string, buildLabel s
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "t\t@skins.SkinSelector(skinName)")
+		templ_7745c5c3_Err = skins.SkinSelector(skinName).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -87,7 +87,7 @@ func TodoPage(title string, signals todo.Signals, userEmail string, buildLabel s
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div id=\"todo-app\" class=\"todo-morpheus\" style=\"max-width: 80rem; margin: 2rem auto 0; padding: 0 1rem;\"><div data-signals=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div id=\"todo-app\" class=\"todo-morpheus\" style=\"max-width: 80rem; margin: 2rem auto 0; padding: 0 1rem;\"><div data-signals=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -100,7 +100,7 @@ func TodoPage(title string, signals todo.Signals, userEmail string, buildLabel s
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" data-on:gogogo__queued__window=\"$loading = false; $newTitle = ''; $deleting = false; $confirmingDeleteId = ''; $confirmingDeleteTitle = ''\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" data-on:gogogo__queued__window=\"$loading = false; $newTitle = ''; $deleting = false; $confirmingDeleteId = ''; $confirmingDeleteTitle = ''\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -116,7 +116,7 @@ func TodoPage(title string, signals todo.Signals, userEmail string, buildLabel s
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div></div><div id=\"toast-container\" style=\"position: fixed; right: 1rem; bottom: 1rem; z-index: 100; display: flex; flex-direction: column-reverse; gap: 0.5rem; max-width: 24rem;\"></div><neo-toaster position=\"bottom-right\" id=\"neo-toaster\"></neo-toaster>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div><div id=\"toast-container\" style=\"position: fixed; right: 1rem; bottom: 1rem; z-index: 100; display: flex; flex-direction: column-reverse; gap: 0.5rem; max-width: 24rem;\"></div><neo-toaster position=\"bottom-right\" id=\"neo-toaster\"></neo-toaster>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -124,7 +124,7 @@ func TodoPage(title string, signals todo.Signals, userEmail string, buildLabel s
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -154,7 +154,7 @@ func TodoMorpheusHeader(signals todo.Signals) templ.Component {
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div style=\"display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;\"><div style=\"display: flex; align-items: center; gap: 0.75rem;\"><neo-badge variant=\"primary\">Todo</neo-badge><div><h1 style=\"font-size: 1.25rem; font-weight: 700; margin: 0;\">Todo App</h1><p style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c); margin: 0;\"><span style=\"font-weight: 500;\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div style=\"display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;\"><div style=\"display: flex; align-items: center; gap: 0.75rem;\"><neo-badge variant=\"primary\">Todo</neo-badge><div><h1 style=\"font-size: 1.25rem; font-weight: 700; margin: 0;\">Todo App</h1><p style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c); margin: 0;\"><span style=\"font-weight: 500;\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -167,7 +167,7 @@ func TodoMorpheusHeader(signals todo.Signals) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</span> <span style=\"opacity: 0.5; margin: 0 0.25rem;\">·</span> <span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</span> <span style=\"opacity: 0.5; margin: 0 0.25rem;\">·</span> <span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -180,7 +180,7 @@ func TodoMorpheusHeader(signals todo.Signals) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</span></p></div></div><div data-show=\"$connectedClients >= 0\" style=\"display: flex; align-items: center; gap: 0.5rem;\"><neo-badge variant=\"success\" id=\"online-badge\"><span data-text=\"$connectedClients + ' online'\"></span></neo-badge> <span style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);\"><span data-text=\"$realtimeKind\"></span></span></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</span></p></div></div><div data-show=\"$connectedClients >= 0\" style=\"display: flex; align-items: center; gap: 0.5rem;\"><neo-badge variant=\"success\" id=\"online-badge\"><span data-text=\"$connectedClients + ' online'\"></span></neo-badge> <span style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);\"><span data-text=\"$realtimeKind\"></span></span></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -210,7 +210,7 @@ func TodoMorpheusGrid(signals todo.Signals) templ.Component {
 			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div style=\"display: grid; grid-template-columns: 1fr; gap: 1.25rem;\"><!-- ─── TODO LIST ─── --><neo-card><neo-card-header><neo-card-title>Tasks</neo-card-title> <neo-badge variant=\"neutral\" slot=\"extra\"><span data-text=\"$itemCount + ' items'\"></span></neo-badge></neo-card-header>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div style=\"display: grid; grid-template-columns: 1fr; gap: 1.25rem;\"><!-- ─── TODO LIST ─── --><neo-card><neo-card-header><neo-card-title>Tasks</neo-card-title> <neo-badge variant=\"neutral\" slot=\"extra\"><span data-text=\"$itemCount + ' items'\"></span></neo-badge></neo-card-header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -233,12 +233,12 @@ func TodoMorpheusGrid(signals todo.Signals) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if signals.ItemCount > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div style=\"display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--neo-color-border, #e7e5e4);\"><span style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);\" data-text=\"$itemCount + ' items'\"></span> <neo-button variant=\"danger\" size=\"sm\" data-neo-dialog-trigger=\"confirm-delete-modal\" data-on:click=\"while (document.querySelector('.todo-item')) { @post('/api/todos/completed/delete?clientID=' + encodeURIComponent($clientID || '')); break; }\">Clear completed</neo-button></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div style=\"display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--neo-color-border, #e7e5e4);\"><span style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);\" data-text=\"$itemCount + ' items'\"></span> <neo-button variant=\"danger\" size=\"sm\" data-neo-dialog-trigger=\"confirm-delete-modal\" data-on:click=\"while (document.querySelector('.todo-item')) { @post('/api/todos/completed/delete?clientID=' + encodeURIComponent($clientID || '')); break; }\">Clear completed</neo-button></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</neo-card><!-- ─── SIDEBAR CARDS ─── -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</neo-card><!-- ─── SIDEBAR CARDS ─── -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -246,7 +246,7 @@ func TodoMorpheusGrid(signals todo.Signals) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -276,7 +276,7 @@ func createFormMorpheus(signals todo.Signals) templ.Component {
 			templ_7745c5c3_Var8 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<form data-on:submit__prevent=\"if (!$loading) { $loading = true; @post('/api/todos?clientID=' + encodeURIComponent($clientID || '') + '&idem_key=' + encodeURIComponent(crypto.randomUUID()), {contentType: 'form'}); }\" style=\"display: flex; gap: 0.5rem; margin-bottom: 1rem;\"><div style=\"flex: 1;\"><neo-textinput name=\"title\" placeholder=\"Add a new todo...\" data-bind=\"newTitle\" style=\"width: 100%;\"></neo-textinput></div><neo-button variant=\"primary\" data-attr:disabled=\"$loading || !$newTitle.trim()\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"margin-right: 0.25rem;\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"></line><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"></line></svg> <span data-show=\"!$loading\">Add</span> <span data-show=\"$loading\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Adding</span></span></neo-button></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<form data-on:submit__prevent=\"if (!$loading) { $loading = true; @post('/api/todos?clientID=' + encodeURIComponent($clientID || '') + '&idem_key=' + encodeURIComponent(crypto.randomUUID()), {contentType: 'form'}); }\" style=\"display: flex; gap: 0.5rem; margin-bottom: 1rem;\"><div style=\"flex: 1;\"><neo-textinput name=\"title\" placeholder=\"Add a new todo...\" data-bind=\"newTitle\" style=\"width: 100%;\"></neo-textinput></div><neo-button variant=\"primary\" data-attr:disabled=\"$loading || !$newTitle.trim()\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"margin-right: 0.25rem;\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"></line><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"></line></svg> <span data-show=\"!$loading\">Add</span> <span data-show=\"$loading\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Adding</span></span></neo-button></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -306,7 +306,7 @@ func filterTabsMorpheus(signals todo.Signals) templ.Component {
 			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<neo-tabs value=\"all\" id=\"filter-tabs\" style=\"margin-bottom: 1rem;\"><neo-tablist aria-label=\"Filter todos\"><neo-tab value=\"all\" data-class=\"{ 'neo-tab-active': $filter === 'all' }\" data-on:click__prevent=\"$loading = true; @get('/api/todos?filter=all')\">All</neo-tab> <neo-tab value=\"active\" data-class=\"{ 'neo-tab-active': $filter === 'active' }\" data-on:click__prevent=\"$loading = true; @get('/api/todos?filter=active')\">Active</neo-tab> <neo-tab value=\"completed\" data-class=\"{ 'neo-tab-active': $filter === 'completed' }\" data-on:click__prevent=\"$loading = true; @get('/api/todos?filter=completed')\">Completed</neo-tab></neo-tablist></neo-tabs>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<neo-tabs value=\"all\" id=\"filter-tabs\" style=\"margin-bottom: 1rem;\"><neo-tablist aria-label=\"Filter todos\"><neo-tab value=\"all\" data-class=\"{ 'neo-tab-active': $filter === 'all' }\" data-on:click__prevent=\"$loading = true; @get('/api/todos?filter=all')\">All</neo-tab> <neo-tab value=\"active\" data-class=\"{ 'neo-tab-active': $filter === 'active' }\" data-on:click__prevent=\"$loading = true; @get('/api/todos?filter=active')\">Active</neo-tab> <neo-tab value=\"completed\" data-class=\"{ 'neo-tab-active': $filter === 'completed' }\" data-on:click__prevent=\"$loading = true; @get('/api/todos?filter=completed')\">Completed</neo-tab></neo-tablist></neo-tabs>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -336,12 +336,12 @@ func todoListMorpheus(signals todo.Signals) templ.Component {
 			templ_7745c5c3_Var10 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div id=\"todo-list\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<div id=\"todo-list\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(signals.Todos) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div id=\"todo-empty-state\" style=\"padding: 2rem 0; text-align: center; color: var(--neo-color-muted-foreground, #78716c);\"><neo-icon name=\"list\" style=\"font-size: 2rem; opacity: 0.3;\"></neo-icon><p style=\"margin: 0.5rem 0 0;\">No todos here yet.</p><p style=\"font-size: 0.75rem; margin-top: 0.25rem;\">Add one above to get started, or click \"Run durable workflow\" in the sidebar.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div id=\"todo-empty-state\" style=\"padding: 2rem 0; text-align: center; color: var(--neo-color-muted-foreground, #78716c);\"><neo-icon name=\"list\" style=\"font-size: 2rem; opacity: 0.3;\"></neo-icon><p style=\"margin: 0.5rem 0 0;\">No todos here yet.</p><p style=\"font-size: 0.75rem; margin-top: 0.25rem;\">Add one above to get started, or click \"Run durable workflow\" in the sidebar.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -352,7 +352,7 @@ func todoListMorpheus(signals todo.Signals) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -382,7 +382,7 @@ func todoItemMorpheus(item todo.Todo) templ.Component {
 			templ_7745c5c3_Var11 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<div class=\"todo-item\" id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div class=\"todo-item\" id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -395,17 +395,17 @@ func todoItemMorpheus(item todo.Todo) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" style=\"display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-bottom: 1px solid var(--neo-color-border, #e7e5e4);\"><neo-checkbox")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" style=\"display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-bottom: 1px solid var(--neo-color-border, #e7e5e4);\"><neo-checkbox")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if item.Completed {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, " data-on:click__prevent=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, " data-on:click__prevent=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -418,12 +418,12 @@ func todoItemMorpheus(item todo.Todo) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\"></neo-checkbox> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"></neo-checkbox> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if item.Completed {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<span style=\"flex: 1; text-decoration: line-through; color: var(--neo-color-muted-foreground, #78716c);\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<span style=\"flex: 1; text-decoration: line-through; color: var(--neo-color-muted-foreground, #78716c);\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -436,12 +436,12 @@ func todoItemMorpheus(item todo.Todo) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</span> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</span> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<span style=\"flex: 1;\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<span style=\"flex: 1;\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -454,12 +454,12 @@ func todoItemMorpheus(item todo.Todo) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</span> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</span> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<span style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<span style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -472,7 +472,7 @@ func todoItemMorpheus(item todo.Todo) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</span> <neo-button variant=\"danger\" size=\"sm\" data-neo-dialog-trigger=\"confirm-delete-modal\" data-on:click__prevent=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</span> <neo-button variant=\"danger\" size=\"sm\" data-neo-dialog-trigger=\"confirm-delete-modal\" data-on:click__prevent=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -485,7 +485,7 @@ func todoItemMorpheus(item todo.Todo) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2\"></path></svg></neo-button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2\"></path></svg></neo-button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -515,12 +515,12 @@ func SuggestionsMorpheus(suggestions []string) templ.Component {
 			templ_7745c5c3_Var18 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div id=\"suggestions-region\" data-show=\"$suggestions && $suggestions.length > 0\" style=\"margin-bottom: 1rem; padding: 0.75rem; border-radius: 0.5rem; background: var(--neo-color-muted, #f0efed);\"><div style=\"font-size: 0.75rem; margin-bottom: 0.5rem; color: var(--neo-color-muted-foreground, #78716c);\">Suggestions — click to use:</div><div style=\"display: flex; flex-wrap: wrap; gap: 0.5rem;\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<div id=\"suggestions-region\" data-show=\"$suggestions && $suggestions.length > 0\" style=\"margin-bottom: 1rem; padding: 0.75rem; border-radius: 0.5rem; background: var(--neo-color-muted, #f0efed);\"><div style=\"font-size: 0.75rem; margin-bottom: 0.5rem; color: var(--neo-color-muted-foreground, #78716c);\">Suggestions — click to use:</div><div style=\"display: flex; flex-wrap: wrap; gap: 0.5rem;\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, s := range suggestions {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<neo-button variant=\"secondary\" size=\"sm\" data-on:click=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<neo-button variant=\"secondary\" size=\"sm\" data-on:click=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -533,7 +533,7 @@ func SuggestionsMorpheus(suggestions []string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -546,12 +546,12 @@ func SuggestionsMorpheus(suggestions []string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</neo-button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</neo-button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -581,27 +581,27 @@ func sidebarMorpheus(signals todo.Signals) templ.Component {
 			templ_7745c5c3_Var21 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div style=\"display: flex; flex-direction: column; gap: 1rem;\"><!-- Realtime Card --><neo-card variant=\"outline\"><neo-card-header><neo-card-title>Realtime</neo-card-title> <neo-badge variant=\"neutral\" slot=\"extra\" data-text=\"$realtimeKind\"></neo-badge></neo-card-header> <neo-card-body><div style=\"display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;\"><neo-badge variant=\"success\"><span data-text=\"$connectedClients + ' online'\"></span></neo-badge></div><p style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c); margin: 0;\">Every CRUD mutation streams through PocketBase realtime. Open this page in two tabs to watch todos sync live.</p></neo-card-body></neo-card><!-- Queue + Retry Card --><neo-card variant=\"outline\"><neo-card-header><neo-card-title>Queue + Retry</neo-card-title><div slot=\"extra\" style=\"display: flex; gap: 0.25rem;\"><neo-badge variant=\"secondary\">goqite</neo-badge> <neo-badge variant=\"neutral\">retry-go</neo-badge></div></neo-card-header> <neo-card-description>Enqueues a hard-coded background job that fails twice then succeeds — exercising the queue + retry layer.</neo-card-description> <neo-card-body><div style=\"display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;\"><div style=\"display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;\"><neo-badge variant=\"neutral\" data-class=\"{ 'neo-badge-success': $demoStep >= 2 }\">1. Enqueue job</neo-badge></div><div style=\"display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;\"><neo-badge variant=\"neutral\" data-class=\"{ 'neo-badge-success': $demoStep >= 3, 'neo-badge-primary': $demoStep === 2 }\">2. Retry</neo-badge> <span data-show=\"$lastRetryStatus === 'attempt'\" data-text=\"'— attempt ' + ($lastRetryAttempt || 1)\" style=\"color: var(--neo-color-muted-foreground, #78716c);\"></span></div><div style=\"display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;\"><neo-badge variant=\"neutral\" data-class=\"{ 'neo-badge-success': $demoStep >= 3 && $techPhase !== 'error', 'neo-badge-danger': $techPhase === 'error' }\">3. Complete</neo-badge></div></div><form data-on:submit__prevent=\"$techStep = 'retry-demo'; $demoStep = 1; $suggestPending = true; @post('/api/todos/retry-demo?clientID=' + encodeURIComponent($clientID || ''))\" style=\"display: contents;\"><neo-button variant=\"secondary\" size=\"sm\" type=\"submit\" style=\"width: 100%;\"><span data-show=\"!$suggestPending\">Run queue + retry demo</span> <span data-show=\"$suggestPending\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Running demo…</span></span></neo-button></form></neo-card-body></neo-card><!-- AI Suggest Card -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<div style=\"display: flex; flex-direction: column; gap: 1rem;\"><!-- Realtime Card --><neo-card variant=\"outline\"><neo-card-header><neo-card-title>Realtime</neo-card-title> <neo-badge variant=\"neutral\" slot=\"extra\" data-text=\"$realtimeKind\"></neo-badge></neo-card-header> <neo-card-body><div style=\"display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;\"><neo-badge variant=\"success\"><span data-text=\"$connectedClients + ' online'\"></span></neo-badge></div><p style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c); margin: 0;\">Every CRUD mutation streams through PocketBase realtime. Open this page in two tabs to watch todos sync live.</p></neo-card-body></neo-card><!-- Queue + Retry Card --><neo-card variant=\"outline\"><neo-card-header><neo-card-title>Queue + Retry</neo-card-title><div slot=\"extra\" style=\"display: flex; gap: 0.25rem;\"><neo-badge variant=\"secondary\">goqite</neo-badge> <neo-badge variant=\"neutral\">retry-go</neo-badge></div></neo-card-header> <neo-card-description>Enqueues a hard-coded background job that fails twice then succeeds — exercising the queue + retry layer.</neo-card-description> <neo-card-body><div style=\"display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;\"><div style=\"display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;\"><neo-badge variant=\"neutral\" data-class=\"{ 'neo-badge-success': $demoStep >= 2 }\">1. Enqueue job</neo-badge></div><div style=\"display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;\"><neo-badge variant=\"neutral\" data-class=\"{ 'neo-badge-success': $demoStep >= 3, 'neo-badge-primary': $demoStep === 2 }\">2. Retry</neo-badge> <span data-show=\"$lastRetryStatus === 'attempt'\" data-text=\"'— attempt ' + ($lastRetryAttempt || 1)\" style=\"color: var(--neo-color-muted-foreground, #78716c);\"></span></div><div style=\"display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;\"><neo-badge variant=\"neutral\" data-class=\"{ 'neo-badge-success': $demoStep >= 3 && $techPhase !== 'error', 'neo-badge-danger': $techPhase === 'error' }\">3. Complete</neo-badge></div></div><form data-on:submit__prevent=\"$techStep = 'retry-demo'; $demoStep = 1; $suggestPending = true; @post('/api/todos/retry-demo?clientID=' + encodeURIComponent($clientID || ''))\" style=\"display: contents;\"><neo-button variant=\"secondary\" size=\"sm\" type=\"submit\" style=\"width: 100%;\"><span data-show=\"!$suggestPending\">Run queue + retry demo</span> <span data-show=\"$suggestPending\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Running demo…</span></span></neo-button></form></neo-card-body></neo-card><!-- AI Suggest Card -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if signals.LLMEnabled || signals.SimulatedLLM {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<neo-card variant=\"outline\"><neo-card-header><neo-card-title>AI Suggest</neo-card-title> <neo-badge variant=\"primary\" slot=\"extra\">GoAI</neo-badge></neo-card-header> <neo-card-description>Asks the configured LLM for 3 todo suggestions. The request is queued (goqite) and retried (retry-go).</neo-card-description> <neo-card-body><neo-button variant=\"primary\" size=\"sm\" style=\"width: 100%;\" data-on:click=\"$aiStep = 1; $aiPending = true; @post('/api/todos/suggest?clientID=' + encodeURIComponent($clientID || '') + '&partial=' + encodeURIComponent($newTitle))\"><span data-show=\"!$aiPending\">AI Suggest</span> <span data-show=\"$aiPending\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Asking AI…</span></span></neo-button></neo-card-body></neo-card>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<neo-card variant=\"outline\"><neo-card-header><neo-card-title>AI Suggest</neo-card-title> <neo-badge variant=\"primary\" slot=\"extra\">GoAI</neo-badge></neo-card-header> <neo-card-description>Asks the configured LLM for 3 todo suggestions. The request is queued (goqite) and retried (retry-go).</neo-card-description> <neo-card-body><neo-button variant=\"primary\" size=\"sm\" style=\"width: 100%;\" data-on:click=\"$aiStep = 1; $aiPending = true; @post('/api/todos/suggest?clientID=' + encodeURIComponent($clientID || '') + '&partial=' + encodeURIComponent($newTitle))\"><span data-show=\"!$aiPending\">AI Suggest</span> <span data-show=\"$aiPending\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Asking AI…</span></span></neo-button></neo-card-body></neo-card>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<!-- Durable Workflow Card -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<!-- Durable Workflow Card -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if signals.DagNatsEnabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<neo-card variant=\"outline\"><neo-card-header><neo-card-title>Durable Workflow</neo-card-title> <neo-badge variant=\"primary\" slot=\"extra\">DagNats</neo-badge></neo-card-header> <neo-card-body><neo-button variant=\"primary\" size=\"sm\" style=\"width: 100%;\" data-attr:disabled=\"$onboardingActive && !$workflowCompleted\" data-on:click=\"$sidebarTab = 'workflow'; $techStep = 'workflow'; $onboardingActive = true; $workflowCompleted = false; @post('/api/onboarding/start?clientID=' + encodeURIComponent($clientID || ''))\"><span data-show=\"!$onboardingActive || $workflowCompleted\">Run durable workflow</span> <span data-show=\"$onboardingActive && !$workflowCompleted\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span data-text=\"'Running ' + ($onboardingStep || 1) + '/' + ($onboardingTotal || 6) + '…'\"></span></span></neo-button></neo-card-body></neo-card>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<neo-card variant=\"outline\"><neo-card-header><neo-card-title>Durable Workflow</neo-card-title> <neo-badge variant=\"primary\" slot=\"extra\">DagNats</neo-badge></neo-card-header> <neo-card-body><neo-button variant=\"primary\" size=\"sm\" style=\"width: 100%;\" data-attr:disabled=\"$onboardingActive && !$workflowCompleted\" data-on:click=\"$sidebarTab = 'workflow'; $techStep = 'workflow'; $onboardingActive = true; $workflowCompleted = false; @post('/api/onboarding/start?clientID=' + encodeURIComponent($clientID || ''))\"><span data-show=\"!$onboardingActive || $workflowCompleted\">Run durable workflow</span> <span data-show=\"$onboardingActive && !$workflowCompleted\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span data-text=\"'Running ' + ($onboardingStep || 1) + '/' + ($onboardingTotal || 6) + '…'\"></span></span></neo-button></neo-card-body></neo-card>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -631,7 +631,7 @@ func deleteConfirmMorpheus() templ.Component {
 			templ_7745c5c3_Var22 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<neo-dialog id=\"confirm-delete-modal\" data-on:close=\"$confirmingDeleteId = ''; $confirmingDeleteTitle = ''; $deleting = false\"><dialog><header data-neo-dialog-header><h2 data-neo-dialog-title style=\"display: flex; align-items: center; gap: 0.5rem; color: var(--neo-color-danger, #dc2626);\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z\"></path><line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"></line><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"></line></svg> Delete this todo?</h2></header><div data-neo-dialog-body><p style=\"font-size: 0.875rem;\">This will permanently remove <span style=\"font-weight: 600;\" data-text=\"$confirmingDeleteTitle\"></span>. This can't be undone.</p></div><footer data-neo-dialog-footer><neo-button variant=\"ghost\" size=\"sm\" data-on:click=\"document.getElementById('confirm-delete-modal').open = false\">Cancel</neo-button> <neo-button variant=\"danger\" size=\"sm\" data-neo-dialog-trigger=\"confirm-delete-modal\" data-attr:disabled=\"$deleting\" data-on:click=\"$deleting = true; document.getElementById('confirm-delete-modal').open = false; @post('/api/todos/' + $confirmingDeleteId + '/delete?clientID=' + encodeURIComponent($clientID || ''))\"><span data-show=\"!$deleting\">Delete</span> <span data-show=\"$deleting\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Deleting</span></span></neo-button></footer></dialog></neo-dialog>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<neo-dialog id=\"confirm-delete-modal\" data-on:close=\"$confirmingDeleteId = ''; $confirmingDeleteTitle = ''; $deleting = false\"><dialog><header data-neo-dialog-header><h2 data-neo-dialog-title style=\"display: flex; align-items: center; gap: 0.5rem; color: var(--neo-color-danger, #dc2626);\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z\"></path><line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"></line><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"></line></svg> Delete this todo?</h2></header><div data-neo-dialog-body><p style=\"font-size: 0.875rem;\">This will permanently remove <span style=\"font-weight: 600;\" data-text=\"$confirmingDeleteTitle\"></span>. This can't be undone.</p></div><footer data-neo-dialog-footer><neo-button variant=\"ghost\" size=\"sm\" data-on:click=\"document.getElementById('confirm-delete-modal').open = false\">Cancel</neo-button> <neo-button variant=\"danger\" size=\"sm\" data-neo-dialog-trigger=\"confirm-delete-modal\" data-attr:disabled=\"$deleting\" data-on:click=\"$deleting = true; document.getElementById('confirm-delete-modal').open = false; @post('/api/todos/' + $confirmingDeleteId + '/delete?clientID=' + encodeURIComponent($clientID || ''))\"><span data-show=\"!$deleting\">Delete</span> <span data-show=\"$deleting\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Deleting</span></span></neo-button></footer></dialog></neo-dialog>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -661,7 +661,7 @@ func realtimeMorpheus() templ.Component {
 			templ_7745c5c3_Var23 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<button id=\"sse-opener\" style=\"display: none;\" data-on:click=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<button id=\"sse-opener\" style=\"display: none;\" data-on:click=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -674,7 +674,7 @@ func realtimeMorpheus() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\" aria-hidden=\"true\"></button><script type=\"module\">\n\t\t(function () {\n\t\t\ttry {\n\t\t\t\tif (window.__gogogoSSEWired) return;\n\t\t\t\twindow.__gogogoSSEWired = true;\n\t\t\t\tvar cid = sessionStorage.getItem(\"gogogo_cid\");\n\t\t\t\tif (!cid) { cid = crypto.randomUUID(); sessionStorage.setItem(\"gogogo_cid\", cid); }\n\t\t\t\twindow.__gogogoClientID = cid;\n\t\t\t\tfunction openSSE() {\n\t\t\t\t\tvar btn = document.getElementById(\"sse-opener\");\n\t\t\t\t\tif (btn) btn.click();\n\t\t\t\t}\n\t\t\t\tdocument.addEventListener(\"datastar-ready\", openSSE);\n\t\t\t\tsetTimeout(openSSE, 1500);\n\t\t\t\tdocument.addEventListener(\"visibilitychange\", function () {\n\t\t\t\t\tif (!document.hidden) { var btn = document.getElementById(\"sse-opener\"); if (btn) btn.click(); }\n\t\t\t\t});\n\t\t\t} catch (e) { console.warn(\"SSE init:\", e); }\n\t\t})();\n\t</script><script>\n\t\t/* PocketBase realtime subscription (same as PbRealtimeRecords in the DaisyUI layout) */\n\t\t(function(){var pbUrl=\"/api/todos/fragment\";var sub=null;var rc=null;function connect(){if(sub)return;sub=new EventSource(\"/api/realtime\");sub.addEventListener(\"PB_CONNECT\",function(){rc=new EventSource(\"/api/realtime?sub=todos\");rc.addEventListener(\"PB_RECORD\",function(e){try{var d=JSON.parse(e.data);if(d.record&&d.action){var a=document.getElementById(\"todo-list\");if(a&&window.datastar){window.datastar.actions.get(pbUrl);}}}catch(e){}});});}connect();})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\" aria-hidden=\"true\"></button><script type=\"module\">\n\t\t(function () {\n\t\t\ttry {\n\t\t\t\tif (window.__gogogoSSEWired) return;\n\t\t\t\twindow.__gogogoSSEWired = true;\n\t\t\t\tvar cid = sessionStorage.getItem(\"gogogo_cid\");\n\t\t\t\tif (!cid) { cid = crypto.randomUUID(); sessionStorage.setItem(\"gogogo_cid\", cid); }\n\t\t\t\twindow.__gogogoClientID = cid;\n\t\t\t\tfunction openSSE() {\n\t\t\t\t\tvar btn = document.getElementById(\"sse-opener\");\n\t\t\t\t\tif (btn) btn.click();\n\t\t\t\t}\n\t\t\t\tdocument.addEventListener(\"datastar-ready\", openSSE);\n\t\t\t\tsetTimeout(openSSE, 1500);\n\t\t\t\tdocument.addEventListener(\"visibilitychange\", function () {\n\t\t\t\t\tif (!document.hidden) { var btn = document.getElementById(\"sse-opener\"); if (btn) btn.click(); }\n\t\t\t\t});\n\t\t\t} catch (e) { console.warn(\"SSE init:\", e); }\n\t\t})();\n\t</script><script>\n\t\t/* PocketBase realtime subscription (same as PbRealtimeRecords in the DaisyUI layout) */\n\t\t(function(){var pbUrl=\"/api/todos/fragment\";var sub=null;var rc=null;function connect(){if(sub)return;sub=new EventSource(\"/api/realtime\");sub.addEventListener(\"PB_CONNECT\",function(){rc=new EventSource(\"/api/realtime?sub=todos\");rc.addEventListener(\"PB_RECORD\",function(e){try{var d=JSON.parse(e.data);if(d.record&&d.action){var a=document.getElementById(\"todo-list\");if(a&&window.datastar){window.datastar.actions.get(pbUrl);}}}catch(e){}});});}connect();})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
