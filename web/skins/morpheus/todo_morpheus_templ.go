@@ -233,7 +233,7 @@ func TodoMorpheusGrid(signals todo.Signals) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if signals.ItemCount > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div style=\"display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--neo-color-border, #e7e5e4);\"><span style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);\" data-text=\"$itemCount + ' items'\"></span> <neo-button variant=\"danger\" size=\"sm\" data-on:click=\"while (document.querySelector('.todo-item')) { @post('/api/todos/completed/delete?clientID=' + encodeURIComponent($clientID || '')); break; }\">Clear completed</neo-button></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div style=\"display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--neo-color-border, #e7e5e4);\"><span style=\"font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);\" data-text=\"$itemCount + ' items'\"></span> <neo-button variant=\"danger\" size=\"sm\" data-neo-dialog-trigger=\"confirm-delete-modal\" data-on:click=\"while (document.querySelector('.todo-item')) { @post('/api/todos/completed/delete?clientID=' + encodeURIComponent($clientID || '')); break; }\">Clear completed</neo-button></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -472,14 +472,14 @@ func todoItemMorpheus(item todo.Todo) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</span> <neo-button variant=\"danger\" size=\"sm\" data-on:click__prevent=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</span> <neo-button variant=\"danger\" size=\"sm\" data-neo-dialog-trigger=\"confirm-delete-modal\" data-on:click__prevent=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 string
-		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue("$confirmingDeleteId = " + safeJSStringMorpheus(item.ID) + "; $confirmingDeleteTitle = " + safeJSStringMorpheus(item.Title) + "; document.getElementById('confirm-delete-modal').showModal()")
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue("$confirmingDeleteId = " + safeJSStringMorpheus(item.ID) + "; $confirmingDeleteTitle = " + safeJSStringMorpheus(item.Title) + "")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/skins/morpheus/todo_morpheus.templ`, Line: 189, Col: 217}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/skins/morpheus/todo_morpheus.templ`, Line: 189, Col: 156}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 		if templ_7745c5c3_Err != nil {
@@ -631,7 +631,7 @@ func deleteConfirmMorpheus() templ.Component {
 			templ_7745c5c3_Var22 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<neo-dialog id=\"confirm-delete-modal\" data-on:close=\"$confirmingDeleteId = ''; $confirmingDeleteTitle = ''; $deleting = false\"><dialog><header data-neo-dialog-header><h2 data-neo-dialog-title style=\"display: flex; align-items: center; gap: 0.5rem; color: var(--neo-color-danger, #dc2626);\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z\"></path><line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"></line><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"></line></svg> Delete this todo?</h2></header><div data-neo-dialog-body><p style=\"font-size: 0.875rem;\">This will permanently remove <span style=\"font-weight: 600;\" data-text=\"$confirmingDeleteTitle\"></span>. This can't be undone.</p></div><footer data-neo-dialog-footer><neo-button variant=\"ghost\" size=\"sm\" data-on:click=\"document.getElementById('confirm-delete-modal').open = false\">Cancel</neo-button> <neo-button variant=\"danger\" size=\"sm\" data-attr:disabled=\"$deleting\" data-on:click=\"$deleting = true; document.getElementById('confirm-delete-modal').open = false; @post('/api/todos/' + $confirmingDeleteId + '/delete?clientID=' + encodeURIComponent($clientID || ''))\"><span data-show=\"!$deleting\">Delete</span> <span data-show=\"$deleting\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Deleting</span></span></neo-button></footer></dialog></neo-dialog>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<neo-dialog id=\"confirm-delete-modal\" data-on:close=\"$confirmingDeleteId = ''; $confirmingDeleteTitle = ''; $deleting = false\"><dialog><header data-neo-dialog-header><h2 data-neo-dialog-title style=\"display: flex; align-items: center; gap: 0.5rem; color: var(--neo-color-danger, #dc2626);\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z\"></path><line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"></line><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"></line></svg> Delete this todo?</h2></header><div data-neo-dialog-body><p style=\"font-size: 0.875rem;\">This will permanently remove <span style=\"font-weight: 600;\" data-text=\"$confirmingDeleteTitle\"></span>. This can't be undone.</p></div><footer data-neo-dialog-footer><neo-button variant=\"ghost\" size=\"sm\" data-on:click=\"document.getElementById('confirm-delete-modal').open = false\">Cancel</neo-button> <neo-button variant=\"danger\" size=\"sm\" data-neo-dialog-trigger=\"confirm-delete-modal\" data-attr:disabled=\"$deleting\" data-on:click=\"$deleting = true; document.getElementById('confirm-delete-modal').open = false; @post('/api/todos/' + $confirmingDeleteId + '/delete?clientID=' + encodeURIComponent($clientID || ''))\"><span data-show=\"!$deleting\">Delete</span> <span data-show=\"$deleting\" style=\"display: inline-flex; align-items: center; gap: 0.25rem;\"><neo-spinner size=\"sm\"></neo-spinner> <span>Deleting</span></span></neo-button></footer></dialog></neo-dialog>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

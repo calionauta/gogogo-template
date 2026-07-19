@@ -40,7 +40,7 @@ templ TodoList(signals todo.Signals) {
 		<div data-signals={ marshalSignals(signals) } data-on:gogogo:queued__window="$loading = false; $newTitle = ''; $deleting = false; $confirmingDeleteId = ''; $confirmingDeleteTitle = ''">
 
 			<!-- ═══════════════ HEADER ═══════════════ -->
-			<div class="flex items-center justify-between mb-6">
+			<div class="flex items-center justify-between mb-6 overflow-hidden">
 				<div class="flex items-center gap-3">
 					<div class="w-9 h-9 rounded-xl bg-primary text-primary-content flex items-center justify-center shadow-sm">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

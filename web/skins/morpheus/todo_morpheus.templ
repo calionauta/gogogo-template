@@ -96,7 +96,7 @@ templ TodoMorpheusGrid(signals todo.Signals) {
 			if signals.ItemCount > 0 {
 				<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--neo-color-border, #e7e5e4);">
 					<span style="font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);" data-text="$itemCount + ' items'"></span>
-					<neo-button variant="danger" size="sm"
+					<neo-button variant="danger" size="sm" data-neo-dialog-trigger="confirm-delete-modal"
 						data-on:click="while (document.querySelector('.todo-item')) { @post('/api/todos/completed/delete?clientID=' + encodeURIComponent($clientID || '')); break; }">
 						Clear completed
 					</neo-button>
@@ -185,8 +185,8 @@ templ todoItemMorpheus(item todo.Todo) {
 			<span style="flex: 1;">{ item.Title }</span>
 		}
 		<span style="font-size: 0.75rem; color: var(--neo-color-muted-foreground, #78716c);">{ timeAgo(item.CreatedAt) }</span>
-		<neo-button variant="danger" size="sm"
-			data-on:click__prevent={ "$confirmingDeleteId = " + safeJSStringMorpheus(item.ID) + "; $confirmingDeleteTitle = " + safeJSStringMorpheus(item.Title) + "; document.getElementById('confirm-delete-modal').showModal()" }>
+		<neo-button variant="danger" size="sm" data-neo-dialog-trigger="confirm-delete-modal"
+			data-on:click__prevent={ "$confirmingDeleteId = " + safeJSStringMorpheus(item.ID) + "; $confirmingDeleteTitle = " + safeJSStringMorpheus(item.Title) + "" }>
 			<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
 			</svg>
@@ -346,7 +346,7 @@ templ deleteConfirmMorpheus() {
 					data-on:click="document.getElementById('confirm-delete-modal').open = false">
 					Cancel
 				</neo-button>
-				<neo-button variant="danger" size="sm"
+				<neo-button variant="danger" size="sm" data-neo-dialog-trigger="confirm-delete-modal"
 					data-attr:disabled="$deleting"
 					data-on:click="$deleting = true; document.getElementById('confirm-delete-modal').open = false; @post('/api/todos/' + $confirmingDeleteId + '/delete?clientID=' + encodeURIComponent($clientID || ''))">
 					<span data-show="!$deleting">Delete</span>
@@ -357,7 +357,7 @@ templ deleteConfirmMorpheus() {
 				</neo-button>
 			</footer>
 		</dialog>
-	</neo-dialog>
+</neo-dialog>
 }
 
 // realtimeMorpheus wire the SSE stream and PocketBase realtime.
