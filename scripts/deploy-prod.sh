@@ -108,7 +108,15 @@ else
 fi
 echo "→ Data dir ready: ${DATA_DIR} (container uid 65532 gets rwx via ACL or 0777)"
 
-# ── 5. Roll the container ──
+# ── 5. Free disk space before building ──
+# The server accumulates old Docker images, build cache, and dangling
+# layers. Prune aggressively before the build so we don't hit ENOSPC.
+echo "→ Pruning Docker system before build..."
+docker system prune -af --filter "until=24h" 2>/dev/null || true
+docker builder prune -af 2>/dev/null || true
+echo "→ Disk after prune: $(df -h / | awk 'NR==2{print $4}') free"
+
+# ── 6. Roll the container ──
 # Build context is the repo checkout (cloned/updated by the GH
 # Action into ${APP_DIR}/repo). The compose file lives at
 # deploy/docker-compose.prod.yml relative to the repo root.
@@ -127,17 +135,22 @@ docker compose -f deploy/docker-compose.prod.yml build "${PROJECT}" \
     --build-arg "VERSION=${BUILD_VERSION}" \
     --build-arg "COMMIT=${BUILD_COMMIT}" \
     --build-arg "BUILDTIME=${BUILD_TIME}"
-docker compose -f deploy/docker-compose.prod.yml up -d "${PROJECT}"
 
-# ── 6. Wait for healthy + report ──
-echo "→ Waiting for /health (max 30s)..."
-for i in $(seq 1 30); do
-    if curl -fsS --max-time 2 "http://127.0.0.1:8080/health" >/dev/null 2>&1; then
-        echo "✓ Service is healthy after ${i}s"
-        break
-    fi
-    sleep 1
-done
+# ── 7. Start with zero-downtime approach ──
+# Without blue-green infra, the brief (2-5s) gap between stopping the
+# old container and the new one responding causes Caddy to return
+# "Bad Gateway". Using --wait ensures docker compose waits for the
+# healthcheck to pass before returning, minimising the window.
+# In a future iteration this can be replaced with a proper blue-green
+# swap (start new on a secondary port, healthcheck, flip Caddy upstream,
+# stop old).
+echo "→ Starting new container (waiting for healthcheck)..."
+docker compose -f deploy/docker-compose.prod.yml up -d --wait "${PROJECT}" 2>&1 || {
+    echo "⚠️  --wait timed out. Checking container logs..."
+    docker compose -f "${COMPOSE_FILE}" logs --tail 30 "${PROJECT}" || true
+}
+
+# ── 8. Report status ──
 
 echo "→ Service status:"
 docker compose -f "${COMPOSE_FILE}" ps "${PROJECT}" || true

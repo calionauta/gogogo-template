@@ -87,10 +87,11 @@ jobs:
       - name: Generate CSS
         run: npm run build
 
-      - name: Install C toolchain (CGO for loro-go)
+      - name: Install C toolchain (CGO for loro-go + cross-compile)
         # internal/collab uses loro-go, a CGO binding to the Loro C library.
-        # Every build/test compiles collab, so a C compiler must be present
-        # (native x86_64 for `go test`, plus aarch64 for the cross build).
+        # Every build/test compiles collab, so a C compiler must be present.
+        # We also need gcc-aarch64-linux-gnu for the production cross-build
+        # (linux/arm64). Both are installed once to avoid redundant apt runs.
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y gcc gcc-aarch64-linux-gnu libc6-dev-arm64-cross
@@ -102,16 +103,6 @@ jobs:
         run: |
           PKGS=$(go list ./... | grep -vE "cmd/desktop$|^github.com/calionauta/gogogo-fullstack-template$")
           go test -race -count=1 $PKGS
-
-      - name: Install cross C toolchain (CGO for arm64)
-        # internal/collab uses loro-go, which is a CGO binding to the Loro
-        # C library. The prod binary is always-compiled (no build tags since
-        # v0.21.x) and pulls in collab, so it MUST compile with CGO enabled.
-        # Cross-compiling CGO from x86_64 Ubuntu to linux/arm64 needs the
-        # aarch64 gcc.
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
 
       - name: Build prod binary
         run: |
