@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"github.com/a-h/templ"
+
 	"github.com/calionauta/gogogo-fullstack-template/web/skins"
 )
 
