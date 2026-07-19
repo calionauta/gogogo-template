@@ -25,8 +25,6 @@ func TestDetectPlatform(t *testing.T) {
 	}
 }
 
-// formatKey must match web/lib/platform.ts so the SSR pre-render equals
-// what the browser renders (no flash on reconcile).
 func TestFormatKeyMatchesClient(t *testing.T) {
 	cases := []struct {
 		key  string
@@ -80,18 +78,27 @@ func renderComponent(t *testing.T, c templ.Component) string {
 }
 
 func TestKbdServerPrerender(t *testing.T) {
-	out := renderComponent(t, Kbd(KbdOpts{Key: Set("mod"), UserAgent: Set("Mozilla/5.0 (Windows NT 10.0)")}))
+	out := renderComponent(t, Kbd(KbdOpts{
+		Key:       Set("mod"),
+		UserAgent: Set("Mozilla/5.0 (Windows NT 10.0)"),
+	}))
 	if !strings.Contains(out, "Ctrl") {
 		t.Errorf("kbd SSR want Ctrl glyph pre-rendered, got %q", out)
 	}
 }
 
 func TestConditionServerPrerender(t *testing.T) {
-	match := renderComponent(t, Condition(ConditionOpts{Platform: Set("apple"), UserAgent: Set("Mozilla/5.0 (Macintosh)")}))
+	match := renderComponent(t, Condition(ConditionOpts{
+		Platform:  Set("apple"),
+		UserAgent: Set("Mozilla/5.0 (Macintosh)"),
+	}))
 	if !strings.Contains(match, "display:contents") {
 		t.Errorf("matching branch should be pre-shown, got %q", match)
 	}
-	miss := renderComponent(t, Condition(ConditionOpts{Platform: Set("apple"), UserAgent: Set("Mozilla/5.0 (Windows NT 10.0)")}))
+	miss := renderComponent(t, Condition(ConditionOpts{
+		Platform:  Set("apple"),
+		UserAgent: Set("Mozilla/5.0 (Windows NT 10.0)"),
+	}))
 	if strings.Contains(miss, "display:contents") {
 		t.Errorf("non-matching branch should stay hidden, got %q", miss)
 	}

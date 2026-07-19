@@ -70,7 +70,8 @@ func Active(name string) Skin {
 
 // ActiveAssets is a convenience wrapper for use inside Templ templates:
 // it looks up the active skin and returns its Assets component.
-//   @skins.ActiveAssets(skinName)
+//
+//	@skins.ActiveAssets(skinName)
 func ActiveAssets(name string) templ.Component {
 	return Active(name).Assets()
 }
