@@ -190,6 +190,108 @@ async function verifyOfflineTodoQueue(page, context) {
   }
 }
 
+async function verifyOfflineUx(page, context) {
+  // Bundles the CAL-9 offline-UX contract under one harness run:
+  //   1. the header presence pill (.online-pill) greys out (is-offline) when the
+  //      network drops — this is the bug the v0.23.5 fix closed (the header used
+  //      to render a live-green dot via Tailwind bg-success/animate-ping instead
+  //      of the shared .online-pill that reflectPresence() drives off navigator.onLine);
+  //   2. navigating to a VISITED page while offline is served from the SW PAGE_CACHE
+  //      (network-first with cache fallback), not ERR_INTERNET_DISCONNECTED;
+  //   3. the auth navbar logout posts {type:'clear-pages'} so the page cache is
+  //      purged on sign-out (shared-device safety).
+  const pill = page.locator(".online-pill");
+  console.log("→ Exercising offline-UX (presence pill + SW nav cache + clear-pages)…");
+
+  // Cache /todo under the SW BEFORE going offline. The very first navigation
+  // may predate SW control (or clients.claim() may take over the page without
+  // a fresh navigation), so we explicitly (re)load once control is established
+  // — that navigation is what networkFirstPage intercepts and caches. Without
+  // this, caches.match('/todo') is empty and the offline navigation test below
+  // has nothing to serve from the SW cache.
+  await page.goto(BASE + "/todo", { waitUntil: "load", timeout: 20000 });
+  await waitForServiceWorkerControl(page);
+  await page.reload({ waitUntil: "load" });
+  await waitForServiceWorkerControl(page);
+
+  // 1) online => pill must NOT be greyed out. Allow a brief settle in case
+  // navigator.onLine reported false transiently during SW install/claim.
+  await new Promise((r) => setTimeout(r, 1500));
+  const pills = await page.evaluate(() => {
+    const els = [...document.querySelectorAll(".online-pill")];
+    return els.map((e) => ({ cls: e.className, text: e.textContent.trim().slice(0, 30), online: navigator.onLine }));
+  });
+  console.log("ALL_PILLS:", JSON.stringify(pills));
+  const pillState = await pill.first().evaluate((el) => ({
+    online: navigator.onLine,
+    off: el.classList.contains("is-offline"),
+    cls: el.className,
+  }));
+  console.log("PILL_STATE:", JSON.stringify(pillState));
+  if (pillState.off) {
+    throw new Error("presence pill shows is-offline while online (should be live)");
+  }
+
+  // The page must be cached by the SW for offline navigation to have something to serve.
+  // networkFirstPage caches asynchronously after the response, so poll until it lands.
+  let cached = false;
+  for (let i = 0; i < 16; i++) {
+    cached = await page.evaluate(
+      (u) => caches.match(u).then((r) => !!r),
+      BASE + "/todo",
+    );
+    if (cached) break;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  if (!cached) {
+    const dump = await page.evaluate(async () => {
+      const out = {};
+      for (const n of await caches.keys()) {
+        const c = await caches.open(n);
+        out[n] = (await c.keys()).map((r) => r.url + " [" + r.method + "/" + r.mode + "]");
+      }
+      return out;
+    });
+    console.log("CACHE DUMP:", JSON.stringify(dump));
+    throw new Error("todo page was not cached by the service worker (PAGE_CACHE)");
+  }
+
+  try {
+    // 2) offline => pill greys out (reproduces the reported bug when broken).
+    await context.setOffline(true);
+    await page.waitForFunction(
+      () => document.querySelector(".online-pill")?.classList.contains("is-offline"),
+      null,
+      { timeout: 8000 },
+    );
+
+    // 3) offline navigation to a visited page is served from the SW cache.
+    await page.goto(BASE + "/todo", { waitUntil: "load", timeout: 20000 });
+    await page.getByPlaceholder("Add a new todo...").waitFor({ state: "visible", timeout: 15000 });
+    console.log("  ✓ offline navigation served the cached todo page");
+
+    // 4) logout form must wire the clear-pages purge message.
+    const logoutForm = page.locator('form[action="/logout"]');
+    const onSubmit = await logoutForm.getAttribute("data-on:submit");
+    if (!onSubmit || !onSubmit.includes("clear-pages")) {
+      throw new Error("logout form does not post clear-pages to the service worker");
+    }
+  } finally {
+    await context.setOffline(false);
+  }
+
+  // 5) logout (online) => SW purges the cached page.
+  console.log("→ Logging out to verify clear-pages purge…");
+  await page.locator('form[action="/logout"] button[type="submit"]').click();
+  await page.waitForFunction(() => location.pathname === "/login", null, { timeout: 15000 });
+  await page.waitForFunction(
+    (u) => caches.match(u).then((r) => !r),
+    BASE + "/todo",
+    { timeout: 8000 },
+  );
+  console.log("  ✓ logout purged the cached todo page (clear-pages)");
+}
+
 try {
   if (providedBin) {
     console.log(`→ Using prebuilt binary ${bin}…`);
@@ -288,6 +390,7 @@ try {
   pageErrors.length = 0;
   consoleErrors.length = 0;
   await verifyOfflineTodoQueue(page, context);
+  await verifyOfflineUx(page, context);
   if (pageErrors.length > 0) {
     fail(`uncaught JS error during offline queue test: ${pageErrors.map((e) => e.msg).join(" | ")}`);
   }

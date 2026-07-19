@@ -2,3 +2,7 @@ attributes:
   allowed:
     - data-tool
     - data-doc-id
+    - data-component
+    - data-offline-sync
+    - data-pending
+    - data-test

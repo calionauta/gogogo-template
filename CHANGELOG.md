@@ -1,3 +1,14 @@
+## [0.23.6] - 2026-07-18
+
+### Fixed
+- Offline navigation caching (service worker): the v0.23.5 "Added" entry was aspirational — the feature was actually non-functional. It was only caught by running the new Playwright smoke harness (the previous "could not run" note was wrong; the tools are installed and the browser downloads fine — the earlier failure was a stale read-only `GOCACHE` serving an old `sw.js`). Two service-worker bugs:
+  - `cache.put(request, …)` passed the navigation `Request` object directly; the Cache API rejects Requests with `mode: 'navigate'`, so the write was silently swallowed by an empty `.catch`. Now stores by `request.url`.
+  - The `response.type === "basic"` guard skipped the write entirely, because a SW re-fetch of a navigation request reports a non-`basic` type in this Chromium setup. Now gates on `response.ok`.
+  Visited pages are now genuinely served from the SW cache while offline; unvisited URLs still get the generic offline page.
+
+### Added
+- Offline-UX test harness: `scripts/smoke.mjs` now bundles presence-pill, SW navigation-cache, and `clear-pages` purge checks under one `verifyOfflineUx()` run (SW + Datastar signal coverage), so future regressions in offline behaviour are caught automatically.
+
 ## [0.23.5] - 2026-07-18
 
 ### Fixed

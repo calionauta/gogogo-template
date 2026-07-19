@@ -152,15 +152,23 @@ var OFFLINE_PAGE = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><
 function networkFirstPage(request) {
   return fetch(request)
     .then(function (response) {
-      if (response.ok && response.type === "basic") {
+      // Cache any successful same-origin HTML navigation. We previously
+      // restricted this to response.type === "basic", but a SW re-fetch of a
+      // navigation request can report a different type in some setups; the
+      // goal is simply offline availability of visited pages.
+      // Cache any successful same-origin HTML navigation so it is available
+      // offline. (A SW re-fetch of a navigation request may report a type
+      // other than "basic", so we gate on response.ok rather than the type.)
+      if (response.ok) {
+        var copy = response.clone();
         caches.open(PAGE_CACHE).then(function (cache) {
-          cache.put(request, response.clone());
+          cache.put(request.url, copy);
         }).catch(function () {});
       }
       return response;
     })
     .catch(function () {
-      return caches.match(request).then(function (cached) {
+      return caches.match(request.url).then(function (cached) {
         if (cached) return cached;
         return new Response(OFFLINE_PAGE, {
           status: 200,
