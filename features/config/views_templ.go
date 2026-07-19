@@ -76,14 +76,14 @@ func Page(data PageData, userEmail string, buildLabel string, buildCommit string
 			return templ_7745c5c3_Err
 		}
 		if data.BuildLabel != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<span class=\"badge badge-info badge-soft badge-sm font-mono\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<span class=\"badge badge-info badge-soft badge-sm font-mono\" data-variant=\"info\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(data.BuildLabel)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `features/config/views.templ`, Line: 79, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `features/config/views.templ`, Line: 79, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -172,7 +172,7 @@ func Page(data PageData, userEmail string, buildLabel string, buildCommit string
 				}
 				if row.BoolOnly {
 					if row.Set {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<span class=\"badge badge-success badge-sm\">set</span>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<span class=\"badge badge-success badge-sm\" data-variant=\"success\">set</span>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}

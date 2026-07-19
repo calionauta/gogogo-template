@@ -1,216 +1,85 @@
-/* basecoat-input.css — Tailwind v4 + shadcn-inspired CSS build entry.
- * This is a companion to input.css that produces a second stylesheet
- * (basecoat.min.css) containing only the shadcn-style semantic CSS
- * variables and component utilities, WITHOUT DaisyUI.
- *
- * The BasecoatUI skin loads basecoat.min.css instead of app.min.css.
- * Both are compiled together; the skin selector chooses at runtime.
- *
- * File-level convention: classes use shadcn design tokens applied
- * as standard CSS variables on :root, then referenced by Tailwind
- * utility classes and custom component utilities. */
+@import "tailwindcss" source("../../features/") source("../../web/");
+@import "basecoat-css/maia";
 
-@import "tailwindcss" source("../../");
-@source "../../features/**/*.templ";
-@source "../../features/**/*.go";
-@source "../../web/**/*.templ";
-@source "../../web/**/*.go";
-@source "../../web/skins/basecoat/**/*.templ";
+@theme inline {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0.004 49.33);
+  --color-primary: oklch(0.205 0.042 265.755);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.97 0 0);
+  --color-secondary-foreground: oklch(0.205 0.042 265.755);
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0.042 265.755);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.985 0 0);
+  --color-border: oklch(0.922 0 0);
+  --color-input: oklch(0.922 0 0);
+  --color-ring: oklch(0.205 0.042 265.755);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0.004 49.33);
+  --radius-sm: calc(0.5rem - 4px);
+  --radius-md: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
 
-/* ── Shadcn-style design tokens (light theme) ──
- * These follow the shadcn/ui v4 convention for semantic color tokens.
- * Every component utility below references these variables, so tuning
- * the palette here affects every skin component consistently. */
+
+/* ─── shadcn-inspired CSS variables over Basecoat's maia theme ─── */
 :root {
-  /* Base */
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-
-  /* Card */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-
-  /* Popover */
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-
-  /* Primary */
+  --foreground: oklch(0.145 0.004 49.33);
   --primary: oklch(0.205 0.042 265.755);
   --primary-foreground: oklch(0.985 0 0);
-
-  /* Secondary */
-  --secondary: oklch(0.965 0 0);
+  --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0.042 265.755);
-
-  /* Muted */
-  --muted: oklch(0.965 0 0);
+  --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-
-  /* Accent */
-  --accent: oklch(0.965 0 0);
+  --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0.042 265.755);
-
-  /* Destructive */
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-
-  /* Border / Input / Ring */
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-
-  /* Radius */
-  --radius: 0.625rem;
-
-  /* Chart (placeholder, unused in todo) */
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-
-  /* Sidebar (placeholder) */
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.965 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0.042 265.755);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --ring: oklch(0.205 0.042 265.755);
+  --radius: 0.5rem;
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0.004 49.33);
 }
 
-/* ── Dark theme ── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.145 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.145 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0.042 265.755);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.985 0 0);
-    --border: oklch(0.269 0 0);
-    --input: oklch(0.269 0 0);
-    --ring: oklch(0.439 0 0);
-    --chart-1: oklch(0.488 0.243 264.376);
-    --chart-2: oklch(0.696 0.17 162.48);
-    --chart-3: oklch(0.769 0.188 70.08);
-    --chart-4: oklch(0.627 0.265 303.9);
-    --chart-5: oklch(0.645 0.246 16.439);
-    --sidebar: oklch(0.205 0.042 265.755);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(0.269 0 0);
-    --sidebar-ring: oklch(0.439 0 0);
-  }
+/* Animation utilities */
+@keyframes motion-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes motion-slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes motion-zoom-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.animate-in {
+  animation: motion-fade-in 0.2s ease-out;
 }
 
-/* ── Tailwind v4 semantic theme extension ──
- * Maps our custom variables to Tailwind utility classes so templates
- * can use bg-background, text-foreground, border, etc. */
-@theme {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+/* Toast container */
+#toast-container {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
-
-/* ── Animation utilities (copied from input.css to keep skin self-contained) ── */
-@layer utilities {
-  .animate-in {
-    animation-duration: 150ms;
-    animation-fill-mode: both;
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .fade-in { animation-name: motion-fade-in; }
-  .slide-in-from-left-4 { animation-name: motion-slide-in-left; }
-  .zoom-in-95 { animation-name: motion-zoom-in; }
-
-  @keyframes motion-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes motion-slide-in-left {
-    from { opacity: 0; transform: translateX(-1rem); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes motion-zoom-in {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
-  }
-
-  .animate-duration-300 { animation-duration: 300ms; }
-  .animate-duration-500 { animation-duration: 500ms; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-in { animation: none; }
-  }
-}
-
-/* ── Toasts (shared with main CSS but kept here for the skin to work standalone) ── */
-@layer components {
-  #toast-container {
-    z-index: 100;
-    position: fixed;
-    right: 1rem;
-    bottom: 1rem;
-    display: flex;
-    flex-direction: column-reverse;
-    gap: 0.5rem;
-    max-width: 24rem;
-  }
-  .toast-msg {
-    opacity: 0;
-    transform: scale(0.9) translateY(50px);
-    transition: transform 0.5s, opacity 0.5s;
-  }
-  .toast-msg.open {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
-  .toast-timer-bar {
-    height: 3px;
-    border-radius: 999px;
-    background: oklch(0.872 0.01 258.338 / 0.3);
-    animation: toast-shrink 3s linear forwards;
-  }
-  .toast-msg:has(.alert-error) .toast-timer-bar {
-    animation-duration: 8s;
-  }
-  @keyframes toast-shrink {
-    from { width: 100%; }
-    to { width: 0%; }
-  }
+.toast-msg {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  animation: motion-slide-in-left 0.2s ease-out;
 }

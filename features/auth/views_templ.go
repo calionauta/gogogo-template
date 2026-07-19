@@ -51,14 +51,14 @@ func Navbar(userEmail string, active string, buildLabel string, buildCommit stri
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" data-variant=\"info\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(buildLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `features/auth/views.templ`, Line: 22, Col: 163}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `features/auth/views.templ`, Line: 22, Col: 183}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -136,17 +136,17 @@ func Navbar(userEmail string, active string, buildLabel string, buildCommit stri
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">Config</a></div></div><div class=\"navbar-end gap-2\"><button type=\"button\" class=\"btn btn-ghost btn-sm btn-circle theme-toggle\" aria-label=\"Alternar tema\" title=\"Alternar tema claro/escuro\"><iconify-icon icon=\"material-symbols:dark-mode\" class=\"text-lg theme-toggle-icon icon-dark-mode\"></iconify-icon> <iconify-icon icon=\"material-symbols:light-mode\" class=\"text-lg theme-toggle-icon icon-light-mode\"></iconify-icon></button> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">Config</a></div></div><div class=\"navbar-end gap-2\"><button type=\"button\" class=\"btn btn-ghost btn-sm btn-circle theme-toggle\" aria-label=\"Alternar tema\" title=\"Alternar tema claro/escuro\" data-variant=\"ghost\"><iconify-icon icon=\"material-symbols:dark-mode\" class=\"text-lg theme-toggle-icon icon-dark-mode\"></iconify-icon> <iconify-icon icon=\"material-symbols:light-mode\" class=\"text-lg theme-toggle-icon icon-light-mode\"></iconify-icon></button> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if userEmail == "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<a href=\"/login\" class=\"btn btn-primary btn-sm\" data-on:click=\"$loading = true\">Sign in</a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<a href=\"/login\" class=\"btn btn-primary btn-sm\" data-on:click=\"$loading = true\" data-variant=\"primary\">Sign in</a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"dropdown dropdown-end\"><div tabindex=\"0\" role=\"button\" class=\"btn btn-ghost btn-sm flex items-center gap-2\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5 shrink-0\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path fill-rule=\"evenodd\" d=\"M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z\" clip-rule=\"evenodd\"></path></svg> <span class=\"hidden sm:inline max-w-[10rem] truncate\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"dropdown dropdown-end\"><div tabindex=\"0\" role=\"button\" class=\"btn btn-ghost btn-sm flex items-center gap-2\" data-variant=\"ghost\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5 shrink-0\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path fill-rule=\"evenodd\" d=\"M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z\" clip-rule=\"evenodd\"></path></svg> <span class=\"hidden sm:inline max-w-[10rem] truncate\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -253,7 +253,7 @@ func LoginPage(next string, errMsg string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\"> <label class=\"form-control w-full\"><div class=\"label\"><span class=\"label-text\">Email</span></div><input type=\"email\" name=\"email\" value=\"demo@demo.app\" class=\"input w-full\" required autocomplete=\"email\"></label> <label class=\"form-control w-full\"><div class=\"label\"><span class=\"label-text\">Password</span></div><input type=\"password\" name=\"password\" value=\"demo1234456\" class=\"input w-full\" required autocomplete=\"current-password\"></label> <button type=\"submit\" class=\"btn btn-primary w-full\">Sign in</button><div class=\"text-xs text-center text-base-content/40 mt-4\">Demo credentials prefilled. Click <strong>Sign in</strong> to enter.</div></form></div></div></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\"> <label class=\"form-control w-full\"><div class=\"label\"><span class=\"label-text\">Email</span></div><input type=\"email\" name=\"email\" value=\"demo@demo.app\" class=\"input w-full\" required autocomplete=\"email\"></label> <label class=\"form-control w-full\"><div class=\"label\"><span class=\"label-text\">Password</span></div><input type=\"password\" name=\"password\" value=\"demo1234456\" class=\"input w-full\" required autocomplete=\"current-password\"></label> <button type=\"submit\" class=\"btn btn-primary w-full\" data-variant=\"primary\">Sign in</button><div class=\"text-xs text-center text-base-content/40 mt-4\">Demo credentials prefilled. Click <strong>Sign in</strong> to enter.</div></form></div></div></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

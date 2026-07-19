@@ -1,3 +1,23 @@
+## [0.24.3] - 2026-07-19
+
+### Added
+
+- **Basecoat UI integration**: Native Basecoat CSS (`basecoat-css/maia`) with shadcn-inspired OKLCH theme variables. Basecoat JS runtime (`basecoat.min.js`) loaded with `basecoat.initAll()` debounced via `requestAnimationFrame` for Datastar DOM morphing compatibility.
+- **Basecoat compatibility layer**: `data-variant` attributes added to all DaisyUI templates (`btn-primary` → `data-variant="primary"`, `btn-ghost` → `data-variant="ghost"`, etc.), enabling Basecoat to style elements correctly.
+
+### Fixed
+
+- **Morpheus skin**: Removed `app.css` (DaisyUI styles) from skin assets to prevent CSS conflicts with `<neo-*>` custom elements.
+- **Basecoat skin**: Removed `app.min.css` (DaisyUI) from stylesheets to avoid CSS conflicts with Basecoat component styles.
+- **Dropdown skin selector**: Now reads active skin from URL `?skin=` query parameter via handler, maintaining correct state.
+- **Removed `skinutil.go`**: No longer needed after SkinSelector was moved from navbar to page templates.
+- **Whiteboard templates**: Added missing `data-variant` attributes.
+
+### Changed
+
+- **Theme controller (`theme.js`)**: Added Basecoat `initAll()` hook with debounced `MutationObserver` (via `requestAnimationFrame`) to reinitialize Basecoat components after Datastar SSE merges.
+- **CSS architecture**: `basecoat-input.css` now imports `basecoat-css/maia` and defines full shadcn `@theme inline` color tokens for Tailwind v4 utility class support.
+
 ## [0.24.0] - 2026-07-18
 
 ### Added

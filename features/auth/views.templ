@@ -19,7 +19,7 @@ templ Navbar(userEmail string, active string, buildLabel string, buildCommit str
 			// verify the binary by eye instead of guessing from session
 			// storage or grep-ing CDN. "dev" for `go run`. The label has a
 			// title= that exposes commit + build time on hover.
-			<span class="badge badge-info badge-soft badge-sm font-mono tracking-tight hidden sm:inline-flex" title={ buildCommit + " · built " + buildLabel }>{ buildLabel }</span>
+			<span class="badge badge-info badge-soft badge-sm font-mono tracking-tight hidden sm:inline-flex" title={ buildCommit + " · built " + buildLabel } data-variant="info">{ buildLabel }</span>
 			<div class="flex items-center gap-1 ml-1 sm:ml-2">
 				<a href="/todo" class={ templ.Classes("btn btn-ghost btn-sm font-medium", map[string]bool{
 					"btn-active": active == "todo",
@@ -38,7 +38,7 @@ templ Navbar(userEmail string, active string, buildLabel string, buildCommit str
 				class="btn btn-ghost btn-sm btn-circle theme-toggle"
 				aria-label="Alternar tema"
 				title="Alternar tema claro/escuro"
-			>
+			 data-variant="ghost">
 				<iconify-icon icon="material-symbols:dark-mode" class="text-lg theme-toggle-icon icon-dark-mode"></iconify-icon>
 				<iconify-icon icon="material-symbols:light-mode" class="text-lg theme-toggle-icon icon-light-mode"></iconify-icon>
 			</button>
@@ -47,12 +47,12 @@ templ Navbar(userEmail string, active string, buildLabel string, buildCommit str
 					href="/login"
 					class="btn btn-primary btn-sm"
 					data-on:click="$loading = true"
-				>
+				 data-variant="primary">
 					Sign in
 				</a>
 			} else {
 				<div class="dropdown dropdown-end">
-					<div tabindex="0" role="button" class="btn btn-ghost btn-sm flex items-center gap-2">
+					<div tabindex="0" role="button" class="btn btn-ghost btn-sm flex items-center gap-2" data-variant="ghost">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
 						</svg>
@@ -159,7 +159,7 @@ templ LoginPage(next string, errMsg string) {
 							/>
 						</label>
 
-						<button type="submit" class="btn btn-primary w-full">
+						<button type="submit" class="btn btn-primary w-full" data-variant="primary">
 							Sign in
 						</button>
 

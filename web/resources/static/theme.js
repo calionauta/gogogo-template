@@ -141,3 +141,32 @@
     bindToggle();
   }
 })();
+
+// Reinitialize Basecoat components after Datastar DOM morphs (debounced)
+(function() {
+  var _bcTimer = null;
+  var initBasecoat = function() {
+    if (typeof basecoat !== 'undefined' && basecoat.initAll) {
+      try { basecoat.initAll(); } catch(e) { /* silent */ }
+    }
+  };
+  var debouncedInit = function() {
+    if (_bcTimer) cancelAnimationFrame(_bcTimer);
+    _bcTimer = requestAnimationFrame(initBasecoat);
+  };
+  // Initial call after DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBasecoat);
+  } else {
+    initBasecoat();
+  }
+  // Watch for new elements after Datastar merges HTML (debounced via rAF)
+  var observer = new MutationObserver(debouncedInit);
+  if (document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
+  } else {
+    document.addEventListener('DOMContentLoaded', function() {
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+  }
+})();

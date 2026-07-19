@@ -76,7 +76,7 @@ templ Page(data PageData, userEmail string, buildLabel string, buildCommit strin
 				<div class="flex items-baseline justify-between mb-4">
 					<h1 class="text-2xl font-bold">Config</h1>
 					if data.BuildLabel != "" {
-						<span class="badge badge-info badge-soft badge-sm font-mono">{ data.BuildLabel }</span>
+						<span class="badge badge-info badge-soft badge-sm font-mono" data-variant="info">{ data.BuildLabel }</span>
 					}
 				</div>
 
@@ -112,7 +112,7 @@ templ Page(data PageData, userEmail string, buildLabel string, buildCommit strin
 												<td>
 													if row.BoolOnly {
 														if row.Set {
-															<span class="badge badge-success badge-sm">set</span>
+															<span class="badge badge-success badge-sm" data-variant="success">set</span>
 														} else {
 															<span class="config-not-set">not set</span>
 														}

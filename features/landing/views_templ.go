@@ -76,7 +76,7 @@ func Index(userEmail string, buildLabel string, buildCommit string) templ.Compon
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<main class=\"landing-hero\"><div class=\"landing-card\"><header class=\"text-center mb-6\"><img class=\"landing-logo\" src=\"/static/logo.png\" alt=\"gogogo-fullstack-template\"></header><section class=\"landing-about mb-8\"><p>Go full-stack template. Single binary, no dependencies. Database &amp; Auth. Reactive UI. Background jobs. Offline-first. Real-time multi-user. Durable workflows. Desktop &amp; Android capable.</p></section><div class=\"text-center\"><a href=\"/todo\" class=\"btn btn-primary btn-lg\">Access demo site</a> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<main class=\"landing-hero\"><div class=\"landing-card\"><header class=\"text-center mb-6\"><img class=\"landing-logo\" src=\"/static/logo.png\" alt=\"gogogo-fullstack-template\"></header><section class=\"landing-about mb-8\"><p>Go full-stack template. Single binary, no dependencies. Database &amp; Auth. Reactive UI. Background jobs. Offline-first. Real-time multi-user. Durable workflows. Desktop &amp; Android capable.</p></section><div class=\"text-center\"><a href=\"/todo\" class=\"btn btn-primary btn-lg\" data-variant=\"primary\">Access demo site</a> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

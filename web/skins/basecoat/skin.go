@@ -27,8 +27,8 @@ func init() {
 func assets() templ.Component {
 	return templ.Raw(`
 <link rel="stylesheet" href="/static/basecoat.min.css"/>
-<link rel="stylesheet" href="/static/app.min.css"/>
-<script defer type="module" src="/static/theme.js"></script>
+<script defer type=.module. src=./static/theme.js.>
+<script defer src=./static/basecoat.min.js.>></script>
 <script src="/static/iconify-icon.min.js"></script>
 <script defer type="module" src="/static/datastar.js"></script>
 	`)
