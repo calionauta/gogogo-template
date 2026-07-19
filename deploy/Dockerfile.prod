@@ -44,7 +44,7 @@ RUN npm install --no-audit --no-fund
 # server. (GOOS=linux is still set; the builder's native GOARCH is used.)
 COPY . .
 RUN go tool templ generate && \
-    sed -i '0,\/^)\/{\/^)\/i\\t"github.com\/calionauta\/gogogo-fullstack-template\/config"\n\t"github.com\/calionauta\/gogogo-fullstack-template\/web\/skins"' features/auth/views_templ.go && \
+    sed -i '/^import (/,/^)/{s|^)|\t"github.com/calionauta/gogogo-fullstack-template/config"\n\t"github.com/calionauta/gogogo-fullstack-template/web/skins"\n)|}' features/auth/views_templ.go && \
     npm run build --silent && \
     # Inject build metadata. ARGs declared at top of file. See
     # top-level Dockerfile for rationale.
