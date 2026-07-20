@@ -28,39 +28,370 @@ templ TodoPage(title string, signals todo.Signals, userEmail string, buildLabel 
 			<main class="max-w-5xl mx-auto mt-8 px-4">
 				@TodoList(signals)
 			</main>
+			@deleteConfirmModal()
+			<div class="toast toast-end" data-show="$loading"></div>
 			@sseOpener()
 			@pbRealtime()
 		</body>
 	</html>
 }
 
+// TodoList renders the full layout — header, two-column grid (Tasks
+// on the left; Realtime card + Async Demo Tabs card on the right).
+// Mirrors the DaisyUI reference's layout so switching between skins
+// doesn't make components appear/disappear.
 templ TodoList(signals todo.Signals) {
-	<div data-signals={ marshalSignals(signals) } data-on:gogogo__queued__window="$loading = false; $newTitle = ''; $deleting = false; $confirmingDeleteId = ''; $confirmingDeleteTitle = ''">
-		<div class="card">
-			<header>
-				<h2 class="card-title">Tasks</h2>
-				<div class="card-action">
-					<span class="badge" data-variant="outline" data-text="$itemCount + ' items'"></span>
-				</div>
-			</header>
-			<section>
-				@createForm(signals)
-				@filterTabs(signals)
-				@TodoListRegion(signals)
-			</section>
+	<div class="space-y-6" data-signals={ marshalSignals(signals) } data-on:gogogo__queued__window="$loading = false; $newTitle = ''; $deleting = false; $confirmingDeleteId = ''; $confirmingDeleteTitle = ''; $aiStep = 0">
+
+		@header(signals)
+
+		<div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+
+			<!-- LEFT: Tasks card (3/5) -->
+			<div class="lg:col-span-3 space-y-5">
+				@tasksCard(signals)
+			</div>
+
+			<!-- RIGHT: Realtime + Async Demo Tabs (2/5) -->
+			<div class="lg:col-span-2 space-y-4">
+				@realtimeCard(signals)
+				@asyncDemosCard(signals)
+			</div>
+
+		</div>
+	</div>
+}
+
+// header renders the page title + live online pill. Matches the
+// DaisyUI layout so a switch between skins doesn't change the page
+// shape (only the styling of each element).
+templ header(signals todo.Signals) {
+	<div class="flex items-center justify-between">
+		<div class="flex items-center gap-3">
+			<div class="w-9 h-9 rounded-xl bg-primary text-primary-content flex items-center justify-center shadow-sm">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+					<path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+				</svg>
+			</div>
+			<div class="min-w-0">
+				<h1 class="text-xl font-bold">Todo App</h1>
+				<p class="text-xs text-base-content/50 max-w-sm">
+					<span class="font-medium">{ signals.StoreLabel }</span>
+					<span class="text-base-content/30 mx-1">·</span>
+					<span>{ signals.OfflineLabel }</span>
+				</p>
+			</div>
+		</div>
+		<span class="online-pill" data-show="$connectedClients >= 0">
+			<span class="pulse-dot"></span>
+			<span data-text="$connectedClients + ' online'"></span>
+			<span class="hidden sm:inline"> · <span data-text="$realtimeKind"></span></span>
+		</span>
+	</div>
+}
+
+// tasksCard renders the create form, AI suggestions, filter tabs, the
+// list itself, and the clear-completed footer.
+templ tasksCard(signals todo.Signals) {
+	<div class="card">
+		<header>
+			<h2 class="card-title">Tasks</h2>
+			<div class="card-action">
+				<span class="badge" data-variant="outline" data-text="$itemCount + ' items'"></span>
+			</div>
+		</header>
+		<section>
+			@createForm(signals)
+			@SuggestionsList(signals.Suggestions)
+			@filterTabs(signals)
+			@TodoListRegion(signals)
 			if signals.ItemCount > 0 {
-				<footer class="flex justify-between items-center">
+				<div class="flex justify-between items-center mt-4 pt-3 border-t border-base-200">
 					<span class="text-sm soft" data-text="$itemCount + ' items'"></span>
 					<button type="button" class="btn" data-variant="outline" data-size="sm"
 						data-on:click="while (document.querySelector('.todo-item')) { @post('/api/todos/completed/delete?clientID=' + encodeURIComponent($clientID || '') + '&skin=basecoat'); break; }">
 						Clear completed
 					</button>
-				</footer>
+				</div>
 			}
-		</div>
+		</section>
 	</div>
 }
 
+// realtimeCard surfaces the live transport. Uses basecoat's
+// .online-pill + .pulse-dot (defined in chrome.css) for the
+// connection-state indicator and a small muted helper paragraph
+// under it.
+templ realtimeCard(signals todo.Signals) {
+	<div class="card">
+		<header>
+			<h2 class="card-title text-sm">Realtime</h2>
+			<div class="card-action">
+				<span class="badge" data-variant="outline" data-text="$realtimeKind"></span>
+			</div>
+		</header>
+		<section>
+			<div class="flex items-center gap-2">
+				<span class="online-pill">
+					<span class="pulse-dot"></span>
+					<span data-text="$connectedClients + ' online'"></span>
+				</span>
+			</div>
+			<p class="text-xs soft mt-2">
+				Every CRUD mutation streams through PocketBase realtime, scoped to your own records. Open this page in two tabs to watch todos sync live.
+			</p>
+		</section>
+	</div>
+}
+
+// asyncDemosCard groups the three async-layer demos (Queue + Retry,
+// AI Suggest, Durable Workflow) behind a single basecoat <nav
+// role="tablist">. Each demo's content lives inside its own
+// <div role="tabpanel"> with proper ARIA wiring so the basecoat JS
+// handles arrow-key navigation for free; the JS also dispatches a
+// `tabs.select` event on click, but we drive selection from
+// $sidebarTab via data-attr:aria-selected so the broadcaster's
+// patches (and SSE-driven $sidebarTab flips) re-paint the active
+// state without re-running the JS. Tab labels match the DaisyUI
+// reference.
+templ asyncDemosCard(signals todo.Signals) {
+	<div class="card overflow-visible">
+		<header>
+			<h2 class="card-title text-sm">Async Demos</h2>
+		</header>
+		<section class="p-0">
+			<div class="tabs w-full" id="async-demos-tabs-basecoat">
+				<nav role="tablist" aria-orientation="horizontal" class="w-full grid grid-cols-3">
+					<button type="button" role="tab" id="async-demos-tabs-tab-queue" aria-controls="async-demos-tabs-panel-queue" aria-selected={ ternary(signals.SidebarTab == "" || signals.SidebarTab == "queue", "true", "false") } tabindex={ ternary(signals.SidebarTab == "" || signals.SidebarTab == "queue", "0", "-1") }
+						data-on:click__prevent="$sidebarTab = 'queue'">Queue + Retry</button>
+					if signals.LLMEnabled || signals.SimulatedLLM {
+						<button type="button" role="tab" id="async-demos-tabs-tab-ai" aria-controls="async-demos-tabs-panel-ai" aria-selected={ ternary(signals.SidebarTab == "ai", "true", "false") } tabindex={ ternary(signals.SidebarTab == "ai", "0", "-1") }
+							data-on:click__prevent="$sidebarTab = 'ai'">AI Suggest</button>
+					}
+					if signals.DagNatsEnabled {
+						<button type="button" role="tab" id="async-demos-tabs-tab-workflow" aria-controls="async-demos-tabs-panel-workflow" aria-selected={ ternary(signals.SidebarTab == "workflow", "true", "false") } tabindex={ ternary(signals.SidebarTab == "workflow", "0", "-1") }
+							data-on:click__prevent="$sidebarTab = 'workflow'">Durable Workflow</button>
+					}
+				</nav>
+
+				<div role="tabpanel" id="async-demos-tabs-panel-queue" aria-labelledby="async-demos-tabs-tab-queue" data-show="$sidebarTab === 'queue' || !$sidebarTab" class="p-4 space-y-3">
+					@queueRetryPanel(signals)
+				</div>
+				if signals.LLMEnabled || signals.SimulatedLLM {
+					<div role="tabpanel" id="async-demos-tabs-panel-ai" aria-labelledby="async-demos-tabs-tab-ai" data-show="$sidebarTab === 'ai'" hidden class="p-4 space-y-3">
+						@aiSuggestPanel(signals)
+					</div>
+				}
+				if signals.DagNatsEnabled {
+					<div role="tabpanel" id="async-demos-tabs-panel-workflow" aria-labelledby="async-demos-tabs-tab-workflow" data-show="$sidebarTab === 'workflow'" hidden class="p-4 space-y-3">
+						@durableWorkflowPanel(signals)
+					</div>
+				}
+			</div>
+		</section>
+	</div>
+}
+
+// queueRetryPanel is the Queue + Retry tab. Hard-coded goqite job that
+// fails twice then succeeds — no LLM. Steps light one by one as the
+// SSE hub streams per-attempt retry feedback.
+templ queueRetryPanel(signals todo.Signals) {
+	<div class="flex items-center justify-between">
+		<div class="flex items-center gap-2">
+			<div class="w-7 h-7 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center shrink-0">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+				</svg>
+			</div>
+			<span class="text-xs font-semibold">Queue + Retry</span>
+		</div>
+		<div class="flex gap-1">
+			<span class="badge" data-variant="secondary">goqite</span>
+			<span class="badge" data-variant="outline">retry-go</span>
+		</div>
+	</div>
+
+	<p class="text-xs soft">
+		Enqueues a hard-coded background job that fails twice then succeeds — exercising the queue + retry layer end-to-end (no LLM involved).
+	</p>
+
+	<ul class="steps steps-vertical w-full text-xs">
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $demoStep === 1, 'step-success': $demoStep >= 2}" }>
+			Enqueue hard-coded job (goqite)
+		</li>
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $demoStep === 2, 'step-success': $demoStep >= 3}" }>
+			Retry on simulated failure (retry-go)
+			<span class="inline text-xs soft ml-1 normal-case" data-show="$lastRetryStatus === 'attempt'" data-text="'— attempt ' + ($lastRetryAttempt || 1)"></span>
+		</li>
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $demoStep === 3 && $techPhase === 'error', 'step-success': $demoStep >= 3 && $techPhase !== 'error'}" }>
+			Job completes
+		</li>
+	</ul>
+
+	<form data-on:submit__prevent="$techStep = 'retry-demo'; $demoStep = 1; $suggestPending = true; @post('/api/todos/retry-demo?clientID=' + encodeURIComponent($clientID || '') + '&skin=basecoat')" class="contents">
+		<button type="submit" class="btn w-full" data-variant="secondary"
+			title="Enqueue a hard-coded job (goqite) that runs through retry-go: failure → retry → success">
+			<span class="inline-flex items-center gap-2">
+				<span data-show="!$suggestPending">Run queue + retry demo</span>
+				<span data-show="$suggestPending" class="inline-flex items-center gap-1.5">
+					<span class="spinner"></span>
+					<span>Running demo…</span>
+				</span>
+			</span>
+		</button>
+	</form>
+
+	<div class="alert alert-success text-xs py-2" data-show="$demoStep >= 3 && $techPhase !== 'error'" data-init__delay.4s="$demoStep = 0">
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+			<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+		</svg>
+		<span>Demo completed</span>
+	</div>
+}
+
+// aiSuggestPanel is the AI Suggest tab. Separate affordance from the
+// queue + retry demo (calls GoAI/Groq). Hidden when the server was
+// started without a key AND without SIMULATE_LLM.
+templ aiSuggestPanel(signals todo.Signals) {
+	<div class="flex items-center justify-between">
+		<div class="flex items-center gap-2">
+			<div class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+				</svg>
+			</div>
+			<span class="text-xs font-semibold">AI Suggest</span>
+		</div>
+		<span class="badge" data-variant="primary">GoAI</span>
+	</div>
+
+	<p class="text-xs soft">
+		Asks the configured LLM (Groq via GoAI) for 3 todo suggestions. The request is queued (goqite) and retried (retry-go) like any slow, failure-prone call.
+	</p>
+
+	<ul class="steps steps-vertical w-full text-xs">
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $aiStep >= 1 && $aiPending, 'step-success': $aiStep >= 1 && !$aiPending && $aiPhase !== 'error', 'step-error': $aiPhase === 'error'}" }>
+			Queue suggest job (goqite)
+		</li>
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $aiStep >= 1 && $aiPending, 'step-success': $aiStep >= 1 && !$aiPending && $aiPhase !== 'error', 'step-error': $aiPhase === 'error'}" }>
+			Retry on transient error (retry-go)
+			<span class="inline text-xs soft ml-1 normal-case" data-show="$lastRetryStatus === 'attempt'" data-text="'— attempt ' + ($lastRetryAttempt || 1)"></span>
+		</li>
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $aiStep >= 3 && $aiPending, 'step-success': $aiStep >= 3 && !$aiPending && $aiPhase !== 'error', 'step-error': $aiPhase === 'error'}" }>
+			Return suggestions
+		</li>
+	</ul>
+
+	<button type="button" class="btn w-full" data-variant="primary"
+		data-on:click="$aiStep = 1; $aiPending = true; @post('/api/todos/suggest?clientID=' + encodeURIComponent($clientID || '') + '&partial=' + encodeURIComponent($newTitle) + '&skin=basecoat')"
+		title="Ask the configured LLM (Groq) for 3 todo suggestions via goqite + retry-go">
+		<span class="inline-flex items-center gap-2">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+				<path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+			</svg>
+			<span data-show="!$aiPending">AI Suggest</span>
+			<span data-show="$aiPending" class="inline-flex items-center gap-1.5">
+				<span class="spinner"></span>
+				<span>Asking AI…</span>
+			</span>
+		</span>
+	</button>
+
+	<div class="alert alert-success text-xs py-2" data-show="$aiStep >= 3 && !$aiPending && $aiPhase !== 'error'" data-init__delay.4s="$aiStep = 0">
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+			<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+		</svg>
+		<span>Suggestions ready</span>
+	</div>
+}
+
+// durableWorkflowPanel is the Durable Workflow tab. Surfaces the
+// DagNats event-sourced pipeline as a 6-step stepper that the workflow
+// advances via per-step SSE patches. Hidden when DAGNATS_ENABLED=false.
+templ durableWorkflowPanel(signals todo.Signals) {
+	<div class="flex items-center justify-between">
+		<div class="flex items-center gap-2">
+			<div class="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+					<path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+					<path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+				</svg>
+			</div>
+			<span class="text-xs font-semibold">Durable Workflow</span>
+		</div>
+		<span class="badge" data-variant="accent">DagNats</span>
+	</div>
+
+	<ul class="steps steps-vertical w-full text-xs">
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && $onboardingStep === 1, 'step-success': $workflowCompleted}" }>
+			1. Greeting
+		</li>
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && $onboardingStep === 2, 'step-success': $workflowCompleted}" }>
+			2. Waiting for your first to-do
+		</li>
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && $onboardingStep === 3, 'step-success': $workflowCompleted}" }>
+			3. Creating example todo 1/3
+		</li>
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && $onboardingStep === 4, 'step-success': $workflowCompleted}" }>
+			4. Creating example todo 2/3
+		</li>
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && $onboardingStep === 5, 'step-success': $workflowCompleted}" }>
+			5. Creating example todo 3/3
+		</li>
+		<li class="step transition-all duration-500"
+			data-class={ "{'step-primary': $techStep === 'workflow' && $onboardingActive && !$workflowCompleted && $onboardingStep === 6, 'step-success': $workflowCompleted}" }>
+			6. Finalize
+		</li>
+	</ul>
+
+	<div class="alert text-xs py-2"
+		data-class={ "{'alert-info': $onboardingActive && !$workflowCompleted && $onboardingStep === 2}" }
+		data-show="$onboardingActive && !$workflowCompleted && $onboardingStep === 2">
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+			<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-2a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+		</svg>
+		<span>Waiting for your next to-do. Add any task above to continue the workflow.</span>
+	</div>
+
+	<button type="button" class="btn w-full" data-variant="accent"
+		data-attr:disabled="$onboardingActive && !$workflowCompleted"
+		data-on:click="$sidebarTab = 'workflow'; $techStep = 'workflow'; $onboardingActive = true; $workflowCompleted = false; @post('/api/onboarding/start?clientID=' + encodeURIComponent($clientID || '') + '&skin=basecoat')">
+		<span class="inline-flex items-center gap-2">
+			<span data-show="!$onboardingActive || $workflowCompleted">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 inline -mt-0.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+				</svg>
+				Run durable workflow
+			</span>
+			<span data-show="$onboardingActive && !$workflowCompleted" class="inline-flex items-center gap-1.5">
+				<span class="spinner"></span>
+				<span data-text="'Running ' + ($onboardingStep || 1) + '/' + ($onboardingTotal || 6) + '…'"></span>
+			</span>
+		</span>
+	</button>
+
+	if signals.OnboardingActive && signals.WorkflowCompleted {
+		<div class="alert alert-success text-xs py-2">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+				<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+			</svg>
+			<span>Workflow completed — 3 example todos created via DagNats.</span>
+		</div>
+	}
+}
+
+// createForm owns the title input + Add button.
 templ createForm(signals todo.Signals) {
 	<form data-on:submit__prevent="if (!$loading) { $loading = true; @post('/api/todos?clientID=' + encodeURIComponent($clientID || '') + '&idem_key=' + encodeURIComponent(crypto.randomUUID()) + '&skin=basecoat', {contentType: 'form'}); }"
 		class="flex gap-2 mb-4">
@@ -78,6 +409,10 @@ templ createForm(signals todo.Signals) {
 	</form>
 }
 
+// filterTabs renders the All / Active / Completed filter tabs.
+// Basecoat's tabs component is ARIA-aware, but we drive the active
+// state from $filter (set by handleList's MergeSignals) so the SSE
+// patch from filter clicks + the broadcaster's patches all line up.
 templ filterTabs(signals todo.Signals) {
 	<div class="tabs mb-4" id="filter-tabs-basecoat">
 		<nav role="tablist" aria-orientation="horizontal">
@@ -91,19 +426,45 @@ templ filterTabs(signals todo.Signals) {
 	</div>
 }
 
+// TodoListRegion renders just the list rows + empty state. Patched by
+// every mutation (local and broadcaster). The `<div id="todo-list">`
+// selector is the merge target for RenderAndPatch in
+// features/todo/handlers/todo_repo.go renderTodoList.
 templ TodoListRegion(signals todo.Signals) {
 	<div id="todo-list">
 		if len(signals.Todos) == 0 {
 			<div class="empty" id="todo-empty-state">
 				<header>
 					<h3>No todos here yet.</h3>
-					<p>Add one above to get started.</p>
+					<p>Add one above to get started, or click "Run durable workflow" in the sidebar to auto-create examples.</p>
 				</header>
 			</div>
 		}
 		for _, item := range signals.Todos {
 			@todoItem(item)
 		}
+	</div>
+}
+
+// SuggestionsList renders the AI-suggested completions as clickable
+// buttons. Hidden until $suggestions arrives; click fills newTitle.
+templ SuggestionsList(suggestions []string) {
+	<div id="suggestions-region" data-show="$suggestions && $suggestions.length > 0"
+		class="mb-4 p-3 bg-base-200/40 rounded-lg">
+		<div class="text-xs soft mb-2">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 inline -mt-0.5 mr-1 text-secondary" viewBox="0 0 20 20" fill="currentColor">
+				<path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+			</svg>
+			Suggestions — click to use:
+		</div>
+		<div class="flex flex-wrap gap-2">
+			for _, s := range suggestions {
+				<button type="button" class="btn btn-xs" data-variant="secondary"
+					data-on:click={ "$newTitle = " + safeJSString(s) }>
+					{ s }
+				</button>
+			}
+		</div>
 	</div>
 }
 
@@ -130,6 +491,43 @@ templ todoItem(item todo.Todo) {
 			</svg>
 		</button>
 	</div>
+}
+
+// deleteConfirmModal is the single basecoat <dialog> used for every
+// delete confirmation. Driven by $confirmingDeleteId: empty = closed,
+// non-empty = open with the matching row's title.
+templ deleteConfirmModal() {
+	<dialog id="confirm-delete-modal" class="modal" data-on:close="$confirmingDeleteId = ''; $confirmingDeleteTitle = ''; $deleting = false">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg text-destructive flex items-center gap-2">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+				</svg>
+				Delete this todo?
+			</h3>
+			<p class="py-4 text-sm">
+				This will permanently remove <span class="font-semibold" data-text="$confirmingDeleteTitle"></span>.
+				This can't be undone.
+			</p>
+			<div class="modal-action">
+				<button type="button" class="btn btn-sm" data-variant="ghost"
+					data-on:click="document.getElementById('confirm-delete-modal').close()">
+					Cancel
+				</button>
+				<button type="button" class="btn btn-sm" data-variant="destructive"
+					data-attr:disabled="$deleting"
+					data-on:click="$deleting = true; document.getElementById('confirm-delete-modal').close(); @post('/api/todos/' + $confirmingDeleteId + '/delete?clientID=' + encodeURIComponent($clientID || '') + '&skin=basecoat')">
+					<span class="inline-flex items-center gap-2">
+						<span>Delete</span>
+						<span class="spinner" data-show="$deleting"></span>
+					</span>
+				</button>
+			</div>
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button data-on:click="document.getElementById('confirm-delete-modal').close()">close</button>
+		</form>
+	</dialog>
 }
 
 templ sseOpener() {
