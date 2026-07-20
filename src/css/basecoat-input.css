@@ -92,10 +92,28 @@
 @utility divide-base-200 {
   border-color: var(--color-border);
 }
-@utility badge-ghost {
-  background-color: transparent;
+/* Skin helpers for the basecoat skin.
+   Placed BEFORE any @keyframes: Tailwind v4's Oxide scanner drops @utility
+   rules that appear after an @keyframes. Names avoid reserved substrings
+   (bg-/text- prefixes with non-theme colors, plus "subtle"/"muted"/"icon"/
+   "canvas"/"page"). */
+@utility surface {
+  background-color: var(--color-background);
+}
+@utility soft {
   color: var(--color-muted-foreground);
-  border: 1px solid var(--color-border);
+}
+@utility spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 9999px;
+  animation: bc-spin 0.7s linear infinite;
+}
+@keyframes bc-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Animation utilities */

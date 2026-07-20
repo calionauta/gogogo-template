@@ -47,6 +47,7 @@
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
     --default-mono-font-family: var(--font-mono);
+    --color-background: oklch(1 0 0);
     --color-foreground: oklch(0.145 0.004 49.33);
     --color-card: oklch(1 0 0);
     --color-popover: var(--popover);
@@ -323,6 +324,15 @@
   .ml-1 {
     margin-left: var(--spacing);
   }
+  .spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 9999px;
+    animation: bc-spin 0.7s linear infinite;
+  }
   .block {
     display: block;
   }
@@ -537,11 +547,6 @@
   .divide-base-200 {
     border-color: var(--color-border);
   }
-  .badge-ghost {
-    background-color: transparent;
-    color: var(--color-muted-foreground);
-    border: 1px solid var(--color-border);
-  }
   .bg-accent\/10 {
     background-color: color-mix(in oklab, oklch(0.97 0 0) 10%, transparent);
   }
@@ -565,6 +570,9 @@
   }
   .bg-secondary\/10 {
     background-color: color-mix(in oklab, oklch(0.97 0 0) 10%, transparent);
+  }
+  .surface {
+    background-color: var(--color-background);
   }
   .p-2 {
     padding: calc(var(--spacing) * 2);
@@ -654,6 +662,9 @@
   }
   .whitespace-nowrap {
     white-space: nowrap;
+  }
+  .soft {
+    color: var(--color-muted-foreground);
   }
   .text-accent {
     color: oklch(0.97 0 0);
@@ -7275,6 +7286,11 @@
   --radius: 0.5rem;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0.004 49.33);
+}
+@keyframes bc-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 @keyframes motion-fade-in {
   from {

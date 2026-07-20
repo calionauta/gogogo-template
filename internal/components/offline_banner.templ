@@ -29,7 +29,7 @@ import "strconv"
 templ OfflineBanner(offlineSync bool) {
 	<div
 		id="offline-banner"
-		class="hidden fixed top-0 left-0 right-0 z-[101] text-center text-xs py-1 px-2"
+		class="app-banner"
 		data-component="offline-banner"
 		data-offline-sync={ strconv.FormatBool(offlineSync) }
 		aria-live="polite"
@@ -38,17 +38,18 @@ templ OfflineBanner(offlineSync bool) {
 	</div>
 	<style>
 		#offline-banner.is-online {
-			background-color: var(--color-success);
-			color: var(--color-success-content);
-		}
+				display: none;
+			}
 		#offline-banner.is-syncing {
-			background-color: var(--color-info);
-			color: var(--color-info-content);
-		}
+				display: block;
+				background-color: #3b82f6;
+				color: #ffffff;
+			}
 		#offline-banner.is-offline {
-			background-color: var(--color-warning);
-			color: var(--color-warning-content);
-		}
+				display: block;
+				background-color: #f59e0b;
+				color: #ffffff;
+			}
 	</style>
 	<script>
 		(function () {
@@ -65,7 +66,7 @@ templ OfflineBanner(offlineSync bool) {
 				var cls = "is-" + state;
 				banner.classList.remove("is-online", "is-syncing", "is-offline");
 				banner.classList.add(cls);
-				banner.classList.toggle("hidden", state === "online");
+				// display state handled by .is-* classes in chrome.css
 				text.textContent = state === "syncing"
 					? "Syncing changes\u2026"
 					: state === "offline"
