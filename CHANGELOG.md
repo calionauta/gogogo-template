@@ -1,3 +1,67 @@
+## [0.24.8] - 2026-07-20
+
+### Fixed
+
+- **Item count now reflects total owned items, not filtered list (CAL-18).** The `$itemCount` signal,
+  which drives the header badge and footer count, was calculated from the filtered todo list instead
+  of total owned items in two handlers:
+  - `handleList` (`/api/todos?filter=...`): `ItemCount` now uses `countOwnedTodos()` (total count)
+    instead of `len(filteredTodos)`, so the badge stays correct regardless of the active filter tab.
+  - `handleListFragment` (`/api/todos/fragment`): Sets the `datastar-signals` response header with
+    the correct total count, so the client-side `$itemCount` updates even on non-SSE fragment
+    refetches (PocketBase realtime sync, offline-replay resolution).
+
+## [0.24.7] - 2026-07-20
+
+### Added
+
+- **Basecoat dedicated template.** First-class Basecoat HTML semantics in its own template, with
+  DaisyUI-agnostic CSS and shadcn-style theme variables. (PR #3, #5)
+- **Realtime + Async Demo Tabs to basecoat & morpheus skins.** Real-time presence, Queue + Retry,
+  AI Suggest, and Durable Workflow demos now render correctly in all three skins. (PR #5)
+
+### Fixed
+
+- **Online presence pill not returning to green on reconnect.** The pill now properly reflects
+  `navigator.onLine` state after the network recovers, with a distinct red (danger) offline badge.
+  (CAL-17 follow-up)
+- **Morpheus card rendering + skin-aware SSE patches.** Morpheus clients now receive morpheus HTML
+  on every SSE patch (filter clicks, CRUD mutations, broadcasts) instead of silently falling back
+  to DaisyUI rows. (CAL-14)
+- **Shared chrome made skin-agnostic.** The navbar, theme selector, and offline banner now render
+  correctly without DaisyUI assumptions.
+- **Morpheus native input/checkbox.** Replaced DaisyUI form elements with native `<input>` and
+  `<checkbox>` for Datastar `data-bind` compatibility.
+
+### Changed
+
+- **Offline pill design refined.** When offline, displays a red (danger) badge with static dot
+  and "offline" text instead of a yellow warning with stale count.
+
+## [0.24.6] - 2026-07-19
+
+### Fixed
+
+- **Morpheus DaisyUI compatibility.** Added DaisyUI-compatible CSS utilities to basecoat stylesheet
+  so mixed-skin rendering doesn't break layout.
+- **Skin selector.** Now works correctly across all skins; basecoat assets HTML repaired; stray `t`
+  prefix before `SkinSelector` call removed.
+- **Morpheus `--page-bg`.** Uses the correct CSS variable instead of undefined `--neo-color-bg`.
+- **Whiteboard.** Added missing `theme.js` script tag to board pages.
+- **Deploy disk space.** Docker build now prunes images before writing secrets to avoid ENOSPC.
+
+### Changed
+
+- **CI pipeline.** Merged toolchain steps for faster builds; removed heavy browser smoke test
+  from CI; added disk cleanup step.
+
+## [0.24.5] - 2026-07-19
+
+### Fixed
+
+- **Whiteboard and login HTML tags.** All pages now have consistent Datastar signals and correct
+  HTML structure.
+
 ## [0.24.4] - 2026-07-20
 
 ### Fixed
