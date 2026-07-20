@@ -604,7 +604,19 @@ All notable changes to this template are documented here. The format is based on
 - Build-tag-gated NATS JetStream and Turbine layers.
 - golangci-lint strict config, distroless Docker image, Makefile, Air live reload.
 
-## [Unreleased]
+## [0.24.10] - 2026-07-20
+
+### Added
+
+- **UI skins, landing page, /config, EntityStore, AI stepper documentation (CAL-20).**
+  Comprehensive documentation gap analysis applied across README.md, ARCHITECTURE.md,
+  AGENTS.md, and CONTENT_WRITING.md covering:
+  - Pluggable skin system (BasecoatUI, Morpheus, DaisyUI) with env/query/selector switch model.
+  - Landing page (`/`) and read-only config view (`/config`) as product surfaces.
+  - EntityStore pluggable persistence (`pbstore` default, `ENTITY_STORE=crdt` for CRDT).
+  - AI Suggest stepper signal isolation from Queue + Retry stepper.
+  - Version badge build metadata via ldflags + docker buildx --build-arg.
+  - Per-skin CSS bundle pipeline.
 
 ### Added (CRDTStore Phase 2 + 3)
 
@@ -622,3 +634,5 @@ All notable changes to this template are documented here. The format is based on
   re-acquired the mutex already held by Create/Update/Delete. Refactored to
   `publishOpFromDoc(ctx, ownerID, opID, d)` which expects the caller to already hold
   `s.mu`.
+
+## [Unreleased]
