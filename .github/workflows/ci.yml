@@ -4,6 +4,7 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -64,4 +65,5 @@ jobs:
         # uncaught client-side JS error. Playwright/Chromium is ~300MB
         # and only needed for the E2E smoke test; skip in CI by default.
         # Run locally via: node scripts/smoke.mjs
-        run: echo "⏭️  Browser smoke test skipped in CI. Run locally with: node scripts/smoke.mjs"
+        run: |
+          echo "⏭️  Browser smoke test skipped in CI. Run locally with: node scripts/smoke.mjs"
