@@ -238,6 +238,8 @@ Every page in this template ships with a runtime-switchable UI skin. Three skins
 | **Basecoat** | [BasecoatUI](https://basecoatui.com) (a shadcn-style component lib) with shadcn-inspired OKLCH `@theme inline` color tokens, native Basecoat JS runtime (`basecoat.initAll`) debounced via `requestAnimationFrame` for Datastar DOM morphing | `basecoat.min.css` + `basecoat.min.js` |
 | **Morpheus** | Vendorized web-components bundle (SHA-pinned, `web/skins/morpheus/VENDOR_SHA`) that gives the todo demo a different visual treatment without DaisyUI | `morpheus/bundle.js` + theme CSS |
 
+> **⚠️ Basecoat and Morpheus are community-supported.** DaisyUI (the default) is the polished, battle-tested skin that gets the most development attention. Basecoat and Morpheus integrate correctly but may have rough edges in their current state — CSS alignment nuances, missing component states (disabled, focus, error), and less extensive Datastar morph testing. **Contributions are welcome:** if you'd like to fix a skin-specific issue, improve a component template for a non-DaisyUI skin, or add a missing state, open a PR or issue. Every skin is a self-contained directory under `web/skins/<name>/` — changes are scoped and safe.
+
 **Three ways to switch:**
 
 1. **Env var (process-wide).** `UI_SKIN=basecoat ./gogogo-fullstack-template` switches the active skin for the lifetime of the binary.
